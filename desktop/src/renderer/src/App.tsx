@@ -1,7 +1,14 @@
-import React from "react";
+import { RouterProvider } from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+import { router } from "@/router";
 
 const App = () => {
-  return <h1 className="text-3xl font-bold underline">Hello world!</h1>;
+  return (
+    <TooltipProvider>
+      <RouterProvider router={router} />
+    </TooltipProvider>
+  );
 };
 
 export default App;
