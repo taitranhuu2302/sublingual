@@ -9,6 +9,11 @@ import {
 
 import { AppShell } from "@/components/layout/app-shell";
 import { SectionCard } from "@/components/layout/section-card";
+import {
+  hotkeyOptions,
+  sttEngineOptions,
+  translationEngineOptions,
+} from "@/models/settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,29 +37,25 @@ export function SettingsPage() {
             contentClassName="space-y-4"
           >
             <RadioGroup defaultValue="vosk" className="space-y-3">
-              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-4">
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="vosk" id="stt-vosk" />
-                  <div>
-                    <p className="text-sm font-medium">Vosk (Offline)</p>
-                    <p className="text-xs text-muted-foreground">
-                      Zero latency, fully local processing.
-                    </p>
+              {sttEngineOptions.map((engine) => (
+                <label
+                  key={engine.value}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-4 ${
+                    engine.isActive
+                      ? "border-primary/40 bg-primary/10"
+                      : "border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value={engine.value} id={engine.id} />
+                    <div>
+                      <p className="text-sm font-medium">{engine.title}</p>
+                      <p className="text-xs text-muted-foreground">{engine.description}</p>
+                    </div>
                   </div>
-                </div>
-                <Badge>Active</Badge>
-              </label>
-              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-4">
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="whisper" id="stt-whisper" />
-                  <div>
-                    <p className="text-sm font-medium">Whisper (Cloud)</p>
-                    <p className="text-xs text-muted-foreground">
-                      High accuracy, requires internet connection.
-                    </p>
-                  </div>
-                </div>
-              </label>
+                  {engine.isActive ? <Badge>Active</Badge> : null}
+                </label>
+              ))}
             </RadioGroup>
           </SectionCard>
         </div>
@@ -68,29 +69,25 @@ export function SettingsPage() {
             contentClassName="space-y-4"
           >
             <RadioGroup defaultValue="libre" className="space-y-3">
-              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-4">
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="argos" id="trans-argos" />
-                  <div>
-                    <p className="text-sm font-medium">Argos Translate</p>
-                    <p className="text-xs text-muted-foreground">
-                      Open-source offline translation based on OpenNMT.
-                    </p>
+              {translationEngineOptions.map((engine) => (
+                <label
+                  key={engine.value}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-4 ${
+                    engine.isActive
+                      ? "border-secondary/40 bg-secondary/10"
+                      : "border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <RadioGroupItem value={engine.value} id={engine.id} />
+                    <div>
+                      <p className="text-sm font-medium">{engine.title}</p>
+                      <p className="text-xs text-muted-foreground">{engine.description}</p>
+                    </div>
                   </div>
-                </div>
-              </label>
-              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-secondary/40 bg-secondary/10 p-4">
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="libre" id="trans-libre" />
-                  <div>
-                    <p className="text-sm font-medium">LibreTranslate</p>
-                    <p className="text-xs text-muted-foreground">
-                      Self-hosted API with robust language pair support.
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary">Active</Badge>
-              </label>
+                  {engine.isActive ? <Badge variant="secondary">Active</Badge> : null}
+                </label>
+              ))}
             </RadioGroup>
           </SectionCard>
         </div>
@@ -155,12 +152,7 @@ export function SettingsPage() {
             className="border-border/80 bg-card/80 backdrop-blur-sm"
             contentClassName="space-y-3"
           >
-            {[
-              ["Toggle Recording Stream", "Ctrl + Shift + R"],
-              ["Toggle Translation Display", "Alt + T"],
-              ["Clear Current Subtitles", "Esc"],
-              ["Open Settings Menu", "Ctrl + ,"],
-            ].map(([action, shortcut]) => (
+            {hotkeyOptions.map(({ action, shortcut }) => (
               <div
                 key={action}
                 className="flex items-center justify-between rounded-lg border border-border/70 bg-input p-3"

@@ -2,33 +2,10 @@ import { Clock3, Filter, Languages, PlayCircle } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { SectionCard } from "@/components/layout/section-card";
+import { mockSessions } from "@/models/history";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const sessions = [
-  {
-    id: "SES-1042",
-    title: "Weekly Product Standup",
-    language: "EN -> ES",
-    duration: "00:24:11",
-    timestamp: "Today, 09:20",
-  },
-  {
-    id: "SES-1039",
-    title: "Client Demo - EU Team",
-    language: "EN -> FR",
-    duration: "00:42:53",
-    timestamp: "Yesterday, 16:40",
-  },
-  {
-    id: "SES-1031",
-    title: "Support Retrospective",
-    language: "EN -> DE",
-    duration: "00:18:02",
-    timestamp: "May 02, 11:02",
-  },
-];
 
 export function HistoryPage() {
   return (
@@ -54,7 +31,7 @@ export function HistoryPage() {
           </div>
 
           <div className="space-y-3">
-            {sessions.map((session) => (
+            {mockSessions.map((session) => (
               <div
                 key={session.id}
                 className="flex flex-col gap-3 rounded-lg border border-border/70 bg-input p-4 md:flex-row md:items-center md:justify-between"

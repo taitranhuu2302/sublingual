@@ -5,7 +5,7 @@
 - [x] `stitch/history.html` scanned
 - [x] `stitch/overlay.html` scanned
 - [x] `stitch/settings.html` scanned
-- [ ] `stitch/dashboard.html` currently missing in folder; use `history.html`/`overlay.html` structure as source-equivalent dashboard shell
+- [x] `stitch/dashboard.html` currently missing in folder; use `history.html`/`overlay.html` structure as source-equivalent dashboard shell
 
 ## Pages To Build (React)
 
@@ -23,9 +23,9 @@
 - [x] `Dashboard` live monitor card section
 - [x] `History` session list section
 - [x] `Captions` preview and controls sections
-- [ ] Shared `PageHeader` component
-- [ ] Shared `StatusPill` component
-- [ ] Shared `MetricBars` component
+- [x] Shared `PageHeader` component
+- [x] Shared `StatusPill` component
+- [x] Shared `MetricBars` component
 - [x] Shared `SectionCard` wrapper component
 
 ## Routing / App Wiring
@@ -38,6 +38,6 @@
 
 ## State / Data Follow-ups
 
-- [ ] Move dashboard form values into zustand store
-- [ ] Add mock session data model for history
-- [ ] Add mock hotkey and engine config model for settings
+- [x] Move dashboard form values into zustand store
+- [x] Add mock session data model for history
+- [x] Add mock hotkey and engine config model for settings

@@ -1,0 +1,25 @@
+{
+  "name": "sublingual",
+  "private": true,
+  "description": "Monorepo: Electron desktop app, backend (Python), and shared packages",
+  "scripts": {
+    "dev": "pnpm --filter desktop start",
+    "desktop": "pnpm --filter desktop start",
+    "desktop:package": "pnpm --filter desktop package",
+    "desktop:make": "pnpm --filter desktop make",
+    "desktop:lint": "pnpm --filter desktop lint",
+    "backend": "cd backend && .venv/bin/python main.py",
+    "backend:uvicorn": "cd backend && .venv/bin/python -m uvicorn app.main:create_app --host 127.0.0.1 --port 8765",
+    "lint": "pnpm -r --if-present run lint"
+  },
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  }
+}

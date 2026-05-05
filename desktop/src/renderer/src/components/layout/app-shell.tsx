@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Bell, Search, UserCircle } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/shared/page-header";
 import { SideNav } from "@/components/layout/side-nav";
 
 type AppShellProps = {
@@ -40,10 +41,7 @@ export function AppShell({
         </header>
 
         <main className="flex-1 px-8 pb-8 pt-24">
-          <div className="mb-8">
-            <h1 className="text-headline-xl mb-2">{title}</h1>
-            <p className="text-body-lg text-muted-foreground">{description}</p>
-          </div>
+          <PageHeader title={title} description={description} />
           {children}
         </main>
       </div>

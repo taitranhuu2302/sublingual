@@ -4,9 +4,10 @@ Purpose
 - Short, focused guidance to help AI coding agents be immediately productive in this repository.
 
 Quick commands
-- Start app: `pnpm start` (runs `electron-forge start`).
-- Package: `pnpm run package` / `pnpm run make`.
-- Lint: `pnpm run lint`.
+- From repo root: `pnpm dev` or `pnpm desktop` (same as `pnpm --filter desktop start`).
+- From `desktop/`: `pnpm start` (runs `electron-forge start`).
+- Package: `pnpm desktop:package` / `pnpm desktop:make` from root, or `pnpm run package` / `pnpm run make` inside `desktop/`.
+- Lint: `pnpm lint` from root, or `pnpm run lint` inside `desktop/`.
 
 Where to look first
 - Design system and visual tokens: [DESIGN.md](DESIGN.md)

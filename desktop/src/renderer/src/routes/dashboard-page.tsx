@@ -1,6 +1,8 @@
 import { EqualApproximately, SlidersHorizontal } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { MetricBars } from "@/components/shared/metric-bars";
+import { StatusPill } from "@/components/shared/status-pill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,10 +13,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDashboardStore } from "@/stores/dashboard-store";
 
 const meterHeights = [20, 40, 60, 80, 95, 75, 50, 35, 45, 65, 85, 100];
 
 export function DashboardPage() {
+  const {
+    primarySource,
+    secondarySource,
+    isStreaming,
+    telemetryLines,
+    setPrimarySource,
+    setSecondarySource,
+    toggleStreaming,
+  } = useDashboardStore();
+
   return (
     <AppShell
       activePage="dashboard"
@@ -35,7 +48,7 @@ export function DashboardPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Primary Source</p>
-                  <Select defaultValue="studio-mic">
+                  <Select value={primarySource} onValueChange={setPrimarySource}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -48,7 +61,7 @@ export function DashboardPage() {
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Secondary Source</p>
-                  <Select defaultValue="system-audio">
+                  <Select value={secondarySource} onValueChange={setSecondarySource}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -60,8 +73,8 @@ export function DashboardPage() {
                   </Select>
                 </div>
               </div>
-              <Button size="lg" className="w-full">
-                Start Stream Session
+              <Button size="lg" className="w-full" onClick={toggleStreaming}>
+                {isStreaming ? "Stop Stream Session" : "Start Stream Session"}
               </Button>
             </CardContent>
           </Card>
@@ -76,19 +89,16 @@ export function DashboardPage() {
                 <CardDescription>Streaming pipeline status.</CardDescription>
               </div>
               <div className="space-x-2">
+                <StatusPill label={isStreaming ? "Streaming" : "Idle"} tone={isStreaming ? "success" : "warning"} />
                 <Badge variant="secondary">JSON</Badge>
                 <Badge>WebSockets</Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border border-border/60 bg-input p-3 font-mono text-sm text-muted-foreground">
-                {"> Initializing connection pool..."}
-                <br />
-                {"> Audio context established (48kHz, 24-bit)"}
-                <br />
-                {"> Awaiting stream token validation..."}
-                <br />
-                {"> Ready for payload transmission."}
+                {telemetryLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -101,15 +111,7 @@ export function DashboardPage() {
               <Badge variant="outline">-12 dB</Badge>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex h-56 items-end gap-1 rounded-md border border-border/50 p-2">
-                {meterHeights.map((height, index) => (
-                  <div
-                    key={`${height}-${index}`}
-                    className="w-full rounded-sm bg-primary/80"
-                    style={{ height: `${height}%` }}
-                  />
-                ))}
-              </div>
+              <MetricBars bars={meterHeights} />
               <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground">
                 <span>L</span>
                 <span>Peak Level</span>
