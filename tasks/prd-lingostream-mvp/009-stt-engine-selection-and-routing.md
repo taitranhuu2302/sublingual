@@ -4,6 +4,8 @@
 
 **Description:** As a user, I want to choose between Vosk and Whisper in the Settings page, and have my choice take effect for the next session.
 
+**Priority Note:** In the current MVP backlog, implementation should work with the Vosk-first path before the Whisper path is completed. Any engine selection UX or routing shipped early must not block the Vosk-only flow.
+
 **Acceptance Criteria:**
 - [ ] WebSocket `/ws/audio` accepts an initial text message `{"type": "config", "stt_engine": "vosk" | "whisper"}` before audio streaming begins
 - [ ] Backend routes audio to the selected engine based on the config message

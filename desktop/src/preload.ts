@@ -27,8 +27,16 @@ type OverlaySettings = {
 
 type BackendStatus = 'unknown' | 'starting' | 'healthy' | 'unreachable';
 
+export type AudioSourceMode = 'microphone' | 'system';
+
+export type DesktopAudioSource = {
+  id: string;
+  name: string;
+};
+
 export type ElectronAPI = {
   getAudioDevices: () => Promise<MediaDeviceInfo[]>;
+  getDesktopAudioSources: () => Promise<DesktopAudioSource[]>;
   startSession: (config: StartSessionConfig) => void;
   stopSession: () => void;
   onSubtitleUpdate: (callback: (data: unknown) => void) => void;
@@ -41,6 +49,10 @@ const electronAPI: ElectronAPI = {
   getAudioDevices: async () => {
     const devices = await ipcRenderer.invoke('get-audio-devices');
     return devices as MediaDeviceInfo[];
+  },
+  getDesktopAudioSources: async () => {
+    const sources = await ipcRenderer.invoke('get-desktop-audio-sources');
+    return sources as DesktopAudioSource[];
   },
   startSession: (config) => {
     ipcRenderer.send('start-session', config);

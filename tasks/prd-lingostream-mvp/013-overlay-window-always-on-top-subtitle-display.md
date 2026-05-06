@@ -12,7 +12,7 @@
   - `skipTaskbar: true`
   - `resizable: true`
   - `focusable: false` (so it doesn't steal focus from other apps)
-  - Default size: 800x120, positioned at bottom-center of primary display
+  - Default size: 800x120, positioned at bottom-center of primary display on first launch
 - [ ] Overlay window loads a separate HTML entry point (`overlay.html`) with its own React root
 - [ ] Overlay renders:
   - Current partial text (dimmed/italic)
@@ -21,6 +21,7 @@
 - [ ] Overlay auto-hides (fades to 0 opacity) after configurable delay (default 5 seconds) when no new text arrives
 - [ ] Overlay reappears immediately when new text arrives
 - [ ] Overlay respects settings from `overlay-store`: font size, background opacity, display mode
+- [ ] Overlay remembers its last monitor and window position, and falls back to the primary display if the saved monitor is no longer available
 - [ ] Typecheck/lint passes
 - [ ] **[UI]** Verify in browser using dev-browser skill
 

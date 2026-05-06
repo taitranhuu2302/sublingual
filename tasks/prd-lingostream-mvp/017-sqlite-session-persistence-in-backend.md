@@ -29,6 +29,7 @@
 - [ ] When a WebSocket session starts, insert a row into `sessions` with `started_at = now()`
 - [ ] When a final subtitle is produced, insert a row into `transcripts`
 - [ ] When WebSocket disconnects or receives `end_session`, update `sessions.ended_at`
+- [ ] Session title is auto-generated from the first usable final transcript snippet (6-10 words), with a timestamp-based fallback if no transcript is available
 - [ ] REST endpoint `GET /api/sessions` returns all sessions ordered by `started_at DESC`
 - [ ] REST endpoint `GET /api/sessions/{id}/transcripts` returns all transcripts for a session
 - [ ] Typecheck/lint passes

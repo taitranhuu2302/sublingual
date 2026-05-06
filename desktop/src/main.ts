@@ -1,4 +1,10 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  dialog,
+  ipcMain,
+} from 'electron';
 import path from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
@@ -202,4 +208,17 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     void createWindow();
   }
+});
+
+ipcMain.handle('get-desktop-audio-sources', async () => {
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    fetchWindowIcons: false,
+    thumbnailSize: { width: 0, height: 0 },
+  });
+
+  return sources.map((source) => ({
+    id: source.id,
+    name: source.name,
+  }));
 });

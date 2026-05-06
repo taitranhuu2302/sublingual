@@ -12,6 +12,8 @@
 - [ ] If mic permission is denied, Dashboard shows an inline error with instructions to grant permission in System Preferences (macOS) or Windows Settings
 - [ ] If WebSocket disconnects mid-session, show a toast notification: "Connection lost. Attempting to reconnect..."
 - [ ] If LibreTranslate is unreachable, subtitles still appear (original only) with a small warning indicator
+- [ ] If system audio is unsupported, unavailable, unconfigured, or the previously saved source is missing, Dashboard shows actionable guidance and prevents session start
+- [ ] The app must not silently fall back from system audio to microphone after a source validation failure
 - [ ] Typecheck/lint passes
 - [ ] **[UI]** Verify in browser using dev-browser skill
 
@@ -19,32 +21,17 @@
 
 ## Functional Requirements
 
-- **FR-01:** The system must capture audio from a user-selected microphone device using the Web Audio API (`getUserMedia` + `AudioWorkletProcessor`).
-- **FR-02:** Audio must be converted to PCM 16kHz mono 16-bit format before sending to the backend.
-- **FR-03:** Audio chunks must be sent to the backend over WebSocket every ~250ms.
-- **FR-04:** The Python backend must accept WebSocket connections at `ws://localhost:8765/ws/audio`.
-- **FR-05:** The backend must support two STT engines: Vosk (local) and OpenAI Whisper API (cloud), selectable per session via a config message.
-- **FR-06:** The backend must return partial (interim) transcription results as `{"type": "partial", "text": "..."}`.
-- **FR-07:** The backend must return final transcription results with translation as `{"type": "final", "original": "...", "translated": "...", "timestamp": "..."}`.
-- **FR-08:** Translation must use LibreTranslate (self-hosted at `http://localhost:5000`) for English → Vietnamese.
-- **FR-09:** If LibreTranslate is unreachable, the system must still display original text without translation and surface a non-blocking warning.
-- **FR-10:** The overlay window must be always-on-top (including over fullscreen applications on macOS), frameless, transparent-background, draggable, and not steal focus from other apps.
-- **FR-11:** The overlay must show the current partial text (styled as in-progress) and the last 2 final subtitles.
-- **FR-12:** The overlay must auto-hide (fade out) after a configurable delay when no new text arrives, and reappear when new text is received.
-- **FR-13:** The overlay appearance (font size, background opacity, line spacing, display mode) must be configurable from the Captions page.
-- **FR-14:** The system must save completed sessions and their transcripts to an SQLite database.
-- **FR-15:** The History page must display real session data from the database, including session title, duration, language pair, and timestamp.
-- **FR-16:** The main process must spawn the Python backend automatically on app launch and terminate it on quit.
-- **FR-17:** Global keyboard shortcuts (`Ctrl/Cmd+Shift+R` to toggle session, `Alt/Option+T` to toggle overlay, `Esc` to clear subtitles) must work system-wide.
-- **FR-18:** Settings (STT engine, API key, overlay preferences) must persist across app restarts.
-- **FR-19:** The system must support macOS and Windows.
-- **FR-20:** End-to-end latency from speech to displayed subtitle must be < 3 seconds when using Vosk.
+- This task must align with `90-functional-requirements.md`, especially:
+- `FR-13` for non-blocking LibreTranslate warnings.
+- `FR-27` for blocking invalid source starts with clear warnings.
+- `FR-29` for explicit reselection when a saved desktop source is missing.
+- `FR-30` for Whisper buffering behavior that may affect user-facing status copy.
 
 ---
 
 ## Non-Goals (Out of Scope for MVP)
 
-- **System/loopback audio capture** — MVP supports microphone only. Loopback (capturing system audio for movies) will be added later with virtual audio device drivers (BlackHole on macOS, VB-Cable on Windows).
+- **Mixed-source capture and automatic source failover** — MVP planning allows microphone and system/desktop audio as separate source types, but does not include mixing them in one session or silently falling back from one source to another.
 - **Argos Translate** — Only LibreTranslate is supported for MVP. Argos Translate is shown in Settings but disabled.
 - **Multiple language pairs** — MVP supports English → Vietnamese only. Additional pairs are post-MVP.
 - **Auto-detect source language** — MVP assumes English as source language.
