@@ -5,7 +5,7 @@
 **Description:** As a developer, I need a centralized Zustand store to manage session state, subtitle data, settings, and UI state so all components stay in sync.
 
 **Acceptance Criteria:**
-- [ ] Create `src/renderer/src/stores/session-store.ts` with the following state shape:
+- [x] Create `src/renderer/src/stores/session-store.ts` with the following state shape:
   ```
   {
     status: 'idle' | 'connecting' | 'streaming' | 'error',
@@ -17,8 +17,8 @@
     error: string | null,
   }
   ```
-- [ ] Actions: `setDevice`, `setSTTEngine`, `startSession`, `stopSession`, `addSubtitle`, `updatePartial`, `setError`, `clearSubtitles`
-- [ ] Create `src/renderer/src/stores/overlay-store.ts` for overlay settings:
+- [x] Actions: `setDevice`, `setSTTEngine`, `startSession`, `stopSession`, `addSubtitle`, `updatePartial`, `setError`, `clearSubtitles`
+- [x] Create `src/renderer/src/stores/overlay-store.ts` for overlay settings:
   ```
   {
     fontSize: number,
@@ -29,7 +29,7 @@
     autoHideDelay: number,
   }
   ```
-- [ ] Actions: `updateSettings`, `resetDefaults`
-- [ ] Typecheck/lint passes
+- [x] Actions: `updateSettings`, `resetDefaults`
+- [x] Typecheck/lint passes
 
 ---

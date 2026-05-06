@@ -5,11 +5,11 @@
 **Description:** As a user, I want the Python backend to start automatically when I launch the app so I don't need to run separate processes.
 
 **Acceptance Criteria:**
-- [ ] Main process spawns Python backend as a child process on app `ready` event
-- [ ] Backend process is killed on app `before-quit` event
-- [ ] If backend fails to start (Python not found, port in use), show an error dialog to the user
-- [ ] Backend stdout/stderr is logged to a file in the app's userData directory
-- [ ] Health check: main process polls `GET /health` until backend is ready (timeout 15 seconds)
-- [ ] Typecheck/lint passes
+- [x] Main process spawns Python backend as a child process on app `ready` event
+- [x] Backend process is killed on app `before-quit` event
+- [x] If backend fails to start (Python not found, port in use), show an error dialog to the user
+- [x] Backend stdout/stderr is logged to a file in the app's userData directory
+- [x] Health check: main process polls `GET /health` until backend is ready (timeout 15 seconds)
+- [x] Typecheck/lint passes
 
 ---

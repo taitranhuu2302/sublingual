@@ -8,8 +8,9 @@
     "desktop:package": "pnpm --filter desktop package",
     "desktop:make": "pnpm --filter desktop make",
     "desktop:lint": "pnpm --filter desktop lint",
-    "backend": "cd backend && .venv/bin/python main.py",
-    "backend:uvicorn": "cd backend && .venv/bin/python -m uvicorn app.main:create_app --host 127.0.0.1 --port 8765",
+    "setup": "node -e \"const { spawnSync } = require('node:child_process'); const isWin = process.platform === 'win32'; const command = isWin ? 'powershell' : 'bash'; const args = isWin ? ['-ExecutionPolicy', 'Bypass', '-File', './install-dev.ps1'] : ['./install-dev.sh']; const result = spawnSync(command, args, { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
+    "backend": "node -e \"const { spawnSync } = require('node:child_process'); const { existsSync } = require('node:fs'); const py = process.platform === 'win32' ? 'backend/.venv/Scripts/python.exe' : 'backend/.venv/bin/python'; const cmd = existsSync(py) ? py : 'python'; const result = spawnSync(cmd, ['backend/main.py'], { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
+    "backend:uvicorn": "node -e \"const { spawnSync } = require('node:child_process'); const { existsSync } = require('node:fs'); const py = process.platform === 'win32' ? 'backend/.venv/Scripts/python.exe' : 'backend/.venv/bin/python'; const cmd = existsSync(py) ? py : 'python'; const host = process.env.BACKEND_HOST || '127.0.0.1'; const port = process.env.BACKEND_PORT || '8765'; const result = spawnSync(cmd, ['-m', 'uvicorn', '--app-dir', 'backend', 'main:app', '--host', host, '--port', port], { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
     "lint": "pnpm -r --if-present run lint"
   },
   "packageManager": "pnpm@10.12.1",

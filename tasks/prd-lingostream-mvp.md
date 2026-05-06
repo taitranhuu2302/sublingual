@@ -72,13 +72,13 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a developer, I need a Python backend service that runs a FastAPI server with WebSocket support so that the Electron app can send audio and receive transcription results.
 
 **Acceptance Criteria:**
-- [ ] Create `backend/` directory at project root with `main.py`, `requirements.txt`
-- [ ] `requirements.txt` includes `fastapi`, `uvicorn[standard]`, `websockets`
-- [ ] `main.py` starts a FastAPI app on `localhost:8765`
-- [ ] WebSocket endpoint at `/ws/audio` accepts binary messages and echoes back a JSON acknowledgment `{"type": "ack"}`
-- [ ] REST endpoint `GET /health` returns `{"status": "ok"}`
-- [ ] Server can be started with `python main.py` or `uvicorn main:app`
-- [ ] Typecheck/lint passes
+- [x] Create `backend/` directory at project root with `main.py`, `requirements.txt`
+- [x] `requirements.txt` includes `fastapi`, `uvicorn[standard]`, `websockets`
+- [x] `main.py` starts a FastAPI app on `localhost:8765`
+- [x] WebSocket endpoint at `/ws/audio` accepts binary messages and echoes back a JSON acknowledgment `{"type": "ack"}`
+- [x] REST endpoint `GET /health` returns `{"status": "ok"}`
+- [x] Server can be started with `python main.py` or `uvicorn main:app`
+- [x] Typecheck/lint passes
 
 ---
 
@@ -87,12 +87,12 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a user, I want the Python backend to start automatically when I launch the app so I don't need to run separate processes.
 
 **Acceptance Criteria:**
-- [ ] Main process spawns Python backend as a child process on app `ready` event
-- [ ] Backend process is killed on app `before-quit` event
-- [ ] If backend fails to start (Python not found, port in use), show an error dialog to the user
-- [ ] Backend stdout/stderr is logged to a file in the app's userData directory
-- [ ] Health check: main process polls `GET /health` until backend is ready (timeout 15 seconds)
-- [ ] Typecheck/lint passes
+- [x] Main process spawns Python backend as a child process on app `ready` event
+- [x] Backend process is killed on app `before-quit` event
+- [x] If backend fails to start (Python not found, port in use), show an error dialog to the user
+- [x] Backend stdout/stderr is logged to a file in the app's userData directory
+- [x] Health check: main process polls `GET /health` until backend is ready (timeout 15 seconds)
+- [x] Typecheck/lint passes
 
 ---
 
@@ -101,8 +101,8 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a developer, I need a secure preload script that exposes IPC methods to the renderer so it can communicate with the main process without direct Node.js access.
 
 **Acceptance Criteria:**
-- [ ] Preload script uses `contextBridge.exposeInMainWorld` to expose an `electronAPI` object
-- [ ] Exposed methods include:
+- [x] Preload script uses `contextBridge.exposeInMainWorld` to expose an `electronAPI` object
+- [x] Exposed methods include:
   - `getAudioDevices(): Promise<MediaDeviceInfo[]>` — lists available audio input devices
   - `startSession(config: { deviceId: string, sttEngine: string }): void` — tells main process to begin a session
   - `stopSession(): void` — tells main process to end the current session
@@ -110,9 +110,9 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
   - `onBackendStatus(callback: (status) => void): void` — listens for backend health changes
   - `getSessionHistory(): Promise<Session[]>` — fetches saved sessions
   - `updateOverlaySettings(settings): void` — sends overlay config to main
-- [ ] `contextIsolation: true` and `nodeIntegration: false` in BrowserWindow webPreferences
-- [ ] TypeScript type declarations for `window.electronAPI` in a `.d.ts` file
-- [ ] Typecheck/lint passes
+- [x] `contextIsolation: true` and `nodeIntegration: false` in BrowserWindow webPreferences
+- [x] TypeScript type declarations for `window.electronAPI` in a `.d.ts` file
+- [x] Typecheck/lint passes
 
 ---
 
@@ -121,7 +121,7 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a developer, I need a centralized Zustand store to manage session state, subtitle data, settings, and UI state so all components stay in sync.
 
 **Acceptance Criteria:**
-- [ ] Create `src/renderer/src/stores/session-store.ts` with the following state shape:
+- [x] Create `src/renderer/src/stores/session-store.ts` with the following state shape:
   ```
   {
     status: 'idle' | 'connecting' | 'streaming' | 'error',
@@ -133,8 +133,8 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
     error: string | null,
   }
   ```
-- [ ] Actions: `setDevice`, `setSTTEngine`, `startSession`, `stopSession`, `addSubtitle`, `updatePartial`, `setError`, `clearSubtitles`
-- [ ] Create `src/renderer/src/stores/overlay-store.ts` for overlay settings:
+- [x] Actions: `setDevice`, `setSTTEngine`, `startSession`, `stopSession`, `addSubtitle`, `updatePartial`, `setError`, `clearSubtitles`
+- [x] Create `src/renderer/src/stores/overlay-store.ts` for overlay settings:
   ```
   {
     fontSize: number,
@@ -145,8 +145,8 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
     autoHideDelay: number,
   }
   ```
-- [ ] Actions: `updateSettings`, `resetDefaults`
-- [ ] Typecheck/lint passes
+- [x] Actions: `updateSettings`, `resetDefaults`
+- [x] Typecheck/lint passes
 
 ---
 
@@ -155,13 +155,13 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a user, I want the app to capture audio from my selected microphone and convert it into PCM format suitable for STT processing.
 
 **Acceptance Criteria:**
-- [ ] Renderer enumerates audio input devices using `navigator.mediaDevices.enumerateDevices()` and populates the Dashboard source dropdown with real device names
-- [ ] On "Start Session", renderer calls `getUserMedia({ audio: { deviceId, sampleRate: 16000, channelCount: 1 } })`
-- [ ] An `AudioWorkletProcessor` (in a separate file `src/renderer/src/workers/pcm-processor.worklet.ts`) downsamples audio to 16kHz mono and outputs PCM Int16 ArrayBuffers
-- [ ] Audio chunks are emitted every ~250ms (4096 samples at 16kHz)
-- [ ] A VU meter on the Dashboard shows real-time audio levels (RMS amplitude) from the AudioWorklet
-- [ ] When session is stopped, the MediaStream tracks are stopped and AudioContext is closed
-- [ ] Typecheck/lint passes
+- [x] Renderer enumerates audio input devices using `navigator.mediaDevices.enumerateDevices()` and populates the Dashboard source dropdown with real device names
+- [x] On "Start Session", renderer calls `getUserMedia({ audio: { deviceId, sampleRate: 16000, channelCount: 1 } })`
+- [x] An `AudioWorkletProcessor` (in a separate file `src/renderer/src/workers/pcm-processor.worklet.ts`) downsamples audio to 16kHz mono and outputs PCM Int16 ArrayBuffers
+- [x] Audio chunks are emitted every ~250ms (4096 samples at 16kHz)
+- [x] A VU meter on the Dashboard shows real-time audio levels (RMS amplitude) from the AudioWorklet
+- [x] When session is stopped, the MediaStream tracks are stopped and AudioContext is closed
+- [x] Typecheck/lint passes
 - [ ] **[UI]** Verify in browser using dev-browser skill
 
 ---
@@ -171,17 +171,17 @@ The Electron frontend (React + Tailwind + Zustand) UI shell already exists with 
 **Description:** As a developer, I need a WebSocket client in the renderer that sends PCM audio chunks to the Python backend and receives STT/translation results.
 
 **Acceptance Criteria:**
-- [ ] Create `src/renderer/src/services/websocket-client.ts`
-- [ ] Connects to `ws://localhost:8765/ws/audio` when session starts
-- [ ] Sends binary PCM chunks as ArrayBuffer messages
-- [ ] Receives JSON messages and dispatches to Zustand store:
+- [x] Create `src/renderer/src/services/websocket-client.ts`
+- [x] Connects to `ws://localhost:8765/ws/audio` when session starts
+- [x] Sends binary PCM chunks as ArrayBuffer messages
+- [x] Receives JSON messages and dispatches to Zustand store:
   - `{type: "partial", text}` → `updatePartial(text)`
   - `{type: "final", original, translated, timestamp}` → `addSubtitle({...})`
   - `{type: "error", message}` → `setError(message)`
-- [ ] Handles reconnection: if WebSocket disconnects during a session, attempt reconnect up to 3 times with exponential backoff (1s, 2s, 4s)
-- [ ] On session stop, sends a `{type: "end_session"}` text message and closes the WebSocket
-- [ ] Zustand store `status` reflects connection state (`connecting`, `streaming`, `error`)
-- [ ] Typecheck/lint passes
+- [x] Handles reconnection: if WebSocket disconnects during a session, attempt reconnect up to 3 times with exponential backoff (1s, 2s, 4s)
+- [x] On session stop, sends a `{type: "end_session"}` text message and closes the WebSocket
+- [x] Zustand store `status` reflects connection state (`connecting`, `streaming`, `error`)
+- [x] Typecheck/lint passes
 
 ---
 

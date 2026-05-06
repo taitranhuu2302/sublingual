@@ -36,15 +36,15 @@ PRD da duoc tach thanh cac file nho theo tung chuc nang.
 
 ### 1) Core Architecture and App Foundation
 
-- [ ] US-001: Python backend scaffold (FastAPI + WebSocket + `/health`)
-- [ ] US-002: Electron main process auto-spawn/kill backend, health polling, logs
-- [ ] US-003: Preload IPC API + secure BrowserWindow config
-- [ ] US-004: Zustand stores for session/overlay state
+- [x] US-001: Python backend scaffold (FastAPI + WebSocket + `/health`)
+- [x] US-002: Electron main process auto-spawn/kill backend, health polling, logs
+- [x] US-003: Preload IPC API + secure BrowserWindow config
+- [x] US-004: Zustand stores for session/overlay state
 
 ### 2) Realtime Audio and Streaming Pipeline
 
-- [ ] US-005: Audio capture (`getUserMedia` + `AudioWorklet` PCM 16kHz)
-- [ ] US-006: Renderer WebSocket client + reconnect + status updates
+- [x] US-005: Audio capture (`getUserMedia` + `AudioWorklet` PCM 16kHz)
+- [x] US-006: Renderer WebSocket client + reconnect + status updates
 - [ ] US-007: Vosk STT engine integration
 - [ ] US-008: Whisper cloud STT integration
 - [ ] US-009: STT engine selection/routing + persistence + API key warning flow
