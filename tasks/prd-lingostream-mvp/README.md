@@ -73,3 +73,7 @@ PRD da duoc tach thanh cac file nho theo tung chuc nang.
 - [ ] Validate non-goals are not accidentally implemented in MVP
 - [ ] Smoke test macOS and Windows flows
 - [ ] Confirm success metrics baseline (latency, stability, CPU)
+
+## TODO List (Post-MVP)
+
+- [ ] PS-001: System/loopback audio capture for OS apps (YouTube, Teams, Google Meet, Spotify) using virtual audio devices (VB-Cable on Windows, BlackHole on macOS)

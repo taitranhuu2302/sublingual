@@ -159,6 +159,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local STT model artifacts
+models/**
+!models/.gitkeep
+
 # Spyder project settings
 .spyderproject
 .spyproject

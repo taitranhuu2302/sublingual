@@ -1,9 +1,10 @@
 type PartialMessage = { type: 'partial'; text: string };
 type FinalMessage = {
   type: 'final';
-  original: string;
-  translated: string;
-  timestamp: string;
+  text?: string;
+  original?: string;
+  translated?: string;
+  timestamp?: string;
 };
 type ErrorMessage = { type: 'error'; message: string };
 type IncomingMessage = PartialMessage | FinalMessage | ErrorMessage;
@@ -13,7 +14,7 @@ type WebSocketClientOptions = {
   onOpen?: () => void;
   onClose?: () => void;
   onPartial?: (text: string) => void;
-  onFinal?: (message: FinalMessage) => void;
+  onFinal?: (message: Required<Pick<FinalMessage, 'original' | 'translated' | 'timestamp'>>) => void;
   onErrorMessage?: (message: string) => void;
   onConnectionError?: (message: string) => void;
 };
@@ -23,7 +24,9 @@ export class RendererWebSocketClient {
   private readonly onOpen?: () => void;
   private readonly onClose?: () => void;
   private readonly onPartial?: (text: string) => void;
-  private readonly onFinal?: (message: FinalMessage) => void;
+  private readonly onFinal?: (
+    message: Required<Pick<FinalMessage, 'original' | 'translated' | 'timestamp'>>
+  ) => void;
   private readonly onErrorMessage?: (message: string) => void;
   private readonly onConnectionError?: (message: string) => void;
 
@@ -70,7 +73,12 @@ export class RendererWebSocketClient {
           return;
         }
         if (parsed.type === 'final') {
-          this.onFinal?.(parsed);
+          const fallbackText = parsed.text ?? '';
+          this.onFinal?.({
+            original: parsed.original ?? fallbackText,
+            translated: parsed.translated ?? fallbackText,
+            timestamp: parsed.timestamp ?? new Date().toISOString(),
+          });
           return;
         }
         if (parsed.type === 'error') {

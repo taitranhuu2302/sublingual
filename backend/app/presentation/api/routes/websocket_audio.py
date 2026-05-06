@@ -13,8 +13,10 @@ async def websocket_audio(websocket: WebSocket) -> None:
     try:
         while True:
             message = await websocket.receive()
-            if message.get("bytes") is not None or message.get("text") is not None:
-                ack = container.process_incoming_audio_chunk.execute()
-                await websocket.send_text(to_json(ack))
+            chunk = message.get("bytes")
+            if chunk is not None:
+                responses = container.process_incoming_audio_chunk.execute(chunk)
+                for response in responses:
+                    await websocket.send_text(to_json(response))
     except WebSocketDisconnect:
         return
