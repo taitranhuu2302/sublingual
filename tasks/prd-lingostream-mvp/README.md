@@ -44,22 +44,22 @@ PRD da duoc tach thanh cac file nho theo tung chuc nang.
 
 ### 1) Do First: Dual Audio Planning Docs
 
-- [ ] US-021: Dual audio input scope and rollout
-- [ ] US-022: Dashboard source selection and session UX
-- [ ] US-023: System audio capture platform adapter plan
+- [x] US-021: Dual audio input scope and rollout
+- [x] US-022: Dashboard source selection and session UX
+- [x] US-023: System audio capture platform adapter plan
 
 ### 2) Next: Dual Mode Implementation Tasks
 
-- [ ] US-024: Dual mode state and session contract
-- [ ] US-025: System audio enumeration and selection
-- [ ] US-026: Dual mode Dashboard and guardrails
+- [x] US-024: Dual mode state and session contract
+- [x] US-025: System audio enumeration and selection
+- [x] US-026: Dual mode Dashboard and guardrails
 - [ ] US-027: System audio capture to PCM pipeline
 - [ ] US-028: System audio platform fallback and errors
 
 ### Priority Rules
 
 - [ ] Documentation first for dual audio input support (`microphone` + `system/desktop audio`)
-- [ ] Do not begin implementation work for system/desktop audio until `US-021`, `US-022`, and `US-023` are reviewed
+- [x] `US-021`, `US-022`, and `US-023` reviewed and approved for implementation kickoff
 - [ ] Keep microphone capture as the current implementation baseline while dual-audio support remains in planning
 
 ## TODO List (MVP)
