@@ -71,6 +71,7 @@ Graph TD
 ### Challenge 1: macOS System Audio Sandboxing
 *   **Issue:** macOS does not allow third-party apps to record system output directly without installing virtual drivers (like BlackHole).
 *   **Solution:** Utilize Apple's modern `ScreenCaptureKit` framework. Since .NET cannot call this Swift/Objective-C framework directly, a lightweight native C++ wrapper is compiled into a `.dylib`. C# loads this library at runtime to bypass sandbox restrictions natively.
+*   **Requirement Clarification:** The capture path must follow the current active output device, including built-in speakers, wired headphones, and Bluetooth audio outputs.
 
 ### Challenge 2: "Always-on-top" Transparent UI across OS
 *   **Issue:** Window transparency behaves differently on DWM (Windows) and Quartz Compositor (macOS).

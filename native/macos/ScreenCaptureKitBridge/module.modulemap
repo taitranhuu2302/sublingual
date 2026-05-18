@@ -1,0 +1,4 @@
+module ScreenCaptureKitBridge {
+  header "include/screen_capture_bridge.h"
+  export *
+}
