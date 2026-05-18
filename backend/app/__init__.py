@@ -1,1 +1,0 @@
-"""LingoStream backend application package."""
