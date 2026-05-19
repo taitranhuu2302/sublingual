@@ -10,7 +10,7 @@ public sealed class MockTranslationService : ITranslationService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var translated = $"VI preview: {request.SourceText}";
+        var translated = request.SourceText;
         return Task.FromResult(new TranslationResult(request.SourceText, translated, request.TargetLanguage));
     }
 }

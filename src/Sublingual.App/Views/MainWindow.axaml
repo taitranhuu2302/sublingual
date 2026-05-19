@@ -2,6 +2,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:vm="using:Sublingual.App.ViewModels"
                  xmlns:conv="using:Sublingual.App.Converters"
+                 xmlns:i="https://github.com/projektanker/icons.avalonia"
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:suki="https://github.com/kikipoulet/SukiUI"
@@ -49,47 +50,88 @@
 
                 <!-- Nav items -->
                 <StackPanel Grid.Row="1" Spacing="6" Margin="10,0">
-                    <Button Classes="nav-item nav-item-active"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="capture"
-                            IsVisible="{Binding IsCaptureTabActive}">
-                        <TextBlock Text="Capture" VerticalAlignment="Center" />
+                     <Button Classes="nav-item nav-item-active"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="capture"
+                             IsVisible="{Binding IsCaptureTabActive}">
+                        <ToolTip.Tip>Capture</ToolTip.Tip>
+                        <TextBlock Text="Record" VerticalAlignment="Center" />
+                     </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="capture"
+                             IsVisible="{Binding IsSettingsTabActive}">
+                        <ToolTip.Tip>Capture</ToolTip.Tip>
+                        <TextBlock Text="Record" VerticalAlignment="Center" />
                     </Button>
                     <Button Classes="nav-item"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding SelectTabCommand}"
                             CommandParameter="capture"
-                            IsVisible="{Binding IsOverlayTabActive}">
-                        <TextBlock Text="Capture" VerticalAlignment="Center" />
+                            IsVisible="{Binding IsSessionsTabActive}">
+                        <ToolTip.Tip>Capture</ToolTip.Tip>
+                        <TextBlock Text="Record" VerticalAlignment="Center" />
                     </Button>
 
                     <Button Classes="nav-item nav-item-active"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding SelectTabCommand}"
-                            CommandParameter="overlay"
-                            IsVisible="{Binding IsOverlayTabActive}">
-                        <TextBlock Text="Overlay" VerticalAlignment="Center" />
+                            CommandParameter="sessions"
+                            IsVisible="{Binding IsSessionsTabActive}">
+                        <ToolTip.Tip>Sessions</ToolTip.Tip>
+                        <TextBlock Text="Sessions" VerticalAlignment="Center" />
                     </Button>
                     <Button Classes="nav-item"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding SelectTabCommand}"
-                            CommandParameter="overlay"
+                            CommandParameter="sessions"
                             IsVisible="{Binding IsCaptureTabActive}">
-                        <TextBlock Text="Overlay" VerticalAlignment="Center" />
+                        <ToolTip.Tip>Sessions</ToolTip.Tip>
+                        <TextBlock Text="Sessions" VerticalAlignment="Center" />
                     </Button>
                     <Button Classes="nav-item"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
-                            IsEnabled="False">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="Settings" VerticalAlignment="Center"
-                                       Foreground="#3A5070" />
-                        </StackPanel>
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="sessions"
+                            IsVisible="{Binding IsSettingsTabActive}">
+                        <ToolTip.Tip>Sessions</ToolTip.Tip>
+                        <TextBlock Text="Sessions" VerticalAlignment="Center" />
+                     </Button>
+
+                    <Button Classes="nav-item nav-item-active"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsSettingsTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsCaptureTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsSessionsTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
 
@@ -112,16 +154,15 @@
                           IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
                 <StackPanel Margin="28,24" Spacing="16">
 
-                    <!-- Device picker + speech model -->
+                    <!-- Device picker -->
                     <Border Classes="surface-card" Padding="20">
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
                             <StackPanel Grid.Row="0" Spacing="4">
-                                <TextBlock Classes="eyebrow" Text="Playback Device" />
                                 <TextBlock Text="{Binding SelectedDeviceName}"
-                                           FontSize="15"
-                                           FontWeight="SemiBold"
-                                           Foreground="#F0F4FF"
-                                           TextWrapping="Wrap" />
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            Foreground="#F0F4FF"
+                                            TextWrapping="Wrap" />
                             </StackPanel>
 
                             <ComboBox Grid.Row="1"
@@ -132,20 +173,7 @@
                                       PlaceholderText="No device available"
                                       HorizontalAlignment="Stretch" />
 
-                            <StackPanel Grid.Row="2" Spacing="6">
-                                <TextBlock Classes="eyebrow" Text="Speech-To-Text Model" />
-                                <ComboBox ItemsSource="{Binding SpeechToTextModels}"
-                                          SelectedItem="{Binding SelectedSpeechToTextModel}"
-                                          DisplayMemberBinding="{Binding Name}"
-                                          PlaceholderText="No local model found"
-                                          HorizontalAlignment="Stretch" />
-                                <TextBlock Text="{Binding SpeechToTextStatus}"
-                                           Foreground="#8BA3C7"
-                                           FontSize="12"
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10">
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
                                 <Button Classes="action-button secondary-action"
                                         Command="{Binding RefreshDevicesCommand}"
                                         Content="Refresh" />
@@ -156,44 +184,39 @@
                                         Command="{Binding StopCaptureCommand}"
                                         Content="Stop" />
                             </StackPanel>
-
-                            <StackPanel Grid.Row="4" Spacing="6">
-                                <TextBlock Classes="eyebrow" Text="Saved Sessions Folder" />
-                                <SelectableTextBlock Text="{Binding SessionsDirectoryPath}"
-                                                     Foreground="#8BA3C7"
-                                                     TextWrapping="Wrap" />
-                                <Button Classes="action-button neutral-action"
-                                        Command="{Binding ClearSavedSessionsCommand}"
-                                        Content="Clear Saved Sessions"
-                                        HorizontalAlignment="Left" />
-                            </StackPanel>
                         </Grid>
                     </Border>
 
-                    <!-- Audio level — only while capturing -->
                     <Border Classes="surface-card"
-                            Padding="20"
-                            IsVisible="{Binding IsCapturing}">
+                            Padding="20">
                         <Grid ColumnDefinitions="*,110" ColumnSpacing="16">
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="eyebrow" Text="Audio Level" />
-                                <ProgressBar Minimum="0"
-                                             Maximum="100"
-                                             Value="{Binding AudioLevel}"
-                                             Height="14">
-                                    <ProgressBar.Template>
-                                        <ControlTemplate TargetType="ProgressBar">
-                                            <Border CornerRadius="7"
-                                                    Background="#0D1F38"
-                                                    ClipToBounds="True">
-                                                <Border Name="PART_Indicator"
-                                                        HorizontalAlignment="Left"
-                                                        CornerRadius="7"
-                                                        Background="#3B82F6" />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </ProgressBar.Template>
-                                </ProgressBar>
+                                <Border Height="52"
+                                        CornerRadius="10"
+                                        Background="#0D1F38"
+                                        Padding="10,6">
+                                    <ItemsControl ItemsSource="{Binding AudioLevelBars}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal"
+                                                            Spacing="6"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AudioLevelBarViewModel">
+                                                <Border Width="8"
+                                                        Height="{Binding Height}"
+                                                        CornerRadius="4"
+                                                        Background="#60A5FA"
+                                                        Opacity="{Binding Opacity}"
+                                                        VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
                                 <TextBlock Text="{Binding AudioLevelText}"
                                            FontSize="12"
                                            Foreground="#8BA3C7" />
@@ -210,30 +233,6 @@
                             </Border>
                         </Grid>
                     </Border>
-
-                    <!-- Stats — only while capturing -->
-                    <Grid ColumnDefinitions="*,*"
-                          ColumnSpacing="12"
-                          IsVisible="{Binding IsCapturing}">
-                        <Border Classes="stat-card">
-                            <StackPanel Spacing="4">
-                                <TextBlock Classes="eyebrow" Text="Processed Chunks" />
-                                <TextBlock Text="{Binding ChunkCount}"
-                                           FontSize="28"
-                                           FontWeight="Bold"
-                                           Foreground="#F0F4FF" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="1" Classes="stat-card">
-                            <StackPanel Spacing="4">
-                                <TextBlock Classes="eyebrow" Text="Captured" />
-                                <TextBlock Text="{Binding TotalBytesText}"
-                                           FontSize="22"
-                                           FontWeight="Bold"
-                                           Foreground="#F0F4FF" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
 
                     <!-- Log — only when non-empty -->
                     <Border Classes="surface-card"
@@ -253,60 +252,56 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Transcript — only when non-empty -->
-                    <Border Classes="surface-card"
-                            Padding="20"
-                            IsVisible="{Binding HasTranscript}">
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                            <StackPanel Spacing="8">
-                                <TextBlock Classes="eyebrow" Text="Partial" />
-                                <TextBlock Text="{Binding PartialTranscript}"
-                                           Foreground="#60A5FA"
-                                           FontStyle="Italic"
-                                           TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding PartialTranslatedTranscript}"
-                                           Foreground="#8BA3C7"
-                                           FontSize="13"
-                                           TextWrapping="Wrap"
-                                           IsVisible="{Binding HasPartialTranslation}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Spacing="8">
-                                <TextBlock Classes="eyebrow" Text="Final" />
-                                <TextBlock Text="{Binding FinalTranscript}"
-                                           Foreground="#F0F4FF"
-                                           FontWeight="SemiBold"
-                                           TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding FinalTranslatedTranscript}"
-                                           Foreground="#BAE6FD"
-                                           FontSize="13"
-                                           TextWrapping="Wrap"
-                                           IsVisible="{Binding HasFinalTranslation}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                </StackPanel>
+            </ScrollViewer>
 
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=sessions}">
+                <StackPanel Margin="28,24" Spacing="16">
                     <Border Classes="surface-card" Padding="20">
                         <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
                                 <StackPanel Spacing="2">
-                                    <TextBlock Text="Saved Sessions"
+                                    <TextBlock Text="Sessions"
                                                FontSize="15"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <TextBlock Classes="muted"
-                                               Text="Audio and transcript files are stored per session and can be deleted by selection."
-                                               TextWrapping="Wrap" />
                                 </StackPanel>
                                 <Button Grid.Column="1"
                                         Classes="action-button secondary-action"
                                         Command="{Binding RefreshSavedSessionsCommand}"
-                                        Content="Refresh"
-                                        VerticalAlignment="Top" />
+                                        VerticalAlignment="Top">
+                                    <ToolTip.Tip>Reload sessions</ToolTip.Tip>
+                                    <i:Icon Value="fa-solid fa-rotate-right" FontSize="14" />
+                                </Button>
                                 <Button Grid.Column="2"
+                                        Classes="action-button secondary-action"
+                                        Command="{Binding ToggleSelectAllSessionsCommand}"
+                                        VerticalAlignment="Top">
+                                    <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
+                                    <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
+                                </Button>
+                                <Button Grid.Column="3"
+                                        Classes="action-button neutral-action"
+                                        Command="{Binding ClearSavedSessionsCommand}"
+                                        VerticalAlignment="Top">
+                                    <ToolTip.Tip>Clear all sessions</ToolTip.Tip>
+                                    <i:Icon Value="fa-solid fa-broom" FontSize="14" />
+                                </Button>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSelectedSessions}">
+                                <TextBlock Text="Selected sessions ready"
+                                           Foreground="#8BA3C7"
+                                           VerticalAlignment="Center" />
+                                <Button Grid.Column="1"
                                         Classes="action-button neutral-action"
                                         Command="{Binding DeleteSelectedSessionsCommand}"
-                                        Content="Delete Selected"
-                                        VerticalAlignment="Top" />
+                                        VerticalAlignment="Top">
+                                    <ToolTip.Tip>Delete selected</ToolTip.Tip>
+                                    <i:Icon Value="fa-solid fa-trash" FontSize="14" />
+                                </Button>
                             </Grid>
 
                             <TextBlock Text="No saved sessions yet."
@@ -314,45 +309,83 @@
                                        IsVisible="{Binding NoSavedSessions}" />
 
                             <TextBox Watermark="Search sessions"
-                                     Text="{Binding SessionSearchText}"
-                                     IsVisible="{Binding HasSavedSessions}" />
+                                      Text="{Binding SessionSearchText}"
+                                      IsVisible="{Binding HasSavedSessions}" />
 
-                            <ListBox MaxHeight="220"
-                                      IsVisible="{Binding HasSavedSessions}"
-                                     ItemsSource="{Binding SavedSessions}"
-                                     SelectedItem="{Binding SelectedSavedSession}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
-                                        <Border Classes="stat-card" Margin="0,0,0,8">
-                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                                <CheckBox IsChecked="{Binding IsSelected}"
-                                                          VerticalAlignment="Top"
-                                                          Margin="0,2,0,0" />
-                                                <StackPanel Grid.Column="1" Spacing="4">
-                                                    <TextBlock Text="{Binding SessionId}"
+                            <Grid IsVisible="{Binding HasSavedSessions}"
+                                  RowDefinitions="Auto,*"
+                                  RowSpacing="8">
+                                <Grid ColumnDefinitions="72,3*,2*,*"
+                                      Margin="0,0,0,4">
+                                    <Button Classes="action-button secondary-action"
+                                            Command="{Binding ToggleSelectAllSessionsCommand}"
+                                            HorizontalAlignment="Left">
+                                        <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
+                                    </Button>
+                                    <TextBlock Grid.Column="1" Text="Session" Foreground="#64748B" FontSize="12" />
+                                    <TextBlock Grid.Column="2" Text="Created" Foreground="#64748B" FontSize="12" />
+                                    <TextBlock Grid.Column="3" Text="Audio" Foreground="#64748B" FontSize="12" />
+                                </Grid>
+                                <ListBox Grid.Row="1"
+                                         MaxHeight="320"
+                                         ItemsSource="{Binding SavedSessions}"
+                                         SelectedItem="{Binding SelectedSavedSession}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
+                                            <Border Margin="0,0,0,6"
+                                                    Background="#0B1220"
+                                                    BorderBrush="#1E3A5F"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="10">
+                                                <Grid ColumnDefinitions="72,3*,2*,*"
+                                                      ColumnSpacing="12">
+                                                    <ToggleButton Classes="action-button secondary-action"
+                                                                  IsChecked="{Binding IsSelected}"
+                                                                  VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Left">
+                                                        <ToolTip.Tip>Select session</ToolTip.Tip>
+                                                        <i:Icon Value="fa-solid fa-check" FontSize="12" />
+                                                    </ToggleButton>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding SessionId}"
+                                                               Foreground="#F0F4FF"
                                                                FontWeight="SemiBold"
-                                                               Foreground="#F0F4FF" />
-                                                    <TextBlock Text="{Binding CreatedAtText}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding CreatedAtText}"
                                                                Foreground="#8BA3C7"
-                                                               FontSize="12" />
-                                                    <SelectableTextBlock Text="{Binding AudioPath}"
-                                                                         Foreground="#8BA3C7"
-                                                                         FontSize="12"
-                                                                         TextWrapping="Wrap" />
-                                                    <SelectableTextBlock Text="{Binding TranscriptPath}"
-                                                                         Foreground="#64748B"
-                                                                         FontSize="12"
-                                                                         TextWrapping="Wrap" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="3"
+                                                               Text="{Binding AudioPath}"
+                                                               Foreground="#8BA3C7"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
 
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  IsVisible="{Binding HasSavedSessions}">
+                                <Button Classes="action-button neutral-action"
+                                        Command="{Binding PreviousSessionsPageCommand}"
+                                        Content="Prev" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding SessionsPageText}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="#8BA3C7" />
+                                <Button Grid.Column="2"
+                                        Classes="action-button neutral-action"
+                                        Command="{Binding NextSessionsPageCommand}"
+                                        Content="Next" />
+                            </Grid>
                             <Border Classes="stat-card"
-                                    Padding="16"
-                                    IsVisible="{Binding HasSelectedSavedSession}">
+                                     Padding="16"
+                                     IsVisible="{Binding HasSelectedSavedSession}">
                                 <StackPanel Spacing="10">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
                                         <StackPanel Spacing="2">
@@ -433,7 +466,7 @@
                                     <TextBlock Text="No transcript entries saved yet."
                                                Foreground="#8BA3C7"
                                                IsVisible="{Binding NoSelectedSessionTranscriptEntries}" />
-                                    <ScrollViewer MaxHeight="260"
+                                    <ScrollViewer MaxHeight="420"
                                                   IsVisible="{Binding HasSelectedSessionTranscriptEntries}">
                                         <ItemsControl ItemsSource="{Binding SelectedSessionTranscriptEntries}">
                                             <ItemsControl.ItemTemplate>
@@ -453,11 +486,6 @@
                                                                        FontStyle="Italic"
                                                                        TextWrapping="Wrap"
                                                                        IsVisible="{Binding HasPartial}" />
-                                                            <TextBlock Text="{Binding PartialTranslatedText}"
-                                                                       Foreground="#8BA3C7"
-                                                                       FontSize="12"
-                                                                       TextWrapping="Wrap"
-                                                                       IsVisible="{Binding HasPartialTranslation}" />
                                                             <TextBlock Text="{Binding FinalText}"
                                                                        Foreground="#F0F4FF"
                                                                        FontWeight="SemiBold"
@@ -478,23 +506,75 @@
                             </Border>
                         </StackPanel>
                     </Border>
-
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- TAB: Overlay -->
+            <!-- TAB: Settings -->
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
-                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=overlay}">
+                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
                 <StackPanel Margin="28,24" Spacing="16">
 
-                    <TextBlock Text="Overlay"
+                    <TextBlock Text="Settings"
                                FontSize="22"
                                FontWeight="Bold"
                                Foreground="#F0F4FF" />
 
-                    <!-- Toggle -->
-                    <Border Classes="surface-card" Padding="20">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Classes="action-button primary-action"
+                                Command="{Binding SelectSettingsTabCommand}"
+                                CommandParameter="general"
+                                Content="General" />
+                        <Button Classes="action-button primary-action"
+                                Command="{Binding SelectSettingsTabCommand}"
+                                CommandParameter="speech"
+                                Content="Speech" />
+                        <Button Classes="action-button primary-action"
+                                Command="{Binding SelectSettingsTabCommand}"
+                                CommandParameter="overlay"
+                                Content="Overlay" />
+                    </StackPanel>
+
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsGeneralSettingsTabActive}">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Saved Sessions Folder"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F0F4FF" />
+                            <SelectableTextBlock Text="{Binding SessionsDirectoryPath}"
+                                                 Foreground="#8BA3C7"
+                                                 TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsSpeechSettingsTabActive}">
+                        <StackPanel Spacing="12">
+                            <ComboBox ItemsSource="{Binding SpeechToTextModels}"
+                                      SelectedItem="{Binding SelectedSpeechToTextModel}"
+                                      DisplayMemberBinding="{Binding Name}"
+                                      PlaceholderText="No local model found"
+                                      HorizontalAlignment="Stretch" />
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Classes="action-button neutral-action"
+                                        Command="{Binding ImportSpeechToTextModelCommand}"
+                                        Content="Import Folder" />
+                                <Button Classes="action-button neutral-action"
+                                        Command="{Binding ImportSpeechToTextModelZipCommand}"
+                                        Content="Import Zip" />
+                                <Button Classes="action-button secondary-action"
+                                        Command="{Binding OpenSpeechToTextModelsFolderCommand}"
+                                        Content="Open Models Folder" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding SpeechToTextStatus}"
+                                       Foreground="#8BA3C7"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Show Overlay Window"
@@ -513,8 +593,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- Font size -->
-                    <Border Classes="surface-card" Padding="20">
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
                         <StackPanel Spacing="12">
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="2">
@@ -532,60 +612,143 @@
                                            Foreground="#3B82F6"
                                            VerticalAlignment="Center" />
                             </Grid>
+                            <TextBox Text="{Binding OverlayFontSize}"
+                                     Watermark="26"
+                                     HorizontalAlignment="Left"
+                                     Width="120" />
                             <Slider Minimum="14"
-                                    Maximum="60"
-                                    Value="{Binding OverlayFontSize}"
-                                    TickFrequency="2"
-                                    IsSnapToTickEnabled="True" />
+                                     Maximum="60"
+                                     Value="{Binding OverlayFontSize}"
+                                     TickFrequency="2"
+                                     IsSnapToTickEnabled="True" />
                         </StackPanel>
                     </Border>
 
-                    <!-- Overlay size -->
-                    <Border Classes="surface-card" Padding="20">
-                        <StackPanel Spacing="16">
-                            <TextBlock Text="Overlay Window Size"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="#F0F4FF" />
-
-                            <!-- Width -->
-                            <StackPanel Spacing="6">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Classes="eyebrow" Text="Width" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding OverlayWidth, StringFormat={}{0:0}px}"
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Line Spacing"
+                                               FontSize="15"
                                                FontWeight="SemiBold"
-                                               Foreground="#3B82F6"
-                                               FontSize="13" />
+                                               Foreground="#F0F4FF" />
+                                    <TextBlock Classes="muted" FontSize="13"
+                                               Text="Controls spacing between overlay lines." />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding OverlayLineHeight, StringFormat={}{0:0.00}}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#3B82F6"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Original line preview"
+                                               Foreground="#F0F4FF"
+                                               FontSize="16"
+                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
+                                    <TextBlock Text="Translated line preview"
+                                               Foreground="#8BA3C7"
+                                               FontSize="14"
+                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
+                                               IsVisible="{Binding OverlayShowTranslation}" />
+                                    <TextBlock Text="Original line preview"
+                                               Foreground="#F0F4FF"
+                                               FontSize="16"
+                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
+                                    <TextBlock Text="Translated line preview"
+                                               Foreground="#8BA3C7"
+                                               FontSize="14"
+                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
+                                               IsVisible="{Binding OverlayShowTranslation}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#0D1F38"
+                                    CornerRadius="999"
+                                    Padding="4">
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                                    <Button Classes="action-button primary-action"
+                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Compact"
+                                            Content="Compact" />
+                                    <Button Classes="action-button secondary-action"
+                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Compact"
+                                            Content="Compact" />
+                                    <Button Grid.Column="1"
+                                            Classes="action-button primary-action"
+                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Default"
+                                            Content="Default" />
+                                    <Button Grid.Column="1"
+                                            Classes="action-button secondary-action"
+                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Default"
+                                            Content="Default" />
+                                    <Button Grid.Column="1"
+                                            Classes="action-button secondary-action"
+                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Default"
+                                            Content="Default" />
+                                    <Button Grid.Column="2"
+                                            Classes="action-button primary-action"
+                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Relaxed"
+                                            Content="Relaxed" />
+                                    <Button Grid.Column="2"
+                                            Classes="action-button secondary-action"
+                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Relaxed"
+                                            Content="Relaxed" />
+                                    <Button Grid.Column="2"
+                                            Classes="action-button secondary-action"
+                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                            CommandParameter="Relaxed"
+                                            Content="Relaxed" />
                                 </Grid>
-                                <Slider Minimum="300"
-                                        Maximum="1600"
-                                        Value="{Binding OverlayWidth}"
-                                        TickFrequency="20"
-                                        IsSnapToTickEnabled="True" />
-                            </StackPanel>
-
-                            <!-- Height -->
-                            <StackPanel Spacing="6">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Classes="eyebrow" Text="Height" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding OverlayHeight, StringFormat={}{0:0}px}"
-                                               FontWeight="SemiBold"
-                                               Foreground="#3B82F6"
-                                               FontSize="13" />
-                                </Grid>
-                                <Slider Minimum="80"
-                                        Maximum="400"
-                                        Value="{Binding OverlayHeight}"
-                                        TickFrequency="10"
-                                        IsSnapToTickEnabled="True" />
-                            </StackPanel>
-
+                            </Border>
+                            <TextBox Text="{Binding OverlayLineHeight}"
+                                     Watermark="1.35"
+                                     HorizontalAlignment="Left"
+                                     Width="120" />
+                            <Slider Minimum="0.90"
+                                    Maximum="2.20"
+                                    Value="{Binding OverlayLineHeight}"
+                                    TickFrequency="0.05" />
                         </StackPanel>
                     </Border>
 
-                    <Border Classes="surface-card" Padding="20">
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Show Translation"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#F0F4FF" />
+                                <TextBlock Classes="muted" FontSize="13"
+                                           Text="Show translated lines inside the overlay." />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1"
+                                      IsChecked="{Binding OverlayShowTranslation}"
+                                      VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
                         <StackPanel Spacing="16">
                             <TextBlock Text="Overlay Style"
                                        FontSize="15"
@@ -620,14 +783,15 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Classes="surface-card" Padding="20">
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsOverlaySettingsTabActive}">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Tips"
                                        FontSize="15"
                                        FontWeight="SemiBold"
                                        Foreground="#F0F4FF" />
                             <TextBlock Classes="muted"
-                                       Text="Drag the overlay directly on screen to reposition it. Use Light theme for dark videos and Dark theme for bright videos."
+                                       Text="Resize overlay directly on screen. Drag to reposition. Use Light theme for dark videos and Dark theme for bright videos."
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>

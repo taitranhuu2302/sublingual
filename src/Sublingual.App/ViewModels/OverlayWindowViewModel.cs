@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Sublingual.App.Services;
@@ -10,25 +11,31 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     private bool _disposed;
 
     [ObservableProperty] private string partialOriginalText = string.Empty;
-    [ObservableProperty] private string finalOriginalText = string.Empty;
-    [ObservableProperty] private string partialTranslatedText = string.Empty;
     [ObservableProperty] private string finalTranslatedText = string.Empty;
     [ObservableProperty] private string statusText = "Overlay ready.";
     [ObservableProperty] private double overlayFontSize = 26;
+    [ObservableProperty] private double overlayLineHeight = 1.35;
     [ObservableProperty] private double overlayWidth = 720;
     [ObservableProperty] private double overlayHeight = 200;
     [ObservableProperty] private string overlayTheme = "Dark";
     [ObservableProperty] private double overlayOpacity = 0.88;
+    [ObservableProperty] private bool overlayShowTranslation = true;
+    [ObservableProperty] private bool isFixedToBottom = true;
+    [ObservableProperty] private int scrollRequestVersion;
+
+    public ObservableCollection<OverlayTranscriptLineViewModel> TranscriptLines { get; } = [];
 
     public double OverlayTranslationFontSize => Math.Max(14, OverlayFontSize - 4);
+    public double EffectiveOverlayLineHeight => OverlayShowTranslation ? OverlayLineHeight : Math.Max(0.90, OverlayLineHeight - 0.18);
+    public double OverlayPrimaryLineHeight => OverlayFontSize * EffectiveOverlayLineHeight;
+    public double OverlaySecondaryLineHeight => OverlayTranslationFontSize * EffectiveOverlayLineHeight;
     public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
-    public bool HasFinal => !string.IsNullOrWhiteSpace(FinalOriginalText);
-    public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedText);
+    public bool HasFinalTranslation => OverlayShowTranslation && !string.IsNullOrWhiteSpace(FinalTranslatedText);
     public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
     public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
-    public bool HasCaption => HasFinal || HasPartial;
-    public bool ShowPlaceholder => !HasFinal && !HasPartial;
-    public string DisplayCaptionText => HasFinal ? FinalOriginalText : PartialOriginalText;
+    public bool HasCaption => TranscriptLines.Count > 0 || HasPartial;
+    public bool ShowPlaceholder => TranscriptLines.Count == 0 && !HasPartial;
+    public string OverlayFollowButtonTooltip => IsFixedToBottom ? "Following newest lines" : "Jump to bottom and follow";
     public double OverlayShadowOpacity => Math.Clamp(0.18 + (OverlayOpacity * 0.32), 0.18, 0.5);
 
     public string DarkOverlayBackground => ToHexColor(OverlayOpacity, 14, 19, 28);
@@ -61,6 +68,15 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     partial void OnOverlayFontSizeChanged(double value)
     {
         OnPropertyChanged(nameof(OverlayTranslationFontSize));
+        OnPropertyChanged(nameof(OverlayPrimaryLineHeight));
+        OnPropertyChanged(nameof(OverlaySecondaryLineHeight));
+    }
+
+    partial void OnOverlayLineHeightChanged(double value)
+    {
+        OnPropertyChanged(nameof(EffectiveOverlayLineHeight));
+        OnPropertyChanged(nameof(OverlayPrimaryLineHeight));
+        OnPropertyChanged(nameof(OverlaySecondaryLineHeight));
     }
 
     partial void OnOverlayThemeChanged(string value)
@@ -80,17 +96,13 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(LightOverlayCloseBackground));
     }
 
-    partial void OnFinalOriginalTextChanged(string value)
+    partial void OnIsFixedToBottomChanged(bool value)
     {
-        OnPropertyChanged(nameof(DisplayCaptionText));
-        OnPropertyChanged(nameof(ShowPlaceholder));
-        OnPropertyChanged(nameof(HasCaption));
-        OnPropertyChanged(nameof(HasFinal));
+        OnPropertyChanged(nameof(OverlayFollowButtonTooltip));
     }
 
     partial void OnPartialOriginalTextChanged(string value)
     {
-        OnPropertyChanged(nameof(DisplayCaptionText));
         OnPropertyChanged(nameof(ShowPlaceholder));
         OnPropertyChanged(nameof(HasCaption));
         OnPropertyChanged(nameof(HasPartial));
@@ -101,18 +113,55 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasFinalTranslation));
     }
 
+    partial void OnOverlayShowTranslationChanged(bool value)
+    {
+        OnPropertyChanged(nameof(EffectiveOverlayLineHeight));
+        OnPropertyChanged(nameof(OverlayPrimaryLineHeight));
+        OnPropertyChanged(nameof(OverlaySecondaryLineHeight));
+        OnPropertyChanged(nameof(HasFinalTranslation));
+    }
+
     private void OnTranscriptPreviewUpdated(object? sender, TranscriptPreviewUpdate update)
     {
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            PartialOriginalText = update.PartialText ?? string.Empty;
-            PartialTranslatedText = update.PartialTranslatedText ?? string.Empty;
+            var partialText = update.PartialText ?? string.Empty;
+            PartialOriginalText = partialText;
             if (!string.IsNullOrWhiteSpace(update.FinalText))
-                FinalOriginalText = update.FinalText;
+            {
+                TranscriptLines.Add(new OverlayTranscriptLineViewModel(
+                    update.FinalText,
+                    update.FinalTranslatedText,
+                    update.UpdatedAt));
+
+                while (TranscriptLines.Count > 80)
+                {
+                    TranscriptLines.RemoveAt(0);
+                }
+
+                PartialOriginalText = string.Empty;
+            }
+
             if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
+            {
                 FinalTranslatedText = update.FinalTranslatedText;
+            }
+
             StatusText = $"Updated {update.UpdatedAt:HH:mm:ss}";
+            if (IsFixedToBottom)
+            {
+                ScrollRequestVersion += 1;
+            }
+
+            OnPropertyChanged(nameof(HasCaption));
+            OnPropertyChanged(nameof(ShowPlaceholder));
         });
+    }
+
+    public void FollowToBottom()
+    {
+        IsFixedToBottom = true;
+        ScrollRequestVersion += 1;
     }
 
     private static AudioCaptureDebugSession CreateDesignTimeSession()
@@ -134,4 +183,12 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         var alpha = (byte)Math.Clamp((int)Math.Round(opacity * 255), 0, 255);
         return $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
     }
+}
+
+public sealed class OverlayTranscriptLineViewModel(string originalText, string translatedText, DateTimeOffset updatedAt)
+{
+    public string OriginalText { get; } = originalText;
+    public string TranslatedText { get; } = translatedText ?? string.Empty;
+    public DateTimeOffset UpdatedAt { get; } = updatedAt;
+    public bool HasTranslation => !string.IsNullOrWhiteSpace(TranslatedText);
 }

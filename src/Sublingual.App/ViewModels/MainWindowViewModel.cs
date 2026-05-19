@@ -15,6 +15,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioCaptureDebugSession _session;
     private readonly SpeechToTextModelCatalog _modelCatalog;
+    private readonly SpeechToTextModelImporter _modelImporter;
     private readonly CaptureSessionStorage _sessionStorage;
     private readonly AppSettingsStore _settingsStore;
     private readonly ITranscriptionService? _transcriptionService;
@@ -24,8 +25,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private long _totalBytesCaptured;
     private int _chunkCount;
     private bool _disposed;
+    private readonly Queue<double> _waveformSamples = new();
+    private const int WaveformSampleCapacity = 24;
 
     public Action? ToggleOverlayAction { get; set; }
+    public Action? EnsureOverlayVisibleAction { get; set; }
+    public Func<Task<string?>>? PickSpeechToTextModelDirectoryAsync { get; set; }
+    public Func<Task<string?>>? PickSpeechToTextModelZipFileAsync { get; set; }
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool isCapturing;
@@ -51,10 +57,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string finalTranslatedTranscript;
 
     [ObservableProperty] private double overlayFontSize = 26;
+    [ObservableProperty] private double overlayLineHeight = 1.35;
     [ObservableProperty] private double overlayWidth = 720;
     [ObservableProperty] private double overlayHeight = 200;
     [ObservableProperty] private string overlayTheme = "Dark";
     [ObservableProperty] private double overlayOpacity = 0.88;
+    [ObservableProperty] private bool overlayShowTranslation = true;
+    [ObservableProperty] private string overlayLineHeightPreset = "Default";
 
     [ObservableProperty] private string activeTab = "capture";
     [ObservableProperty] private SpeechToTextModelOption? selectedSpeechToTextModel;
@@ -68,11 +77,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string selectedSessionDurationText = "0.0 s";
     [ObservableProperty] private string selectedSessionAudioPath = string.Empty;
     [ObservableProperty] private string selectedSessionTranscriptPath = string.Empty;
+    [ObservableProperty] private int sessionsPageIndex;
+    [ObservableProperty] private string activeSettingsTab = "general";
+    [ObservableProperty] private bool areAllSessionsSelected;
 
     public ObservableCollection<AudioDeviceItemViewModel> Devices { get; }
     public ObservableCollection<SpeechToTextModelOption> SpeechToTextModels { get; }
     public ObservableCollection<CaptureSessionItemViewModel> SavedSessions { get; }
     public ObservableCollection<SavedTranscriptEntryViewModel> SelectedSessionTranscriptEntries { get; }
+    public ObservableCollection<AudioLevelBarViewModel> AudioLevelBars { get; }
 
     public bool HasDevices => Devices.Count > 0;
     public bool CanStartCapture => !IsBusy && !IsCapturing && HasDevices;
@@ -83,7 +96,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedTranscript);
     public string OverlayToggleLabel => IsOverlayVisible ? "Hide Overlay" : "Show Overlay";
     public bool IsCaptureTabActive => string.Equals(ActiveTab, "capture", StringComparison.OrdinalIgnoreCase);
-    public bool IsOverlayTabActive => string.Equals(ActiveTab, "overlay", StringComparison.OrdinalIgnoreCase);
+    public bool IsSessionsTabActive => string.Equals(ActiveTab, "sessions", StringComparison.OrdinalIgnoreCase);
+    public bool IsSettingsTabActive => string.Equals(ActiveTab, "settings", StringComparison.OrdinalIgnoreCase);
+    public bool IsGeneralSettingsTabActive => string.Equals(ActiveSettingsTab, "general", StringComparison.OrdinalIgnoreCase);
+    public bool IsSpeechSettingsTabActive => string.Equals(ActiveSettingsTab, "speech", StringComparison.OrdinalIgnoreCase);
+    public bool IsOverlaySettingsTabActive => string.Equals(ActiveSettingsTab, "overlay", StringComparison.OrdinalIgnoreCase);
     public bool HasSavedSessions => SavedSessions.Count > 0;
     public bool NoSavedSessions => !HasSavedSessions;
     public bool HasSelectedSessions => SavedSessions.Any(session => session.IsSelected);
@@ -91,16 +108,27 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public bool HasSelectedSessionTranscriptEntries => SelectedSessionTranscriptEntries.Count > 0;
     public bool NoSelectedSessionTranscriptEntries => !HasSelectedSessionTranscriptEntries;
     public string SelectedSessionEntryCountText => $"{SelectedSessionTranscriptEntries.Count} transcript entr{(SelectedSessionTranscriptEntries.Count == 1 ? "y" : "ies")}";
+    public int SessionsPageSize => 8;
+    public int SessionsPageCount => Math.Max(1, (int)Math.Ceiling((double)GetFilteredSessions().Count / SessionsPageSize));
+    public bool CanGoToPreviousSessionsPage => SessionsPageIndex > 0;
+    public bool CanGoToNextSessionsPage => SessionsPageIndex + 1 < SessionsPageCount;
+    public string SessionsPageText => $"{Math.Min(SessionsPageIndex + 1, SessionsPageCount)}/{SessionsPageCount}";
+    public double OverlayLineHeightPreviewPixels => 16 * OverlayLineHeight;
+    public bool IsCompactOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Compact", StringComparison.OrdinalIgnoreCase);
+    public bool IsDefaultOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Default", StringComparison.OrdinalIgnoreCase);
+    public bool IsRelaxedOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Relaxed", StringComparison.OrdinalIgnoreCase);
 
     public MainWindowViewModel(
         AudioCaptureDebugSession session,
         SpeechToTextModelCatalog modelCatalog,
+        SpeechToTextModelImporter modelImporter,
         CaptureSessionStorage sessionStorage,
         AppSettingsStore settingsStore,
         ITranscriptionService? transcriptionService = null)
     {
         _session = session;
         _modelCatalog = modelCatalog;
+        _modelImporter = modelImporter;
         _sessionStorage = sessionStorage;
         _settingsStore = settingsStore;
         _transcriptionService = transcriptionService;
@@ -113,6 +141,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SpeechToTextModels = [];
         SavedSessions = [];
         SelectedSessionTranscriptEntries = [];
+        AudioLevelBars = [];
+        for (var i = 0; i < WaveformSampleCapacity; i++)
+        {
+            AudioLevelBars.Add(new AudioLevelBarViewModel());
+        }
 
         statusMessage = "Ready.";
         runtimeLog = string.Empty;
@@ -145,6 +178,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         : this(
             CreateDesignTimeSession(),
             new SpeechToTextModelCatalog(),
+            new SpeechToTextModelImporter(new SpeechToTextModelCatalog()),
             new CaptureSessionStorage(),
             new AppSettingsStore())
     {
@@ -152,6 +186,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [RelayCommand]
     private void SelectTab(string tab) => ActiveTab = tab;
+
+    [RelayCommand]
+    private void SelectSettingsTab(string tab) => ActiveSettingsTab = tab;
 
     [RelayCommand(CanExecute = nameof(CanStartCapture))]
     private async Task StartCaptureAsync()
@@ -178,6 +215,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 string.IsNullOrWhiteSpace(SelectedDevice?.Id) ? null : SelectedDevice.Id,
                 SelectedDeviceName,
                 _outputPath);
+
+            EnsureOverlayVisibleAction?.Invoke();
 
             LoadSavedSessions();
             SelectedSavedSession = SavedSessions.FirstOrDefault(session =>
@@ -212,6 +251,67 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
+    private async Task ImportSpeechToTextModelAsync()
+    {
+        if (PickSpeechToTextModelDirectoryAsync is null)
+        {
+            RuntimeLog = "Model import is not available in the current UI context.";
+            return;
+        }
+
+        var selectedDirectory = await PickSpeechToTextModelDirectoryAsync();
+        if (string.IsNullOrWhiteSpace(selectedDirectory))
+        {
+            RuntimeLog = "Model import cancelled.";
+            return;
+        }
+
+        await RunBusyOperationAsync(() => ImportSpeechToTextModelCoreAsync(selectedDirectory));
+    }
+
+    [RelayCommand]
+    private async Task ImportSpeechToTextModelZipAsync()
+    {
+        if (PickSpeechToTextModelZipFileAsync is null)
+        {
+            RuntimeLog = "Zip model import is not available in the current UI context.";
+            return;
+        }
+
+        var selectedFile = await PickSpeechToTextModelZipFileAsync();
+        if (string.IsNullOrWhiteSpace(selectedFile))
+        {
+            RuntimeLog = "Zip model import cancelled.";
+            return;
+        }
+
+        await RunBusyOperationAsync(() => ImportSpeechToTextModelZipCoreAsync(selectedFile));
+    }
+
+    [RelayCommand]
+    private void OpenSpeechToTextModelsFolder()
+    {
+        var modelsRoot = _modelCatalog.GetManagedModelsRoot();
+        Directory.CreateDirectory(modelsRoot);
+
+        var psi = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{modelsRoot}\"",
+                UseShellExecute = true,
+            }
+            : new ProcessStartInfo
+            {
+                FileName = OperatingSystem.IsMacOS() ? "open" : "xdg-open",
+                Arguments = $"\"{modelsRoot}\"",
+                UseShellExecute = true,
+            };
+
+        Process.Start(psi);
+    }
+
+    [RelayCommand]
     private void ToggleOverlay()
     {
         ToggleOverlayAction?.Invoke();
@@ -231,6 +331,63 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void RefreshSavedSessions()
     {
         LoadSavedSessions();
+    }
+
+    [RelayCommand]
+    private void ToggleSelectAllSessions()
+    {
+        var target = !AreAllSessionsSelected;
+        foreach (var session in SavedSessions)
+        {
+            session.IsSelected = target;
+        }
+
+        AreAllSessionsSelected = target;
+    }
+
+    [RelayCommand]
+    private void ToggleSessionSelection(CaptureSessionItemViewModel? session)
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        session.IsSelected = !session.IsSelected;
+    }
+
+    [RelayCommand]
+    private void SetOverlayLineHeightPreset(string preset)
+    {
+        OverlayLineHeightPreset = preset;
+        OverlayLineHeight = preset switch
+        {
+            "Compact" => 1.05,
+            "Relaxed" => 1.65,
+            _ => 1.35,
+        };
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoToPreviousSessionsPage))]
+    private void PreviousSessionsPage()
+    {
+        if (!CanGoToPreviousSessionsPage)
+        {
+            return;
+        }
+
+        SessionsPageIndex -= 1;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoToNextSessionsPage))]
+    private void NextSessionsPage()
+    {
+        if (!CanGoToNextSessionsPage)
+        {
+            return;
+        }
+
+        SessionsPageIndex += 1;
     }
 
     [RelayCommand(CanExecute = nameof(HasSelectedSessions))]
@@ -257,12 +414,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var psi = new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = $"\"{SelectedSavedSession.DirectoryPath}\"",
-            UseShellExecute = true,
-        };
+        var psi = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{SelectedSavedSession.DirectoryPath}\"",
+                UseShellExecute = true,
+            }
+            : new ProcessStartInfo
+            {
+                FileName = OperatingSystem.IsMacOS() ? "open" : "xdg-open",
+                Arguments = $"\"{SelectedSavedSession.DirectoryPath}\"",
+                UseShellExecute = true,
+            };
 
         Process.Start(psi);
     }
@@ -308,13 +472,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var transcriptEntries = _sessionStorage.GetTranscriptEntries(SelectedSavedSession.TranscriptPath);
+        var transcriptEntries = BuildExportTranscriptEntries(_sessionStorage.GetTranscriptEntries(SelectedSavedSession.TranscriptPath));
         var exportPath = Path.Combine(SelectedSavedSession.DirectoryPath, "transcript.txt");
         var lines = transcriptEntries.SelectMany(entry =>
         {
             var result = new List<string> { $"[{entry.UpdatedAt:yyyy-MM-dd HH:mm:ss}]" };
             if (!string.IsNullOrWhiteSpace(entry.PartialText)) result.Add($"Partial: {entry.PartialText}");
-            if (!string.IsNullOrWhiteSpace(entry.PartialTranslatedText)) result.Add($"Partial Translation: {entry.PartialTranslatedText}");
             if (!string.IsNullOrWhiteSpace(entry.FinalText)) result.Add($"Final: {entry.FinalText}");
             if (!string.IsNullOrWhiteSpace(entry.FinalTranslatedText)) result.Add($"Final Translation: {entry.FinalTranslatedText}");
             result.Add(string.Empty);
@@ -334,7 +497,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         var exportPath = Path.Combine(SelectedSavedSession.DirectoryPath, "transcript-export.json");
-        File.Copy(SelectedSavedSession.TranscriptPath, exportPath, true);
+        var transcriptEntries = BuildExportTranscriptEntries(_sessionStorage.GetTranscriptEntries(SelectedSavedSession.TranscriptPath));
+        var json = System.Text.Json.JsonSerializer.Serialize(transcriptEntries, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+        });
+        File.WriteAllText(exportPath, json);
         RuntimeLog = $"Exported transcript json to {exportPath}";
     }
 
@@ -366,7 +534,44 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (SelectedSpeechToTextModel is not null)
         {
             SpeechToTextStatus = $"Selected model: {SelectedSpeechToTextModel.Name}";
+            return;
         }
+
+        SpeechToTextStatus = "No local speech model found.";
+    }
+
+    private Task ImportSpeechToTextModelCoreAsync(string selectedDirectory)
+    {
+        var importedPath = _modelImporter.ImportFromDirectory(selectedDirectory);
+        LoadSpeechToTextModels();
+
+        var importedModelName = Path.GetFileName(importedPath);
+        SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(model =>
+            string.Equals(model.Name, importedModelName, StringComparison.OrdinalIgnoreCase));
+
+        SpeechToTextStatus = SelectedSpeechToTextModel is null
+            ? "Model imported but could not be selected."
+            : $"Selected model: {SelectedSpeechToTextModel.Name}";
+        RuntimeLog = $"Imported speech-to-text model from {selectedDirectory}";
+
+        return Task.CompletedTask;
+    }
+
+    private Task ImportSpeechToTextModelZipCoreAsync(string selectedFile)
+    {
+        var importedPath = _modelImporter.ImportFromZip(selectedFile);
+        LoadSpeechToTextModels();
+
+        var importedModelName = Path.GetFileName(importedPath);
+        SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(model =>
+            string.Equals(model.Name, importedModelName, StringComparison.OrdinalIgnoreCase));
+
+        SpeechToTextStatus = SelectedSpeechToTextModel is null
+            ? "Zip model imported but could not be selected."
+            : $"Selected model: {SelectedSpeechToTextModel.Name}";
+        RuntimeLog = $"Imported zipped speech-to-text model from {selectedFile}";
+
+        return Task.CompletedTask;
     }
 
     private void LoadSavedSessions()
@@ -386,10 +591,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             _allSavedSessions.Add(item);
         }
 
+        AreAllSessionsSelected = false;
+
         ApplySavedSessionsFilter(preferredSelectedPath);
     }
 
     partial void OnSessionSearchTextChanged(string value)
+    {
+        SessionsPageIndex = 0;
+        ApplySavedSessionsFilter(SelectedSavedSession?.DirectoryPath);
+    }
+
+    partial void OnSessionsPageIndexChanged(int value)
     {
         ApplySavedSessionsFilter(SelectedSavedSession?.DirectoryPath);
     }
@@ -398,15 +611,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         SavedSessions.Clear();
 
-        var filtered = string.IsNullOrWhiteSpace(SessionSearchText)
-            ? _allSavedSessions
-            : _allSavedSessions.Where(session =>
-                session.SessionId.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
-                || session.AudioPath.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
-                || session.CreatedAtText.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+        var filtered = GetFilteredSessions();
+        var pageCount = Math.Max(1, (int)Math.Ceiling((double)filtered.Count / SessionsPageSize));
 
-        foreach (var session in filtered)
+        if (SessionsPageIndex >= pageCount)
+        {
+            SessionsPageIndex = Math.Max(0, pageCount - 1);
+            return;
+        }
+
+        var paged = filtered
+            .Skip(SessionsPageIndex * SessionsPageSize)
+            .Take(SessionsPageSize)
+            .ToList();
+
+        foreach (var session in paged)
         {
             SavedSessions.Add(session);
         }
@@ -419,7 +638,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSavedSessions)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(NoSavedSessions)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(SessionsPageCount)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(SessionsPageText)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(CanGoToPreviousSessionsPage)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(CanGoToNextSessionsPage)));
         DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
+        PreviousSessionsPageCommand.NotifyCanExecuteChanged();
+        NextSessionsPageCommand.NotifyCanExecuteChanged();
+    }
+
+    private List<CaptureSessionItemViewModel> GetFilteredSessions()
+    {
+        return string.IsNullOrWhiteSpace(SessionSearchText)
+            ? _allSavedSessions.ToList()
+            : _allSavedSessions.Where(session =>
+                session.SessionId.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.AudioPath.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.CreatedAtText.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
     }
 
     private void LoadSelectedSessionTranscript()
@@ -534,9 +770,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ChunkCount = _chunkCount;
             TotalBytesText = $"{_totalBytesCaptured:N0} bytes";
             CaptureState = _session.State.ToString();
-            AudioLevel = CalculateAudioLevelPercent(chunk);
-            PeakAudioLevel = Math.Max(PeakAudioLevel, AudioLevel);
-            AudioLevelText = $"Level {AudioLevel:0}%  Peak {PeakAudioLevel:0}%";
+            var level = CalculateAudioLevelPercent(chunk);
+            AudioLevel = level;
+            PeakAudioLevel = Math.Max(PeakAudioLevel * 0.90, level);
+            AudioLevelText = $"{level:0}%";
+            PushWaveformSample(level);
             RuntimeLog = $"Chunk #{_chunkCount}: {chunk.Data.Length} B | {chunk.SampleRate} Hz | {chunk.Channels}ch | {chunk.BitsPerSample}bit | {chunk.Duration.TotalMilliseconds:F0}ms";
         });
     }
@@ -546,7 +784,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             PartialTranscript = update.PartialText ?? string.Empty;
-            PartialTranslatedTranscript = update.PartialTranslatedText ?? string.Empty;
+            PartialTranslatedTranscript = string.Empty;
             if (!string.IsNullOrWhiteSpace(update.FinalText))
                 FinalTranscript = update.FinalText;
             if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
@@ -598,6 +836,28 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return 0;
     }
 
+    private void PushWaveformSample(double level)
+    {
+        _waveformSamples.Enqueue(level);
+        while (_waveformSamples.Count > WaveformSampleCapacity)
+        {
+            _waveformSamples.Dequeue();
+        }
+
+        UpdateAudioLevelBars(_waveformSamples.ToArray());
+    }
+
+    private void UpdateAudioLevelBars(IReadOnlyList<double> samples)
+    {
+        for (var i = 0; i < AudioLevelBars.Count; i++)
+        {
+            var normalized = i < samples.Count ? Math.Clamp(samples[i] / 100d, 0, 1) : 0;
+            var eased = Math.Pow(normalized, 0.52);
+            AudioLevelBars[i].Height = 8 + (eased * 58);
+            AudioLevelBars[i].Opacity = 0.30 + (eased * 0.70);
+        }
+    }
+
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(IsBusy) or nameof(IsCapturing))
@@ -629,6 +889,25 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             LoadSelectedSessionTranscript();
         }
 
+        if (e.PropertyName == nameof(OverlayLineHeight))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(OverlayLineHeightPreviewPixels)));
+        }
+
+        if (e.PropertyName == nameof(OverlayLineHeightPreset))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsCompactOverlayLineHeightPreset)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsDefaultOverlayLineHeightPreset)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsRelaxedOverlayLineHeightPreset)));
+        }
+
+        if (e.PropertyName == nameof(ActiveSettingsTab))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsGeneralSettingsTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSpeechSettingsTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlaySettingsTabActive)));
+        }
+
         if (e.PropertyName is nameof(RuntimeLog))
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasRuntimeLog)));
 
@@ -647,14 +926,70 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (e.PropertyName == nameof(ActiveTab))
         {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsCaptureTabActive)));
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlayTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSessionsTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSettingsTabActive)));
         }
+    }
+
+    private static IReadOnlyList<SavedTranscriptEntry> BuildExportTranscriptEntries(IReadOnlyList<SavedTranscriptEntry> entries)
+    {
+        var cleaned = new List<SavedTranscriptEntry>();
+        SavedTranscriptEntry? pendingPartial = null;
+
+        foreach (var entry in entries)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.FinalText) || !string.IsNullOrWhiteSpace(entry.FinalTranslatedText))
+            {
+                pendingPartial = null;
+
+                var finalEntry = new SavedTranscriptEntry
+                {
+                    PartialText = string.Empty,
+                    PartialTranslatedText = string.Empty,
+                    FinalText = entry.FinalText,
+                    FinalTranslatedText = entry.FinalTranslatedText,
+                    UpdatedAt = entry.UpdatedAt,
+                };
+
+                var last = cleaned.LastOrDefault();
+                var isDuplicateFinal = last is not null
+                    && string.Equals(last.FinalText, finalEntry.FinalText, StringComparison.Ordinal)
+                    && string.Equals(last.FinalTranslatedText, finalEntry.FinalTranslatedText, StringComparison.Ordinal);
+
+                if (!isDuplicateFinal)
+                {
+                    cleaned.Add(finalEntry);
+                }
+
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.PartialText))
+            {
+                pendingPartial = new SavedTranscriptEntry
+                {
+                    PartialText = entry.PartialText,
+                    PartialTranslatedText = string.Empty,
+                    FinalText = string.Empty,
+                    FinalTranslatedText = string.Empty,
+                    UpdatedAt = entry.UpdatedAt,
+                };
+            }
+        }
+
+        if (cleaned.Count == 0 && pendingPartial is not null)
+        {
+            cleaned.Add(pendingPartial);
+        }
+
+        return cleaned;
     }
 
     private void OnSavedSessionPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(CaptureSessionItemViewModel.IsSelected))
         {
+            AreAllSessionsSelected = SavedSessions.Count > 0 && SavedSessions.All(session => session.IsSelected);
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessions)));
             DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
         }
@@ -727,4 +1062,10 @@ public sealed class SavedTranscriptEntryViewModel
     public bool HasPartialTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedText);
     public bool HasFinal => !string.IsNullOrWhiteSpace(FinalText);
     public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedText);
+}
+
+public sealed partial class AudioLevelBarViewModel : ObservableObject
+{
+    [ObservableProperty] private double height = 10;
+    [ObservableProperty] private double opacity = 0.30;
 }

@@ -58,6 +58,7 @@ public class AudioCaptureDebugSession : IDisposable
 
     public async Task StartAsync(string? deviceId, string deviceName, string outputPath, CancellationToken cancellationToken = default)
     {
+        _voskTranscriptionService?.ResetSession();
         DisposeVerifier();
         _captureVerifier = new WaveFileCaptureVerifier(outputPath);
         _currentOutputPath = outputPath;
@@ -84,6 +85,7 @@ public class AudioCaptureDebugSession : IDisposable
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         await _stopCaptureUseCase.ExecuteAsync(cancellationToken);
+        _voskTranscriptionService?.ResetSession();
 
         if (!string.IsNullOrWhiteSpace(_currentOutputPath))
         {

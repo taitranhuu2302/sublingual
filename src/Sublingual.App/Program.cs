@@ -1,4 +1,6 @@
 ﻿using Avalonia;
+using Projektanker.Icons.Avalonia;
+using Projektanker.Icons.Avalonia.FontAwesome;
 using System;
 
 namespace Sublingual.App;
@@ -14,6 +16,7 @@ sealed class Program
     public static void Main(string[] args)
     {
         LaunchArgs = args;
+        IconProvider.Current.Register<FontAwesomeIconProvider>();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

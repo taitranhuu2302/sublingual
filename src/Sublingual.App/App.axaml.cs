@@ -72,6 +72,18 @@ public partial class App : Avalonia.Application
                     }
                 };
 
+                mainVm.EnsureOverlayVisibleAction = () =>
+                {
+                    if (_overlayWindow is null || _overlayWindow.IsVisible)
+                    {
+                        return;
+                    }
+
+                    ApplyOverlaySettingsToOverlay(mainVm, overlayVm, _overlayWindow, _settings.Overlay);
+                    _overlayWindow.Show();
+                    mainVm.IsOverlayVisible = true;
+                };
+
                 mainVm.PropertyChanged += (_, e) =>
                 {
                     if (_overlayWindow is null)
@@ -81,9 +93,7 @@ public partial class App : Avalonia.Application
 
                     if (e.PropertyName is nameof(MainWindowViewModel.OverlayFontSize)
                         or nameof(MainWindowViewModel.OverlayTheme)
-                        or nameof(MainWindowViewModel.OverlayOpacity)
-                        or nameof(MainWindowViewModel.OverlayWidth)
-                        or nameof(MainWindowViewModel.OverlayHeight))
+                        or nameof(MainWindowViewModel.OverlayOpacity))
                     {
                         ApplyOverlaySettingsToOverlay(mainVm, overlayVm, _overlayWindow, _settings!.Overlay);
                         SaveOverlaySettings(mainVm);
@@ -127,10 +137,12 @@ public partial class App : Avalonia.Application
     private void ApplyOverlaySettingsToMainViewModel(MainWindowViewModel mainVm, OverlaySettings settings)
     {
         mainVm.OverlayFontSize = settings.FontSize;
+        mainVm.OverlayLineHeight = settings.LineHeight <= 0 ? 1.35 : settings.LineHeight;
         mainVm.OverlayWidth = settings.Width;
         mainVm.OverlayHeight = settings.Height;
         mainVm.OverlayTheme = string.IsNullOrWhiteSpace(settings.Theme) ? "Dark" : settings.Theme;
         mainVm.OverlayOpacity = settings.Opacity <= 0 ? 0.88 : settings.Opacity;
+        mainVm.OverlayShowTranslation = settings.ShowTranslation;
     }
 
     private static void ApplyOverlaySettingsToOverlay(
@@ -140,13 +152,12 @@ public partial class App : Avalonia.Application
         OverlaySettings settings)
     {
         overlayVm.OverlayFontSize = mainVm.OverlayFontSize;
+        overlayVm.OverlayLineHeight = mainVm.OverlayLineHeight;
         overlayVm.OverlayWidth = mainVm.OverlayWidth;
         overlayVm.OverlayHeight = mainVm.OverlayHeight;
         overlayVm.OverlayTheme = mainVm.OverlayTheme;
         overlayVm.OverlayOpacity = mainVm.OverlayOpacity;
-
-        overlayWindow.Width = mainVm.OverlayWidth;
-        overlayWindow.Height = mainVm.OverlayHeight;
+        overlayVm.OverlayShowTranslation = mainVm.OverlayShowTranslation;
 
         if (settings.PositionX.HasValue && settings.PositionY.HasValue)
         {
@@ -162,10 +173,10 @@ public partial class App : Avalonia.Application
         }
 
         _settings.Overlay.FontSize = mainVm.OverlayFontSize;
-        _settings.Overlay.Width = mainVm.OverlayWidth;
-        _settings.Overlay.Height = mainVm.OverlayHeight;
+        _settings.Overlay.LineHeight = mainVm.OverlayLineHeight;
         _settings.Overlay.Theme = mainVm.OverlayTheme;
         _settings.Overlay.Opacity = mainVm.OverlayOpacity;
+        _settings.Overlay.ShowTranslation = mainVm.OverlayShowTranslation;
         _settingsStore.Save(_settings);
     }
 
@@ -178,6 +189,10 @@ public partial class App : Avalonia.Application
 
         _settings.Overlay.PositionX = overlayWindow.Position.X;
         _settings.Overlay.PositionY = overlayWindow.Position.Y;
+        _settings.Overlay.Width = overlayWindow.Width;
+        _settings.Overlay.Height = overlayWindow.Height;
+        mainVm.OverlayWidth = overlayWindow.Width;
+        mainVm.OverlayHeight = overlayWindow.Height;
         SaveOverlaySettings(mainVm);
     }
 

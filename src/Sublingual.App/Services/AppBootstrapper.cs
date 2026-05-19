@@ -58,6 +58,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<IAudioCaptureService>(_ => CreateAudioCaptureService());
         services.AddSingleton<IAudioChunkProcessor, FixedWindowAudioChunkProcessor>();
         services.AddSingleton<SpeechToTextModelCatalog>();
+        services.AddSingleton<SpeechToTextModelImporter>();
         services.AddSingleton<CaptureSessionStorage>();
         services.AddSingleton<VoskTranscriptionService>();
         services.AddSingleton<ITranscriptionService>(provider => provider.GetRequiredService<VoskTranscriptionService>());
