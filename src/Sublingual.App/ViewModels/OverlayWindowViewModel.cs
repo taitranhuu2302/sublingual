@@ -17,11 +17,18 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private double overlayFontSize = 26;
     [ObservableProperty] private double overlayWidth = 720;
     [ObservableProperty] private double overlayHeight = 200;
+    [ObservableProperty] private string overlayTheme = "Dark";
+    [ObservableProperty] private double overlayOpacity = 0.88;
 
     public double OverlayTranslationFontSize => Math.Max(14, OverlayFontSize - 4);
     public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
     public bool HasFinal => !string.IsNullOrWhiteSpace(FinalOriginalText);
     public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedText);
+    public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
+    public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
+    public bool HasCaption => HasFinal || HasPartial;
+    public bool ShowPlaceholder => !HasFinal && !HasPartial;
+    public string DisplayCaptionText => HasFinal ? FinalOriginalText : PartialOriginalText;
 
     public OverlayWindowViewModel(AudioCaptureDebugSession session)
     {
@@ -47,6 +54,33 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(OverlayTranslationFontSize));
     }
 
+    partial void OnOverlayThemeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsDarkTheme));
+        OnPropertyChanged(nameof(IsLightTheme));
+    }
+
+    partial void OnFinalOriginalTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(DisplayCaptionText));
+        OnPropertyChanged(nameof(ShowPlaceholder));
+        OnPropertyChanged(nameof(HasCaption));
+        OnPropertyChanged(nameof(HasFinal));
+    }
+
+    partial void OnPartialOriginalTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(DisplayCaptionText));
+        OnPropertyChanged(nameof(ShowPlaceholder));
+        OnPropertyChanged(nameof(HasCaption));
+        OnPropertyChanged(nameof(HasPartial));
+    }
+
+    partial void OnFinalTranslatedTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasFinalTranslation));
+    }
+
     private void OnTranscriptPreviewUpdated(object? sender, TranscriptPreviewUpdate update)
     {
         _ = Dispatcher.UIThread.InvokeAsync(() =>
@@ -58,9 +92,6 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
                 FinalTranslatedText = update.FinalTranslatedText;
             StatusText = $"Updated {update.UpdatedAt:HH:mm:ss}";
-            OnPropertyChanged(nameof(HasPartial));
-            OnPropertyChanged(nameof(HasFinal));
-            OnPropertyChanged(nameof(HasFinalTranslation));
         });
     }
 
@@ -77,4 +108,3 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()));
     }
 }
-

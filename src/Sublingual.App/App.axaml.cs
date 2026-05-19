@@ -30,8 +30,18 @@ public partial class App : Avalonia.Application
             if (mainWindow.DataContext is MainWindowViewModel mainVm &&
                 _overlayWindow.DataContext is OverlayWindowViewModel overlayVm)
             {
+                _overlayWindow.OverlayHidden += (_, _) =>
+                {
+                    mainVm.IsOverlayVisible = false;
+                };
+
                 mainVm.ToggleOverlayAction = () =>
                 {
+                    if (_overlayWindow is null)
+                    {
+                        return;
+                    }
+
                     if (_overlayWindow.IsVisible)
                     {
                         _overlayWindow.Hide();
@@ -43,9 +53,15 @@ public partial class App : Avalonia.Application
                         overlayVm.OverlayFontSize = mainVm.OverlayFontSize;
                         overlayVm.OverlayWidth = mainVm.OverlayWidth;
                         overlayVm.OverlayHeight = mainVm.OverlayHeight;
+                        overlayVm.OverlayTheme = mainVm.OverlayTheme;
+                        overlayVm.OverlayOpacity = mainVm.OverlayOpacity;
                         _overlayWindow.Width = mainVm.OverlayWidth;
                         _overlayWindow.Height = mainVm.OverlayHeight;
-                        _overlayWindow.Show();
+                        if (!_overlayWindow.IsVisible)
+                        {
+                            _overlayWindow.Show();
+                        }
+
                         mainVm.IsOverlayVisible = true;
                     }
                 };
@@ -56,6 +72,10 @@ public partial class App : Avalonia.Application
                     if (_overlayWindow is null) return;
                     if (e.PropertyName == nameof(MainWindowViewModel.OverlayFontSize))
                         overlayVm.OverlayFontSize = mainVm.OverlayFontSize;
+                    if (e.PropertyName == nameof(MainWindowViewModel.OverlayTheme))
+                        overlayVm.OverlayTheme = mainVm.OverlayTheme;
+                    if (e.PropertyName == nameof(MainWindowViewModel.OverlayOpacity))
+                        overlayVm.OverlayOpacity = mainVm.OverlayOpacity;
                     if (e.PropertyName == nameof(MainWindowViewModel.OverlayWidth))
                     {
                         overlayVm.OverlayWidth = mainVm.OverlayWidth;

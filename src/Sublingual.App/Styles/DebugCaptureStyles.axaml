@@ -20,6 +20,12 @@
     <Style Selector="Button.nav-item:pressed /template/ ContentPresenter">
         <Setter Property="Background" Value="#162840" />
     </Style>
+    <Style Selector="Button.nav-item-active">
+        <Setter Property="Background" Value="#132647" />
+        <Setter Property="Foreground" Value="#F8FBFF" />
+        <Setter Property="BorderBrush" Value="#2563EB" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
 
     <!-- ── Surface cards ─────────────────────────────────────────────── -->
     <!-- Primary card: dark navy with a subtle blue border -->
@@ -133,6 +139,12 @@
         <Setter Property="BoxShadow" Value="0 16 48 0 #88000000" />
     </Style>
 
+    <Style Selector="TextBlock.overlay-drag-hint">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
     <Style Selector="TextBlock.overlay-kicker">
         <Setter Property="Foreground" Value="#93C5FD" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -143,16 +155,19 @@
         <Setter Property="Foreground" Value="#F0F4FF" />
         <Setter Property="FontSize" Value="26" />
         <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextAlignment" Value="Center" />
     </Style>
 
     <Style Selector="TextBlock.overlay-translated">
         <Setter Property="Foreground" Value="#BAE6FD" />
         <Setter Property="FontSize" Value="22" />
+        <Setter Property="TextAlignment" Value="Center" />
     </Style>
 
     <Style Selector="TextBlock.overlay-partial">
         <Setter Property="Foreground" Value="#60A5FA" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="FontStyle" Value="Italic" />
+        <Setter Property="TextAlignment" Value="Center" />
     </Style>
 </Styles>

@@ -4,8 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        d:DesignWidth="720"
-        d:DesignHeight="200"
+        d:DesignWidth="760"
+        d:DesignHeight="220"
         x:Class="Sublingual.App.Views.OverlayWindow"
         x:DataType="vm:OverlayWindowViewModel"
         Width="{Binding OverlayWidth}"
@@ -25,29 +25,133 @@
         <vm:OverlayWindowViewModel />
     </Design.DataContext>
 
-    <Border Margin="16"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Bottom"
-            Classes="overlay-card">
-        <StackPanel Spacing="8">
-            <!-- Partial (in-progress) -->
-            <TextBlock Classes="overlay-partial"
-                       Text="{Binding PartialOriginalText}"
-                       FontSize="{Binding OverlayFontSize}"
-                       TextWrapping="Wrap"
-                       IsVisible="{Binding HasPartial}" />
-            <!-- Final original -->
-            <TextBlock Classes="overlay-original"
-                       Text="{Binding FinalOriginalText}"
-                       FontSize="{Binding OverlayFontSize}"
-                       TextWrapping="Wrap"
-                       IsVisible="{Binding HasFinal}" />
-            <!-- Final translated -->
-            <TextBlock Classes="overlay-translated"
-                       Text="{Binding FinalTranslatedText}"
-                       FontSize="{Binding OverlayTranslationFontSize}"
-                       TextWrapping="Wrap"
-                       IsVisible="{Binding HasFinalTranslation}" />
-        </StackPanel>
-    </Border>
+    <Grid Margin="0">
+        <Border Margin="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Padding="0"
+                CornerRadius="18"
+                Opacity="{Binding OverlayOpacity}"
+                Background="#D9161B24"
+                BorderBrush="#2C3645"
+                BorderThickness="1"
+                BoxShadow="0 18 45 0 #66000000"
+                IsVisible="{Binding IsDarkTheme}">
+            <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="*,Auto" Margin="18,14,12,0">
+                    <TextBlock Text="Live Caption"
+                               FontSize="14"
+                               FontWeight="Medium"
+                               Foreground="#D6DCE5" />
+                    <Button Grid.Column="1"
+                            Width="34"
+                            Height="34"
+                            Padding="0"
+                            Background="#1E2834"
+                            BorderBrush="#2A3442"
+                            BorderThickness="1"
+                            CornerRadius="18"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Click="OnCloseClicked">
+                        <TextBlock Text="×"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="#F4F7FB"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Margin="18,10,18,16" Spacing="8">
+                    <TextBlock Text="Listening for live speech..."
+                               FontSize="{Binding OverlayFontSize}"
+                               FontWeight="SemiBold"
+                               LineHeight="40"
+                               Foreground="#A8B6C7"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding ShowPlaceholder}" />
+
+                    <TextBlock Text="{Binding DisplayCaptionText}"
+                               FontSize="{Binding OverlayFontSize}"
+                               FontWeight="Bold"
+                               LineHeight="44"
+                               Foreground="#F8FAFC"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasCaption}" />
+
+                    <TextBlock Text="{Binding FinalTranslatedText}"
+                               FontSize="{Binding OverlayTranslationFontSize}"
+                               LineHeight="34"
+                               Foreground="#C9D8EA"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasFinalTranslation}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Margin="0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Padding="0"
+                CornerRadius="18"
+                Opacity="{Binding OverlayOpacity}"
+                Background="#F5F7FA"
+                BorderBrush="#D7E2F0"
+                BorderThickness="1"
+                BoxShadow="0 18 45 0 #33000000"
+                IsVisible="{Binding IsLightTheme}">
+            <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="*,Auto" Margin="18,14,12,0">
+                    <TextBlock Text="Live Caption"
+                               FontSize="14"
+                               FontWeight="Medium"
+                               Foreground="#334155" />
+                    <Button Grid.Column="1"
+                            Width="34"
+                            Height="34"
+                            Padding="0"
+                            Background="#E5EAF1"
+                            BorderBrush="#D2DAE5"
+                            BorderThickness="1"
+                            CornerRadius="18"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Click="OnCloseClicked">
+                        <TextBlock Text="×"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="#0F172A"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Margin="18,10,18,16" Spacing="8">
+                    <TextBlock Text="Listening for live speech..."
+                               FontSize="{Binding OverlayFontSize}"
+                               FontWeight="SemiBold"
+                               LineHeight="40"
+                               Foreground="#64748B"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding ShowPlaceholder}" />
+
+                    <TextBlock Text="{Binding DisplayCaptionText}"
+                               FontSize="{Binding OverlayFontSize}"
+                               FontWeight="Bold"
+                               LineHeight="44"
+                               Foreground="#0F172A"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasCaption}" />
+
+                    <TextBlock Text="{Binding FinalTranslatedText}"
+                               FontSize="{Binding OverlayTranslationFontSize}"
+                               LineHeight="34"
+                               Foreground="#475569"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasFinalTranslation}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

@@ -46,6 +46,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private double overlayFontSize = 26;
     [ObservableProperty] private double overlayWidth = 720;
     [ObservableProperty] private double overlayHeight = 200;
+    [ObservableProperty] private string overlayTheme = "Dark";
+    [ObservableProperty] private double overlayOpacity = 0.88;
 
     // Sidebar navigation
     [ObservableProperty] private string activeTab = "capture";
@@ -56,6 +58,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public bool HasPartialTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedTranscript);
     public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedTranscript);
     public string OverlayToggleLabel => IsOverlayVisible ? "Hide Overlay" : "Show Overlay";
+    public bool IsCaptureTabActive => string.Equals(ActiveTab, "capture", StringComparison.OrdinalIgnoreCase);
+    public bool IsOverlayTabActive => string.Equals(ActiveTab, "overlay", StringComparison.OrdinalIgnoreCase);
 
     [RelayCommand]
     private void SelectTab(string tab)
@@ -323,6 +327,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         if (e.PropertyName == nameof(IsOverlayVisible))
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(OverlayToggleLabel)));
+
+        if (e.PropertyName == nameof(ActiveTab))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsCaptureTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlayTabActive)));
+        }
     }
 
     private static AudioCaptureDebugSession CreateDesignTimeSession()

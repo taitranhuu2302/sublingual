@@ -48,30 +48,39 @@
                 </StackPanel>
 
                 <!-- Nav items -->
-                <StackPanel Grid.Row="1" Spacing="2" Margin="8,0">
-                    <Button Classes="nav-item"
+                <StackPanel Grid.Row="1" Spacing="6" Margin="10,0">
+                    <Button Classes="nav-item nav-item-active"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding SelectTabCommand}"
-                            CommandParameter="capture">
-                        <Button.Styles>
-                            <Style Selector="Button.nav-item">
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                        </Button.Styles>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="Capture" VerticalAlignment="Center"
-                                       Foreground="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}" />
-                        </StackPanel>
+                            CommandParameter="capture"
+                            IsVisible="{Binding IsCaptureTabActive}">
+                        <TextBlock Text="Capture" VerticalAlignment="Center" />
                     </Button>
                     <Button Classes="nav-item"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             Command="{Binding SelectTabCommand}"
-                            CommandParameter="overlay">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="Overlay" VerticalAlignment="Center" />
-                        </StackPanel>
+                            CommandParameter="capture"
+                            IsVisible="{Binding IsOverlayTabActive}">
+                        <TextBlock Text="Capture" VerticalAlignment="Center" />
+                    </Button>
+
+                    <Button Classes="nav-item nav-item-active"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="overlay"
+                            IsVisible="{Binding IsOverlayTabActive}">
+                        <TextBlock Text="Overlay" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="overlay"
+                            IsVisible="{Binding IsCaptureTabActive}">
+                        <TextBlock Text="Overlay" VerticalAlignment="Center" />
                     </Button>
                     <Button Classes="nav-item"
                             HorizontalAlignment="Stretch"
@@ -355,6 +364,53 @@
                                         IsSnapToTickEnabled="True" />
                             </StackPanel>
 
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Overlay Style"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F0F4FF" />
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <TextBlock Text="Theme"
+                                           VerticalAlignment="Center"
+                                           Foreground="#8BA3C7" />
+                                <ComboBox Grid.Column="1"
+                                          SelectedItem="{Binding OverlayTheme}">
+                                    <x:String>Dark</x:String>
+                                    <x:String>Light</x:String>
+                                </ComboBox>
+                            </Grid>
+
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Opacity"
+                                               Foreground="#8BA3C7" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding OverlayOpacity, StringFormat={}{0:0.00}}"
+                                               Foreground="#3B82F6"
+                                               FontWeight="SemiBold" />
+                                </Grid>
+                                <Slider Minimum="0.35"
+                                        Maximum="1.00"
+                                        Value="{Binding OverlayOpacity}"
+                                        TickFrequency="0.05" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Tips"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F0F4FF" />
+                            <TextBlock Classes="muted"
+                                       Text="Drag the overlay directly on screen to reposition it. Use Light theme for dark videos and Dark theme for bright videos."
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
