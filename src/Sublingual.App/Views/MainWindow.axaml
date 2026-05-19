@@ -1,20 +1,366 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Sublingual.App.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="Sublingual.App.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="Sublingual.App">
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:vm="using:Sublingual.App.ViewModels"
+                 xmlns:conv="using:Sublingual.App.Converters"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:suki="https://github.com/kikipoulet/SukiUI"
+                 mc:Ignorable="d"
+                 d:DesignWidth="960"
+                 d:DesignHeight="680"
+                 x:Class="Sublingual.App.Views.MainWindow"
+                 x:DataType="vm:MainWindowViewModel"
+                 Icon="/Assets/avalonia-logo.ico"
+                 Title="Sublingual"
+                 Width="960"
+                 Height="680"
+                 MinWidth="800"
+                 MinHeight="520"
+                 BackgroundStyle="Gradient">
+
+    <suki:SukiWindow.Resources>
+        <conv:StringEqualsConverter x:Key="StringEquals" />
+    </suki:SukiWindow.Resources>
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <!-- Root: sidebar + content area -->
+    <Grid ColumnDefinitions="196,*">
 
-</Window>
+        <!-- ── Sidebar ───────────────────────────────────────────── -->
+        <Border Grid.Column="0"
+                Background="#080F1C"
+                BorderBrush="#1E3A5F"
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*,Auto" Margin="0,20,0,16">
+
+                <!-- App name -->
+                <StackPanel Grid.Row="0" Margin="18,0,18,24" Spacing="2">
+                    <TextBlock Text="Sublingual"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#F0F4FF" />
+                    <TextBlock Text="{Binding CurrentPlatform}"
+                               FontSize="11"
+                               Foreground="#5E7EA8" />
+                </StackPanel>
+
+                <!-- Nav items -->
+                <StackPanel Grid.Row="1" Spacing="2" Margin="8,0">
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="capture">
+                        <Button.Styles>
+                            <Style Selector="Button.nav-item">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                        </Button.Styles>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Capture" VerticalAlignment="Center"
+                                       Foreground="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="overlay">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Overlay" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            IsEnabled="False">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Settings" VerticalAlignment="Center"
+                                       Foreground="#3A5070" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Status at bottom -->
+                <StackPanel Grid.Row="2" Margin="18,0" Spacing="6">
+                    <Separator Background="#1E3A5F" />
+                    <TextBlock Text="{Binding CaptureState}"
+                               FontSize="12"
+                               Foreground="#5E7EA8" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Main content ──────────────────────────────────────── -->
+        <Grid Grid.Column="1">
+
+            <!-- TAB: Capture -->
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
+                <StackPanel Margin="28,24" Spacing="16">
+
+                    <!-- Device picker card -->
+                    <Border Classes="surface-card" Padding="20">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
+                            <StackPanel Grid.Row="0" Spacing="4">
+                                <TextBlock Classes="eyebrow" Text="Playback Device" />
+                                <TextBlock Text="{Binding SelectedDeviceName}"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#F0F4FF"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <ComboBox Grid.Row="1"
+                                      Classes="capture-device-picker"
+                                      ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedDevice}"
+                                      DisplayMemberBinding="{Binding DisplayName}"
+                                      PlaceholderText="No device available"
+                                      HorizontalAlignment="Stretch" />
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
+                                <Button Classes="action-button secondary-action"
+                                        Command="{Binding RefreshDevicesCommand}"
+                                        Content="Refresh" />
+                                <Button Classes="action-button primary-action"
+                                        Command="{Binding StartCaptureCommand}"
+                                        Content="Start Capture" />
+                                <Button Classes="action-button neutral-action"
+                                        Command="{Binding StopCaptureCommand}"
+                                        Content="Stop" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Audio level — only while capturing -->
+                    <Border Classes="surface-card"
+                            Padding="20"
+                            IsVisible="{Binding IsCapturing}">
+                        <Grid ColumnDefinitions="*,110" ColumnSpacing="16">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="eyebrow" Text="Audio Level" />
+                                <ProgressBar Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding AudioLevel}"
+                                             Height="14">
+                                    <ProgressBar.Template>
+                                        <ControlTemplate TargetType="ProgressBar">
+                                            <Border CornerRadius="7"
+                                                    Background="#0D1F38"
+                                                    ClipToBounds="True">
+                                                <Border Name="PART_Indicator"
+                                                        HorizontalAlignment="Left"
+                                                        CornerRadius="7"
+                                                        Background="#3B82F6" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ProgressBar.Template>
+                                </ProgressBar>
+                                <TextBlock Text="{Binding AudioLevelText}"
+                                           FontSize="12"
+                                           Foreground="#8BA3C7" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Classes="stat-card">
+                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                    <TextBlock Classes="eyebrow" Text="Peak" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding PeakAudioLevel, StringFormat={}{0:0}%}"
+                                               FontSize="24"
+                                               FontWeight="Bold"
+                                               Foreground="#F0F4FF"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Stats — only while capturing -->
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="12"
+                          IsVisible="{Binding IsCapturing}">
+                        <Border Classes="stat-card">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="eyebrow" Text="Processed Chunks" />
+                                <TextBlock Text="{Binding ChunkCount}"
+                                           FontSize="28"
+                                           FontWeight="Bold"
+                                           Foreground="#F0F4FF" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Classes="stat-card">
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="eyebrow" Text="Captured" />
+                                <TextBlock Text="{Binding TotalBytesText}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#F0F4FF" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Log — only when non-empty -->
+                    <Border Classes="surface-card"
+                            Padding="16"
+                            IsVisible="{Binding HasRuntimeLog}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="eyebrow" Text="Log" />
+                            <TextBox Classes="log-box"
+                                     Text="{Binding RuntimeLog}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     CaretBrush="Transparent"
+                                     VerticalContentAlignment="Top"
+                                     MinHeight="56"
+                                     MaxHeight="160" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Transcript — only when non-empty -->
+                    <Border Classes="surface-card"
+                            Padding="20"
+                            IsVisible="{Binding HasTranscript}">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="eyebrow" Text="Partial" />
+                                <TextBlock Text="{Binding PartialTranscript}"
+                                           Foreground="#60A5FA"
+                                           FontStyle="Italic"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding PartialTranslatedTranscript}"
+                                           Foreground="#8BA3C7"
+                                           FontSize="13"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding HasPartialTranslation}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock Classes="eyebrow" Text="Final" />
+                                <TextBlock Text="{Binding FinalTranscript}"
+                                           Foreground="#F0F4FF"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding FinalTranslatedTranscript}"
+                                           Foreground="#BAE6FD"
+                                           FontSize="13"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding HasFinalTranslation}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- TAB: Overlay -->
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=overlay}">
+                <StackPanel Margin="28,24" Spacing="16">
+
+                    <TextBlock Text="Overlay"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="#F0F4FF" />
+
+                    <!-- Toggle -->
+                    <Border Classes="surface-card" Padding="20">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Show Overlay Window"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#F0F4FF" />
+                                <TextBlock Classes="muted" FontSize="13"
+                                           Text="Toggle the transparent subtitle overlay on screen." />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding ToggleOverlayCommand}"
+                                    Content="{Binding OverlayToggleLabel}"
+                                    MinWidth="120"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Font size -->
+                    <Border Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Subtitle Font Size"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F4FF" />
+                                    <TextBlock Classes="muted" FontSize="13"
+                                               Text="Applies to the original subtitle text." />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding OverlayFontSize, StringFormat={}{0:0}px}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#3B82F6"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <Slider Minimum="14"
+                                    Maximum="60"
+                                    Value="{Binding OverlayFontSize}"
+                                    TickFrequency="2"
+                                    IsSnapToTickEnabled="True" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Overlay size -->
+                    <Border Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Overlay Window Size"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F0F4FF" />
+
+                            <!-- Width -->
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="eyebrow" Text="Width" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding OverlayWidth, StringFormat={}{0:0}px}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#3B82F6"
+                                               FontSize="13" />
+                                </Grid>
+                                <Slider Minimum="300"
+                                        Maximum="1600"
+                                        Value="{Binding OverlayWidth}"
+                                        TickFrequency="20"
+                                        IsSnapToTickEnabled="True" />
+                            </StackPanel>
+
+                            <!-- Height -->
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Classes="eyebrow" Text="Height" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding OverlayHeight, StringFormat={}{0:0}px}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#3B82F6"
+                                               FontSize="13" />
+                                </Grid>
+                                <Slider Minimum="80"
+                                        Maximum="400"
+                                        Value="{Binding OverlayHeight}"
+                                        TickFrequency="10"
+                                        IsSnapToTickEnabled="True" />
+                            </StackPanel>
+
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+        </Grid>
+    </Grid>
+</suki:SukiWindow>

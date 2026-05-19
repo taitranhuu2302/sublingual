@@ -1,15 +1,17 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:sukiEnums="clr-namespace:SukiUI.Enums;assembly=SukiUI"
              x:Class="Sublingual.App.App"
              xmlns:local="using:Sublingual.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
     <Application.Styles>
-        <FluentTheme />
+        <suki:SukiTheme ThemeColor="{x:Static sukiEnums:SukiColor.Blue}" />
+        <StyleInclude Source="/Styles/DebugCaptureStyles.axaml" />
     </Application.Styles>
 </Application>

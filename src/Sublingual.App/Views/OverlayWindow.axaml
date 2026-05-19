@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Sublingual.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="720"
+        d:DesignHeight="200"
+        x:Class="Sublingual.App.Views.OverlayWindow"
+        x:DataType="vm:OverlayWindowViewModel"
+        Width="{Binding OverlayWidth}"
+        Height="{Binding OverlayHeight}"
+        Topmost="True"
+        ShowInTaskbar="False"
+        CanResize="False"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        Classes="overlay-shell"
+        Title="Sublingual Overlay">
+
+    <Design.DataContext>
+        <vm:OverlayWindowViewModel />
+    </Design.DataContext>
+
+    <Border Margin="16"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Bottom"
+            Classes="overlay-card">
+        <StackPanel Spacing="8">
+            <!-- Partial (in-progress) -->
+            <TextBlock Classes="overlay-partial"
+                       Text="{Binding PartialOriginalText}"
+                       FontSize="{Binding OverlayFontSize}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasPartial}" />
+            <!-- Final original -->
+            <TextBlock Classes="overlay-original"
+                       Text="{Binding FinalOriginalText}"
+                       FontSize="{Binding OverlayFontSize}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasFinal}" />
+            <!-- Final translated -->
+            <TextBlock Classes="overlay-translated"
+                       Text="{Binding FinalTranslatedText}"
+                       FontSize="{Binding OverlayTranslationFontSize}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasFinalTranslation}" />
+        </StackPanel>
+    </Border>
+</Window>

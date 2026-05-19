@@ -1,0 +1,158 @@
+<Styles xmlns="https://github.com/avaloniaui">
+
+    <!-- ── Window shells ─────────────────────────────────────────────── -->
+    <Style Selector="Window.debug-shell">
+        <Setter Property="Foreground" Value="#F0F4FF" />
+    </Style>
+
+    <!-- ── Sidebar nav items ──────────────────────────────────────────── -->
+    <Style Selector="Button.nav-item">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#8BA3C7" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.nav-item:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#0F2040" />
+    </Style>
+    <Style Selector="Button.nav-item:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#162840" />
+    </Style>
+
+    <!-- ── Surface cards ─────────────────────────────────────────────── -->
+    <!-- Primary card: dark navy with a subtle blue border -->
+    <Style Selector="Border.surface-card">
+        <Setter Property="Background" Value="#0F172A" />
+        <Setter Property="BorderBrush" Value="#1E3A5F" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="BoxShadow" Value="0 8 24 0 #44000000" />
+    </Style>
+
+    <!-- Secondary stat card: slightly lighter navy -->
+    <Style Selector="Border.stat-card">
+        <Setter Property="Background" Value="#162032" />
+        <Setter Property="BorderBrush" Value="#1E3A5F" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <!-- ── Typography ────────────────────────────────────────────────── -->
+    <Style Selector="TextBlock.section-title">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#F0F4FF" />
+    </Style>
+
+    <!-- Subdued label — readable on dark but not competing with values -->
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="#8BA3C7" />
+    </Style>
+
+    <!-- Small all-caps category label above stat values -->
+    <Style Selector="TextBlock.eyebrow">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="#5E7EA8" />
+        <Setter Property="LetterSpacing" Value="1" />
+    </Style>
+
+    <!-- ── Buttons ────────────────────────────────────────────────────── -->
+    <Style Selector="Button.action-button">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="18,9" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style Selector="Button.action-button:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+
+    <!-- Refresh — steel blue outline style -->
+    <Style Selector="Button.secondary-action">
+        <Setter Property="Background" Value="#162032" />
+        <Setter Property="Foreground" Value="#93C5FD" />
+        <Setter Property="BorderBrush" Value="#2563EB" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- Start Capture — solid blue -->
+    <Style Selector="Button.primary-action">
+        <Setter Property="Background" Value="#2563EB" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <!-- Stop — dark neutral -->
+    <Style Selector="Button.neutral-action">
+        <Setter Property="Background" Value="#1E293B" />
+        <Setter Property="Foreground" Value="#CBD5E1" />
+        <Setter Property="BorderBrush" Value="#334155" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- ── Input controls ────────────────────────────────────────────── -->
+    <Style Selector="ComboBox.capture-device-picker">
+        <Setter Property="MinHeight" Value="42" />
+    </Style>
+
+    <Style Selector="TextBox.log-box">
+        <Setter Property="Background" Value="#080F1C" />
+        <Setter Property="Foreground" Value="#CBD5E1" />
+        <Setter Property="BorderBrush" Value="#1E3A5F" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="14" />
+        <Setter Property="FontFamily" Value="Consolas,Menlo,monospace" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- ── Badge pill ─────────────────────────────────────────────────── -->
+    <Style Selector="Border.badge-pill">
+        <Setter Property="Background" Value="#0F1F36" />
+        <Setter Property="BorderBrush" Value="#1E3A5F" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="999" />
+    </Style>
+
+    <!-- ── Overlay window ─────────────────────────────────────────────── -->
+    <Style Selector="Window.overlay-shell">
+        <Setter Property="TransparencyBackgroundFallback" Value="#01000000" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Border.overlay-card">
+        <Setter Property="Background" Value="#CC0A1628" />
+        <Setter Property="BorderBrush" Value="#3B82F6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Padding" Value="22,16" />
+        <Setter Property="BoxShadow" Value="0 16 48 0 #88000000" />
+    </Style>
+
+    <Style Selector="TextBlock.overlay-kicker">
+        <Setter Property="Foreground" Value="#93C5FD" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style Selector="TextBlock.overlay-original">
+        <Setter Property="Foreground" Value="#F0F4FF" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="TextBlock.overlay-translated">
+        <Setter Property="Foreground" Value="#BAE6FD" />
+        <Setter Property="FontSize" Value="22" />
+    </Style>
+
+    <Style Selector="TextBlock.overlay-partial">
+        <Setter Property="Foreground" Value="#60A5FA" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontStyle" Value="Italic" />
+    </Style>
+</Styles>

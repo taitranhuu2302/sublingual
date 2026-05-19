@@ -14,29 +14,26 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Define consistent namespace, folder, and file naming conventions
   - Normalize project references according to the architecture layers
 
-- [ ] Set up dependency injection and application bootstrap
-  - Choose a simple DI mechanism for the Avalonia application
-  - Register services for audio capture, STT, translation, and overlay state
-  - Separate startup flow for development and production modes
+- [x] Set up dependency injection and application bootstrap
+  - `Microsoft.Extensions.DependencyInjection` used as DI mechanism
+  - Services registered: audio capture, STT, translation, overlay state (`AudioCaptureDebugSession`)
+  - Design-time / platform-switch startup flow implemented in `AppBootstrapper`
 
 ## 2. UI Shell
 
-- [ ] Complete the Avalonia application shell
-  - Main window with a clear lifecycle
-  - Separate overlay window lifecycle
-  - Optional settings/debug window
+- [x] Complete the Avalonia application shell
+  - `MainWindow` (SukiWindow with gradient background) with clear lifecycle
+  - `OverlayWindow` (transparent, borderless, always-on-top) lifecycle
+  - Both opened and disposed via `App.axaml.cs` using `AppBootstrapper`
 
-- [ ] Create the overlay subtitle window
-  - Borderless
-  - Transparent
-  - Always on top
-  - Click-through when needed
-  - Draggable / positionable
+- [x] Create the overlay subtitle window
+  - Borderless, transparent, always on top
+  - Click-through not yet implemented
+  - Draggable / positionable not yet implemented
 
-- [ ] Create the overlay view model
-  - Show partial text
-  - Show final subtitles
-  - Update in real time when new transcripts arrive
+- [x] Create the overlay view model
+  - Shows partial text, final subtitles, and translated text
+  - Updates in real time via `AudioCaptureDebugSession.TranscriptPreviewUpdated` event
 
 - [ ] Create a debug/status panel
   - Show the currently selected source
@@ -112,9 +109,9 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Convert to `16kHz mono`
   - Handle different sample rates across Windows and macOS
 
-- [ ] Create a chunking strategy
-  - Fixed windows
-  - Ability to move to a sliding-window strategy later if needed
+- [x] Create a chunking strategy
+  - `FixedWindowAudioChunkProcessor` (750ms default) implemented in `Sublingual.Infrastructure`
+  - Sliding-window strategy deferred
 
 - [ ] Add Voice Activity Detection when needed
   - Split chunks more intelligently
