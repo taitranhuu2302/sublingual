@@ -22,24 +22,26 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 ## 2. UI Shell
 
 - [x] Complete the Avalonia application shell
-  - `MainWindow` (SukiWindow with gradient background) with clear lifecycle
-  - `OverlayWindow` (transparent, borderless, always-on-top) lifecycle
-  - Both opened and disposed via `App.axaml.cs` using `AppBootstrapper`
+  - `MainWindow` now uses a sidebar layout with `Capture` and `Overlay` tabs
+  - `OverlayWindow` lifecycle is managed via toggle, not auto-shown on startup
+  - Both are wired/disposed via `App.axaml.cs` using `AppBootstrapper`
 
 - [x] Create the overlay subtitle window
   - Borderless, transparent, always on top
+  - Draggable via pointer drag anywhere on the window
+  - Manual close is intercepted and converted into hide to keep the shared instance alive
   - Click-through not yet implemented
-  - Draggable / positionable not yet implemented
 
 - [x] Create the overlay view model
-  - Shows partial text, final subtitles, and translated text
+  - Shows placeholder text, partial/final captions, and translated text
+  - Supports overlay font size, width, height, theme, and opacity state
   - Updates in real time via `AudioCaptureDebugSession.TranscriptPreviewUpdated` event
 
-- [ ] Create a debug/status panel
-  - Show the currently selected source
-  - Show capture status
-  - Show partial/final transcript output for debugging
-  - Show runtime errors and guidance
+- [x] Create a debug/status panel
+  - Device picker, capture controls, and runtime log exist in `Capture` tab
+  - Capture status, audio level meter, peak level, chunk count, and transcript preview are surfaced
+  - Empty/placeholder-heavy blocks were reduced or hidden when they have no value
+  - Still needs better runtime guidance / structured error presentation
 
 ## 3. Audio Domain Model
 
@@ -150,21 +152,24 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 9. Overlay Rendering
 
-- [ ] Render subtitles in real time
-  - Separate style for partial text
-  - Separate style for final text
-  - Show original and translated text together
+- [x] Render subtitles in real time
+  - Overlay now renders placeholder, current caption text, and translated text in real time
+  - Partial/final text are merged into a single main caption display for a cleaner live-caption feel
+  - Original and translated text can both be shown together
 
-- [ ] Improve readability
-  - Font size
-  - Stroke / shadow / background
-  - Spacing
-  - Optional fade in/out
+- [x] Improve readability
+  - Font size is configurable from the `Overlay` tab
+  - Overlay has themed card backgrounds, shadow, close button, and compact caption layout
+  - Spacing was tightened and non-essential footer chrome removed
+  - Fade in/out not implemented yet
 
 - [ ] Add overlay options
-  - Auto-hide
-  - Position persistence
-  - Display mode: bilingual / original only / translated only
+  - Theme: `Dark` / `Light` implemented
+  - Opacity implemented
+  - Width / height implemented
+  - Auto-hide not implemented
+  - Position persistence not implemented
+  - Display mode: bilingual / original only / translated only not implemented
 
 ## 10. Settings and Configuration
 
@@ -172,7 +177,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - STT provider
   - Translation provider
   - API keys
-  - Overlay settings
+  - Overlay settings: size, theme, opacity, font size, position
   - Audio capture preferences
 
 - [ ] Persist settings
@@ -180,9 +185,9 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Safe load/save behavior
 
 - [ ] Create the settings UI
-  - API key form
-  - Overlay preferences
-  - Audio source preferences
+  - Sidebar/tab shell is now in place and can host future settings pages
+  - Overlay preferences currently live inside the `Overlay` tab
+  - API key form and audio source preferences still need dedicated settings UI
 
 ## 11. Session History and Persistence
 
@@ -253,6 +258,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 - [ ] 3. Build the audio processing pipeline and save-to-file verification
 - [ ] 4. Integrate STT and translation APIs
 - [ ] 5. Render the real overlay subtitle flow
+  - Current overlay is now interactive and visually closer to a live-caption panel, but still uses mock transcript/translation data
 - [ ] 6. Implement the macOS `ScreenCaptureKit + P/Invoke` bridge
 - [ ] 7. Add settings, persistence, and history
 - [ ] 8. Finish packaging and documentation

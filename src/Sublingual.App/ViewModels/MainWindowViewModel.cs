@@ -1,22 +1,30 @@
-﻿using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.Domain.Audio;
+using Sublingual.Domain.Transcription;
 
 namespace Sublingual.App.ViewModels;
 
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioCaptureDebugSession _session;
-    private readonly string _outputPath;
+    private readonly SpeechToTextModelCatalog _modelCatalog;
+    private readonly CaptureSessionStorage _sessionStorage;
+    private readonly AppSettingsStore _settingsStore;
+    private readonly ITranscriptionService? _transcriptionService;
+    private readonly string _sessionsRoot;
+    private readonly List<CaptureSessionItemViewModel> _allSavedSessions = [];
+    private string _outputPath;
     private long _totalBytesCaptured;
     private int _chunkCount;
     private bool _disposed;
 
-    // Wired by App.axaml.cs to show/hide the overlay window
     public Action? ToggleOverlayAction { get; set; }
 
     [ObservableProperty] private bool isBusy;
@@ -42,17 +50,33 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string partialTranslatedTranscript;
     [ObservableProperty] private string finalTranslatedTranscript;
 
-    // Overlay settings — bound in the Overlay tab
     [ObservableProperty] private double overlayFontSize = 26;
     [ObservableProperty] private double overlayWidth = 720;
     [ObservableProperty] private double overlayHeight = 200;
     [ObservableProperty] private string overlayTheme = "Dark";
     [ObservableProperty] private double overlayOpacity = 0.88;
 
-    // Sidebar navigation
     [ObservableProperty] private string activeTab = "capture";
+    [ObservableProperty] private SpeechToTextModelOption? selectedSpeechToTextModel;
+    [ObservableProperty] private string sessionsDirectoryPath;
+    [ObservableProperty] private string speechToTextStatus;
+    [ObservableProperty] private CaptureSessionItemViewModel? selectedSavedSession;
+    [ObservableProperty] private string sessionSearchText = string.Empty;
+    [ObservableProperty] private string selectedSessionModelName = "Unknown";
+    [ObservableProperty] private string selectedSessionDeviceName = "Unknown";
+    [ObservableProperty] private string selectedSessionLanguage = "en";
+    [ObservableProperty] private string selectedSessionDurationText = "0.0 s";
+    [ObservableProperty] private string selectedSessionAudioPath = string.Empty;
+    [ObservableProperty] private string selectedSessionTranscriptPath = string.Empty;
 
-    // Computed visibility helpers
+    public ObservableCollection<AudioDeviceItemViewModel> Devices { get; }
+    public ObservableCollection<SpeechToTextModelOption> SpeechToTextModels { get; }
+    public ObservableCollection<CaptureSessionItemViewModel> SavedSessions { get; }
+    public ObservableCollection<SavedTranscriptEntryViewModel> SelectedSessionTranscriptEntries { get; }
+
+    public bool HasDevices => Devices.Count > 0;
+    public bool CanStartCapture => !IsBusy && !IsCapturing && HasDevices;
+    public bool CanStopCapture => !IsBusy && IsCapturing;
     public bool HasRuntimeLog => !string.IsNullOrWhiteSpace(RuntimeLog);
     public bool HasTranscript => !string.IsNullOrWhiteSpace(PartialTranscript) || !string.IsNullOrWhiteSpace(FinalTranscript);
     public bool HasPartialTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedTranscript);
@@ -60,20 +84,36 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public string OverlayToggleLabel => IsOverlayVisible ? "Hide Overlay" : "Show Overlay";
     public bool IsCaptureTabActive => string.Equals(ActiveTab, "capture", StringComparison.OrdinalIgnoreCase);
     public bool IsOverlayTabActive => string.Equals(ActiveTab, "overlay", StringComparison.OrdinalIgnoreCase);
+    public bool HasSavedSessions => SavedSessions.Count > 0;
+    public bool NoSavedSessions => !HasSavedSessions;
+    public bool HasSelectedSessions => SavedSessions.Any(session => session.IsSelected);
+    public bool HasSelectedSavedSession => SelectedSavedSession is not null;
+    public bool HasSelectedSessionTranscriptEntries => SelectedSessionTranscriptEntries.Count > 0;
+    public bool NoSelectedSessionTranscriptEntries => !HasSelectedSessionTranscriptEntries;
+    public string SelectedSessionEntryCountText => $"{SelectedSessionTranscriptEntries.Count} transcript entr{(SelectedSessionTranscriptEntries.Count == 1 ? "y" : "ies")}";
 
-    [RelayCommand]
-    private void SelectTab(string tab)
-    {
-        ActiveTab = tab;
-    }
-
-    public MainWindowViewModel(AudioCaptureDebugSession session)
+    public MainWindowViewModel(
+        AudioCaptureDebugSession session,
+        SpeechToTextModelCatalog modelCatalog,
+        CaptureSessionStorage sessionStorage,
+        AppSettingsStore settingsStore,
+        ITranscriptionService? transcriptionService = null)
     {
         _session = session;
+        _modelCatalog = modelCatalog;
+        _sessionStorage = sessionStorage;
+        _settingsStore = settingsStore;
+        _transcriptionService = transcriptionService;
         _session.ChunkObserved += OnChunkObserved;
+
         _outputPath = Path.Combine(Environment.CurrentDirectory, "system-audio.wav");
+        _sessionsRoot = _sessionStorage.GetSessionsRoot();
 
         Devices = [];
+        SpeechToTextModels = [];
+        SavedSessions = [];
+        SelectedSessionTranscriptEntries = [];
+
         statusMessage = "Ready.";
         runtimeLog = string.Empty;
         outputFilePath = _outputPath;
@@ -88,29 +128,37 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         partialTranslatedTranscript = string.Empty;
         finalTranslatedTranscript = string.Empty;
         transcriptStatus = string.Empty;
+        sessionsDirectoryPath = _sessionsRoot;
+        speechToTextStatus = _transcriptionService is VoskTranscriptionService vosk
+            ? $"Active model: {vosk.CurrentModelName}"
+            : "Speech-to-text provider ready.";
+
+        LoadSpeechToTextModels();
+        LoadSavedSessions();
 
         _session.TranscriptPreviewUpdated += OnTranscriptPreviewUpdated;
         PropertyChanged += OnPropertyChanged;
         _ = LoadDevicesAsync();
     }
 
-    // Design-time constructor
     public MainWindowViewModel()
-        : this(CreateDesignTimeSession())
+        : this(
+            CreateDesignTimeSession(),
+            new SpeechToTextModelCatalog(),
+            new CaptureSessionStorage(),
+            new AppSettingsStore())
     {
     }
 
-    public ObservableCollection<AudioDeviceItemViewModel> Devices { get; }
-
-    public bool HasDevices => Devices.Count > 0;
-    public bool CanStartCapture => !IsBusy && !IsCapturing && HasDevices;
-    public bool CanStopCapture => !IsBusy && IsCapturing;
+    [RelayCommand]
+    private void SelectTab(string tab) => ActiveTab = tab;
 
     [RelayCommand(CanExecute = nameof(CanStartCapture))]
     private async Task StartCaptureAsync()
     {
         await RunBusyOperationAsync(async () =>
         {
+            _outputPath = _sessionStorage.CreateSessionOutputPath();
             _chunkCount = 0;
             _totalBytesCaptured = 0;
             ChunkCount = 0;
@@ -124,10 +172,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             FinalTranslatedTranscript = string.Empty;
             TranscriptStatus = string.Empty;
             RuntimeLog = "Starting capture...";
+            OutputFilePath = _outputPath;
 
             await _session.StartAsync(
                 string.IsNullOrWhiteSpace(SelectedDevice?.Id) ? null : SelectedDevice.Id,
+                SelectedDeviceName,
                 _outputPath);
+
+            LoadSavedSessions();
+            SelectedSavedSession = SavedSessions.FirstOrDefault(session =>
+                string.Equals(session.AudioPath, _outputPath, StringComparison.OrdinalIgnoreCase));
 
             IsCapturing = true;
             CaptureState = _session.State.ToString();
@@ -163,6 +217,127 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleOverlayAction?.Invoke();
     }
 
+    [RelayCommand]
+    private void ClearSavedSessions()
+    {
+        var deletedCount = _sessionStorage.ClearAllSessions();
+        LoadSavedSessions();
+        RuntimeLog = deletedCount == 0
+            ? $"No saved sessions found in {_sessionsRoot}"
+            : $"Deleted {deletedCount} saved session(s) from {_sessionsRoot}";
+    }
+
+    [RelayCommand]
+    private void RefreshSavedSessions()
+    {
+        LoadSavedSessions();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSessions))]
+    private void DeleteSelectedSessions()
+    {
+        var selectedPaths = SavedSessions
+            .Where(session => session.IsSelected)
+            .Select(session => session.DirectoryPath)
+            .ToList();
+
+        var deletedCount = _sessionStorage.DeleteSessions(selectedPaths);
+        LoadSavedSessions();
+        LoadSelectedSessionTranscript();
+        RuntimeLog = deletedCount == 0
+            ? "No selected sessions were deleted."
+            : $"Deleted {deletedCount} selected session(s).";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
+    private void OpenSelectedSessionFolder()
+    {
+        if (SelectedSavedSession is null)
+        {
+            return;
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{SelectedSavedSession.DirectoryPath}\"",
+            UseShellExecute = true,
+        };
+
+        Process.Start(psi);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
+    private void PlaySelectedSessionAudio()
+    {
+        if (SelectedSavedSession is null || !File.Exists(SelectedSavedSession.AudioPath))
+        {
+            RuntimeLog = "Selected session audio file was not found.";
+            return;
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = SelectedSavedSession.AudioPath,
+            UseShellExecute = true,
+        };
+
+        Process.Start(psi);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
+    private void DeleteCurrentSession()
+    {
+        if (SelectedSavedSession is null)
+        {
+            return;
+        }
+
+        var deletedCount = _sessionStorage.DeleteSessions([SelectedSavedSession.DirectoryPath]);
+        LoadSavedSessions();
+        RuntimeLog = deletedCount == 0
+            ? "Current session was not deleted."
+            : "Current session deleted.";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
+    private void ExportSelectedSessionTranscriptAsTxt()
+    {
+        if (SelectedSavedSession is null)
+        {
+            return;
+        }
+
+        var transcriptEntries = _sessionStorage.GetTranscriptEntries(SelectedSavedSession.TranscriptPath);
+        var exportPath = Path.Combine(SelectedSavedSession.DirectoryPath, "transcript.txt");
+        var lines = transcriptEntries.SelectMany(entry =>
+        {
+            var result = new List<string> { $"[{entry.UpdatedAt:yyyy-MM-dd HH:mm:ss}]" };
+            if (!string.IsNullOrWhiteSpace(entry.PartialText)) result.Add($"Partial: {entry.PartialText}");
+            if (!string.IsNullOrWhiteSpace(entry.PartialTranslatedText)) result.Add($"Partial Translation: {entry.PartialTranslatedText}");
+            if (!string.IsNullOrWhiteSpace(entry.FinalText)) result.Add($"Final: {entry.FinalText}");
+            if (!string.IsNullOrWhiteSpace(entry.FinalTranslatedText)) result.Add($"Final Translation: {entry.FinalTranslatedText}");
+            result.Add(string.Empty);
+            return result;
+        });
+
+        File.WriteAllLines(exportPath, lines);
+        RuntimeLog = $"Exported transcript txt to {exportPath}";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
+    private void ExportSelectedSessionTranscriptAsJson()
+    {
+        if (SelectedSavedSession is null)
+        {
+            return;
+        }
+
+        var exportPath = Path.Combine(SelectedSavedSession.DirectoryPath, "transcript-export.json");
+        File.Copy(SelectedSavedSession.TranscriptPath, exportPath, true);
+        RuntimeLog = $"Exported transcript json to {exportPath}";
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -173,6 +348,128 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _disposed = true;
     }
 
+    private void LoadSpeechToTextModels()
+    {
+        SpeechToTextModels.Clear();
+        foreach (var model in _modelCatalog.GetAvailableModels())
+        {
+            SpeechToTextModels.Add(model);
+        }
+
+        var selectedModelName = _settingsStore.Load().SpeechToText.SelectedModel;
+        SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(model =>
+                string.Equals(model.Name, selectedModelName, StringComparison.OrdinalIgnoreCase))
+            ?? SpeechToTextModels.FirstOrDefault(model =>
+                string.Equals(model.Name, "default", StringComparison.OrdinalIgnoreCase))
+            ?? SpeechToTextModels.FirstOrDefault();
+
+        if (SelectedSpeechToTextModel is not null)
+        {
+            SpeechToTextStatus = $"Selected model: {SelectedSpeechToTextModel.Name}";
+        }
+    }
+
+    private void LoadSavedSessions()
+    {
+        var preferredSelectedPath = SelectedSavedSession?.DirectoryPath;
+
+        foreach (var existingSession in _allSavedSessions)
+        {
+            existingSession.PropertyChanged -= OnSavedSessionPropertyChanged;
+        }
+
+        _allSavedSessions.Clear();
+        foreach (var session in _sessionStorage.GetSessions())
+        {
+            var item = new CaptureSessionItemViewModel(session);
+            item.PropertyChanged += OnSavedSessionPropertyChanged;
+            _allSavedSessions.Add(item);
+        }
+
+        ApplySavedSessionsFilter(preferredSelectedPath);
+    }
+
+    partial void OnSessionSearchTextChanged(string value)
+    {
+        ApplySavedSessionsFilter(SelectedSavedSession?.DirectoryPath);
+    }
+
+    private void ApplySavedSessionsFilter(string? preferredSelectedPath)
+    {
+        SavedSessions.Clear();
+
+        var filtered = string.IsNullOrWhiteSpace(SessionSearchText)
+            ? _allSavedSessions
+            : _allSavedSessions.Where(session =>
+                session.SessionId.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.AudioPath.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.CreatedAtText.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        foreach (var session in filtered)
+        {
+            SavedSessions.Add(session);
+        }
+
+        SelectedSavedSession = SavedSessions.FirstOrDefault(session =>
+                string.Equals(session.DirectoryPath, preferredSelectedPath, StringComparison.OrdinalIgnoreCase))
+            ?? SavedSessions.FirstOrDefault();
+
+        LoadSelectedSessionTranscript();
+
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSavedSessions)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(NoSavedSessions)));
+        DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
+    }
+
+    private void LoadSelectedSessionTranscript()
+    {
+        SelectedSessionTranscriptEntries.Clear();
+
+        if (SelectedSavedSession is null)
+        {
+            SelectedSessionModelName = "Unknown";
+            SelectedSessionDeviceName = "Unknown";
+            SelectedSessionLanguage = "en";
+            SelectedSessionDurationText = "0.0 s";
+            SelectedSessionAudioPath = string.Empty;
+            SelectedSessionTranscriptPath = string.Empty;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSavedSession)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessionTranscriptEntries)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(NoSelectedSessionTranscriptEntries)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedSessionEntryCountText)));
+            OpenSelectedSessionFolderCommand.NotifyCanExecuteChanged();
+            PlaySelectedSessionAudioCommand.NotifyCanExecuteChanged();
+            DeleteCurrentSessionCommand.NotifyCanExecuteChanged();
+            ExportSelectedSessionTranscriptAsTxtCommand.NotifyCanExecuteChanged();
+            ExportSelectedSessionTranscriptAsJsonCommand.NotifyCanExecuteChanged();
+            return;
+        }
+
+        var metadata = _sessionStorage.GetSessionMetadata(SelectedSavedSession.MetadataPath);
+        SelectedSessionModelName = metadata?.ModelName ?? "Unknown";
+        SelectedSessionDeviceName = metadata?.DeviceName ?? "Unknown";
+        SelectedSessionLanguage = metadata?.Language ?? "en";
+        SelectedSessionDurationText = $"{(metadata?.DurationSeconds ?? 0):0.0} s";
+        SelectedSessionAudioPath = SelectedSavedSession.AudioPath;
+        SelectedSessionTranscriptPath = SelectedSavedSession.TranscriptPath;
+
+        foreach (var entry in _sessionStorage.GetTranscriptEntries(SelectedSavedSession.TranscriptPath))
+        {
+            SelectedSessionTranscriptEntries.Add(new SavedTranscriptEntryViewModel(entry));
+        }
+
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSavedSession)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessionTranscriptEntries)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(NoSelectedSessionTranscriptEntries)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedSessionEntryCountText)));
+        OpenSelectedSessionFolderCommand.NotifyCanExecuteChanged();
+        PlaySelectedSessionAudioCommand.NotifyCanExecuteChanged();
+        DeleteCurrentSessionCommand.NotifyCanExecuteChanged();
+        ExportSelectedSessionTranscriptAsTxtCommand.NotifyCanExecuteChanged();
+        ExportSelectedSessionTranscriptAsJsonCommand.NotifyCanExecuteChanged();
+    }
+
     private async Task LoadDevicesAsync()
     {
         var devices = await _session.GetAvailableDevicesAsync();
@@ -181,7 +478,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             Devices.Clear();
             foreach (var device in devices)
+            {
                 Devices.Add(new AudioDeviceItemViewModel(device));
+            }
 
             var selected = Devices.FirstOrDefault(d => d.IsDefault) ?? Devices.FirstOrDefault();
             SelectedDevice = selected;
@@ -254,6 +553,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 FinalTranslatedTranscript = update.FinalTranslatedText;
             if (!string.IsNullOrWhiteSpace(update.FinalText) || !string.IsNullOrWhiteSpace(update.PartialText))
                 TranscriptStatus = $"Updated {update.UpdatedAt:HH:mm:ss}";
+
+            if (SelectedSavedSession is not null
+                && string.Equals(SelectedSavedSession.AudioPath, _outputPath, StringComparison.OrdinalIgnoreCase))
+            {
+                LoadSelectedSessionTranscript();
+            }
         });
     }
 
@@ -266,7 +571,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static double CalculateAudioLevelPercent(AudioChunk chunk)
     {
-        // IEEE Float 32-bit — WASAPI loopback default
         if (chunk.BitsPerSample == 32 && chunk.Data.Length >= 4)
         {
             var n = chunk.Data.Length / 4;
@@ -279,7 +583,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return Math.Clamp(Math.Sqrt(sum / n) * 100, 0, 100);
         }
 
-        // PCM 16-bit
         if (chunk.BitsPerSample == 16 && chunk.Data.Length >= 2)
         {
             var n = chunk.Data.Length / 2;
@@ -313,6 +616,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (e.PropertyName == nameof(SelectedDeviceId))
             StartCaptureCommand.NotifyCanExecuteChanged();
 
+        if (e.PropertyName == nameof(SelectedSpeechToTextModel) && SelectedSpeechToTextModel is not null)
+        {
+            var settings = _settingsStore.Load();
+            settings.SpeechToText.SelectedModel = SelectedSpeechToTextModel.Name;
+            _settingsStore.Save(settings);
+            SpeechToTextStatus = $"Selected model: {SelectedSpeechToTextModel.Name}";
+        }
+
+        if (e.PropertyName == nameof(SelectedSavedSession))
+        {
+            LoadSelectedSessionTranscript();
+        }
+
         if (e.PropertyName is nameof(RuntimeLog))
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasRuntimeLog)));
 
@@ -335,6 +651,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void OnSavedSessionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CaptureSessionItemViewModel.IsSelected))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessions)));
+            DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
     private static AudioCaptureDebugSession CreateDesignTimeSession()
     {
         var captureService = DesignTimeAudioCaptureService.Instance;
@@ -345,7 +670,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             new Sublingual.Application.Audio.ProcessAudioChunkUseCase(
                 new Sublingual.Infrastructure.Audio.Processing.PassthroughAudioChunkProcessor()),
             new Sublingual.Application.Audio.TranscribeAudioChunkUseCase(new MockTranscriptionService()),
-            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()));
+            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()),
+            new CaptureSessionStorage());
     }
 }
 
@@ -355,4 +681,50 @@ public sealed class AudioDeviceItemViewModel(AudioDevice device)
     public string Name { get; } = device.Name;
     public bool IsDefault { get; } = device.IsDefault;
     public string DisplayName => IsDefault ? $"{Name} (Default)" : Name;
+}
+
+public sealed partial class CaptureSessionItemViewModel : ObservableObject
+{
+    public CaptureSessionItemViewModel(CaptureSessionRecord record)
+    {
+        SessionId = record.SessionId;
+        DirectoryPath = record.DirectoryPath;
+        AudioPath = record.AudioPath;
+        TranscriptPath = record.TranscriptPath;
+        MetadataPath = record.MetadataPath;
+        CreatedAt = record.CreatedAt;
+    }
+
+    [ObservableProperty] private bool isSelected;
+
+    public string SessionId { get; }
+    public string DirectoryPath { get; }
+    public string AudioPath { get; }
+    public string TranscriptPath { get; }
+    public string MetadataPath { get; }
+    public DateTimeOffset CreatedAt { get; }
+    public string CreatedAtText => CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+}
+
+public sealed class SavedTranscriptEntryViewModel
+{
+    public SavedTranscriptEntryViewModel(SavedTranscriptEntry entry)
+    {
+        PartialText = entry.PartialText;
+        PartialTranslatedText = entry.PartialTranslatedText;
+        FinalText = entry.FinalText;
+        FinalTranslatedText = entry.FinalTranslatedText;
+        UpdatedAt = entry.UpdatedAt;
+    }
+
+    public string PartialText { get; }
+    public string PartialTranslatedText { get; }
+    public string FinalText { get; }
+    public string FinalTranslatedText { get; }
+    public DateTimeOffset UpdatedAt { get; }
+    public string UpdatedAtText => UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public bool HasPartial => !string.IsNullOrWhiteSpace(PartialText);
+    public bool HasPartialTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedText);
+    public bool HasFinal => !string.IsNullOrWhiteSpace(FinalText);
+    public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedText);
 }

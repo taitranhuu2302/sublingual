@@ -13,6 +13,8 @@ public sealed class AppBootstrapper : IDisposable
 {
     private readonly ServiceProvider _serviceProvider;
 
+    public IServiceProvider Services => _serviceProvider;
+
     public AppBootstrapper()
     {
         var services = new ServiceCollection();
@@ -55,7 +57,10 @@ public sealed class AppBootstrapper : IDisposable
     {
         services.AddSingleton<IAudioCaptureService>(_ => CreateAudioCaptureService());
         services.AddSingleton<IAudioChunkProcessor, FixedWindowAudioChunkProcessor>();
-        services.AddSingleton<ITranscriptionService, MockTranscriptionService>();
+        services.AddSingleton<SpeechToTextModelCatalog>();
+        services.AddSingleton<CaptureSessionStorage>();
+        services.AddSingleton<VoskTranscriptionService>();
+        services.AddSingleton<ITranscriptionService>(provider => provider.GetRequiredService<VoskTranscriptionService>());
         services.AddSingleton<ITranslationService, MockTranslationService>();
 
         services.AddSingleton<Sublingual.Application.Audio.StartCaptureUseCase>();
@@ -64,6 +69,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<Sublingual.Application.Audio.TranscribeAudioChunkUseCase>();
         services.AddSingleton<Sublingual.Application.Audio.TranslateTranscriptUseCase>();
 
+        services.AddSingleton<AppSettingsStore>();
         services.AddSingleton<AudioCaptureDebugSession>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<OverlayWindowViewModel>();

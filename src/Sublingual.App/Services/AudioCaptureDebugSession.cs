@@ -12,8 +12,15 @@ public class AudioCaptureDebugSession : IDisposable
     private readonly Sublingual.Application.Audio.ProcessAudioChunkUseCase _processAudioChunkUseCase;
     private readonly Sublingual.Application.Audio.TranscribeAudioChunkUseCase _transcribeAudioChunkUseCase;
     private readonly Sublingual.Application.Audio.TranslateTranscriptUseCase _translateTranscriptUseCase;
+    private readonly CaptureSessionStorage _captureSessionStorage;
+    private readonly VoskTranscriptionService? _voskTranscriptionService;
     private readonly SemaphoreSlim _pipelineGate = new(1, 1);
     private WaveFileCaptureVerifier? _captureVerifier;
+    private string? _currentOutputPath;
+    private string _currentDeviceName = "Unknown";
+    private string _currentLanguage = "en";
+    private double _capturedDurationSeconds;
+    private DateTimeOffset _currentSessionCreatedAt;
     private bool _disposed;
 
     public AudioCaptureDebugSession(
@@ -22,7 +29,9 @@ public class AudioCaptureDebugSession : IDisposable
         Sublingual.Application.Audio.StopCaptureUseCase stopCaptureUseCase,
         Sublingual.Application.Audio.ProcessAudioChunkUseCase processAudioChunkUseCase,
         Sublingual.Application.Audio.TranscribeAudioChunkUseCase transcribeAudioChunkUseCase,
-        Sublingual.Application.Audio.TranslateTranscriptUseCase translateTranscriptUseCase)
+        Sublingual.Application.Audio.TranslateTranscriptUseCase translateTranscriptUseCase,
+        CaptureSessionStorage captureSessionStorage,
+        VoskTranscriptionService? voskTranscriptionService = null)
     {
         _audioCaptureService = audioCaptureService;
         _startCaptureUseCase = startCaptureUseCase;
@@ -30,6 +39,8 @@ public class AudioCaptureDebugSession : IDisposable
         _processAudioChunkUseCase = processAudioChunkUseCase;
         _transcribeAudioChunkUseCase = transcribeAudioChunkUseCase;
         _translateTranscriptUseCase = translateTranscriptUseCase;
+        _captureSessionStorage = captureSessionStorage;
+        _voskTranscriptionService = voskTranscriptionService;
 
         _audioCaptureService.AudioChunkCaptured += OnAudioChunkCaptured;
     }
@@ -45,10 +56,25 @@ public class AudioCaptureDebugSession : IDisposable
         return _audioCaptureService.GetAvailableDevicesAsync(AudioSourceType.System, cancellationToken);
     }
 
-    public async Task StartAsync(string? deviceId, string outputPath, CancellationToken cancellationToken = default)
+    public async Task StartAsync(string? deviceId, string deviceName, string outputPath, CancellationToken cancellationToken = default)
     {
         DisposeVerifier();
         _captureVerifier = new WaveFileCaptureVerifier(outputPath);
+        _currentOutputPath = outputPath;
+        _currentDeviceName = string.IsNullOrWhiteSpace(deviceName) ? "Unknown" : deviceName;
+        _currentLanguage = "en";
+        _capturedDurationSeconds = 0;
+        _currentSessionCreatedAt = DateTimeOffset.UtcNow;
+        _captureSessionStorage.SaveSessionMetadata(
+            outputPath,
+            new Models.CaptureSessionMetadata
+            {
+                ModelName = _voskTranscriptionService?.CurrentModelName ?? "Unknown",
+                DeviceName = _currentDeviceName,
+                Language = _currentLanguage,
+                DurationSeconds = 0,
+                CreatedAt = _currentSessionCreatedAt,
+            });
 
         await _startCaptureUseCase.ExecuteAsync(
             new AudioCaptureRequest(AudioSourceType.System, deviceId, 16_000, 1),
@@ -58,7 +84,23 @@ public class AudioCaptureDebugSession : IDisposable
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         await _stopCaptureUseCase.ExecuteAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(_currentOutputPath))
+        {
+            _captureSessionStorage.SaveSessionMetadata(
+                _currentOutputPath,
+                new Models.CaptureSessionMetadata
+                {
+                    ModelName = _voskTranscriptionService?.CurrentModelName ?? "Unknown",
+                    DeviceName = _currentDeviceName,
+                    Language = _currentLanguage,
+                    DurationSeconds = _capturedDurationSeconds,
+                    CreatedAt = _currentSessionCreatedAt,
+                });
+        }
+
         DisposeVerifier();
+        _currentOutputPath = null;
     }
 
     public void Dispose()
@@ -94,6 +136,7 @@ public class AudioCaptureDebugSession : IDisposable
             foreach (var chunk in processedChunks)
             {
                 _captureVerifier?.Append(chunk);
+                _capturedDurationSeconds += chunk.Duration.TotalSeconds;
                 ChunkObserved?.Invoke(this, chunk);
                 await PublishTranscriptPreviewAsync(chunk);
             }
@@ -129,14 +172,28 @@ public class AudioCaptureDebugSession : IDisposable
             : await _translateTranscriptUseCase.ExecuteAsync(
                 new TranslationRequest(translationTarget, "en", "vi"));
 
-        TranscriptPreviewUpdated?.Invoke(
-            this,
-            new TranscriptPreviewUpdate(
-                partialText,
-                string.IsNullOrWhiteSpace(finalText) ? translation.TranslatedText : string.Empty,
-                finalText,
-                string.IsNullOrWhiteSpace(finalText) ? string.Empty : translation.TranslatedText,
-                DateTimeOffset.Now));
+        var update = new TranscriptPreviewUpdate(
+            partialText,
+            string.IsNullOrWhiteSpace(finalText) ? translation.TranslatedText : string.Empty,
+            finalText,
+            string.IsNullOrWhiteSpace(finalText) ? string.Empty : translation.TranslatedText,
+            DateTimeOffset.Now);
+
+        if (!string.IsNullOrWhiteSpace(_currentOutputPath))
+        {
+            _captureSessionStorage.SaveTranscriptEntry(
+                _currentOutputPath,
+                new Models.SavedTranscriptEntry
+                {
+                    PartialText = update.PartialText,
+                    PartialTranslatedText = update.PartialTranslatedText,
+                    FinalText = update.FinalText,
+                    FinalTranslatedText = update.FinalTranslatedText,
+                    UpdatedAt = update.UpdatedAt,
+                });
+        }
+
+        TranscriptPreviewUpdated?.Invoke(this, update);
     }
 
     private void DisposeVerifier()

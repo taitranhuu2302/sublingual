@@ -30,30 +30,30 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Padding="0"
+                ClipToBounds="True"
                 CornerRadius="18"
-                Opacity="{Binding OverlayOpacity}"
-                Background="#D9161B24"
-                BorderBrush="#2C3645"
+                Background="{Binding DarkOverlayBackground}"
+                BorderBrush="{Binding DarkOverlayBorder}"
                 BorderThickness="1"
-                BoxShadow="0 18 45 0 #66000000"
+                BoxShadow="0 18 45 0 #5A000000"
                 IsVisible="{Binding IsDarkTheme}">
             <Grid RowDefinitions="Auto,*">
                 <Grid ColumnDefinitions="*,Auto" Margin="18,14,12,0">
                     <TextBlock Text="Live Caption"
                                FontSize="14"
                                FontWeight="Medium"
-                               Foreground="#D6DCE5" />
+                               Foreground="#E2E8F0" />
                     <Button Grid.Column="1"
-                            Width="34"
-                            Height="34"
-                            Padding="0"
-                            Background="#1E2834"
-                            BorderBrush="#2A3442"
-                            BorderThickness="1"
-                            CornerRadius="18"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            Click="OnCloseClicked">
+                             Width="34"
+                             Height="34"
+                             Padding="0"
+                             Background="{Binding DarkOverlayCloseBackground}"
+                             BorderBrush="{Binding DarkOverlayBorder}"
+                             BorderThickness="1"
+                             CornerRadius="17"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             Click="OnCloseClicked">
                         <TextBlock Text="×"
                                    FontSize="22"
                                    FontWeight="Bold"
@@ -68,7 +68,7 @@
                                FontSize="{Binding OverlayFontSize}"
                                FontWeight="SemiBold"
                                LineHeight="40"
-                               Foreground="#A8B6C7"
+                               Foreground="#CBD5E1"
                                TextWrapping="Wrap"
                                IsVisible="{Binding ShowPlaceholder}" />
 
@@ -76,14 +76,14 @@
                                FontSize="{Binding OverlayFontSize}"
                                FontWeight="Bold"
                                LineHeight="44"
-                               Foreground="#F8FAFC"
+                               Foreground="#FFFFFF"
                                TextWrapping="Wrap"
                                IsVisible="{Binding HasCaption}" />
 
                     <TextBlock Text="{Binding FinalTranslatedText}"
                                FontSize="{Binding OverlayTranslationFontSize}"
                                LineHeight="34"
-                               Foreground="#C9D8EA"
+                               Foreground="#E2E8F0"
                                TextWrapping="Wrap"
                                IsVisible="{Binding HasFinalTranslation}" />
                 </StackPanel>
@@ -94,10 +94,10 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Padding="0"
+                ClipToBounds="True"
                 CornerRadius="18"
-                Opacity="{Binding OverlayOpacity}"
-                Background="#F5F7FA"
-                BorderBrush="#D7E2F0"
+                Background="{Binding LightOverlayBackground}"
+                BorderBrush="{Binding LightOverlayBorder}"
                 BorderThickness="1"
                 BoxShadow="0 18 45 0 #33000000"
                 IsVisible="{Binding IsLightTheme}">
@@ -111,10 +111,10 @@
                             Width="34"
                             Height="34"
                             Padding="0"
-                            Background="#E5EAF1"
-                            BorderBrush="#D2DAE5"
+                            Background="{Binding LightOverlayCloseBackground}"
+                            BorderBrush="{Binding LightOverlayBorder}"
                             BorderThickness="1"
-                            CornerRadius="18"
+                            CornerRadius="17"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
                             Click="OnCloseClicked">
@@ -132,7 +132,7 @@
                                FontSize="{Binding OverlayFontSize}"
                                FontWeight="SemiBold"
                                LineHeight="40"
-                               Foreground="#64748B"
+                               Foreground="#475569"
                                TextWrapping="Wrap"
                                IsVisible="{Binding ShowPlaceholder}" />
 

@@ -29,6 +29,15 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public bool HasCaption => HasFinal || HasPartial;
     public bool ShowPlaceholder => !HasFinal && !HasPartial;
     public string DisplayCaptionText => HasFinal ? FinalOriginalText : PartialOriginalText;
+    public double OverlayShadowOpacity => Math.Clamp(0.18 + (OverlayOpacity * 0.32), 0.18, 0.5);
+
+    public string DarkOverlayBackground => ToHexColor(OverlayOpacity, 14, 19, 28);
+    public string DarkOverlayBorder => ToHexColor(Math.Clamp(OverlayOpacity + 0.08, 0.35, 1.0), 56, 70, 92);
+    public string DarkOverlayCloseBackground => ToHexColor(Math.Clamp(OverlayOpacity + 0.02, 0.35, 1.0), 28, 40, 55);
+
+    public string LightOverlayBackground => ToHexColor(Math.Clamp(0.80 + (OverlayOpacity * 0.18), 0.80, 0.98), 245, 247, 250);
+    public string LightOverlayBorder => ToHexColor(Math.Clamp(0.70 + (OverlayOpacity * 0.20), 0.70, 1.0), 210, 218, 229);
+    public string LightOverlayCloseBackground => ToHexColor(Math.Clamp(0.72 + (OverlayOpacity * 0.16), 0.72, 1.0), 229, 234, 241);
 
     public OverlayWindowViewModel(AudioCaptureDebugSession session)
     {
@@ -58,6 +67,17 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(IsDarkTheme));
         OnPropertyChanged(nameof(IsLightTheme));
+    }
+
+    partial void OnOverlayOpacityChanged(double value)
+    {
+        OnPropertyChanged(nameof(OverlayShadowOpacity));
+        OnPropertyChanged(nameof(DarkOverlayBackground));
+        OnPropertyChanged(nameof(DarkOverlayBorder));
+        OnPropertyChanged(nameof(DarkOverlayCloseBackground));
+        OnPropertyChanged(nameof(LightOverlayBackground));
+        OnPropertyChanged(nameof(LightOverlayBorder));
+        OnPropertyChanged(nameof(LightOverlayCloseBackground));
     }
 
     partial void OnFinalOriginalTextChanged(string value)
@@ -105,6 +125,13 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             new Sublingual.Application.Audio.ProcessAudioChunkUseCase(
                 new Sublingual.Infrastructure.Audio.Processing.PassthroughAudioChunkProcessor()),
             new Sublingual.Application.Audio.TranscribeAudioChunkUseCase(new MockTranscriptionService()),
-            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()));
+            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()),
+            new CaptureSessionStorage());
+    }
+
+    private static string ToHexColor(double opacity, byte red, byte green, byte blue)
+    {
+        var alpha = (byte)Math.Clamp((int)Math.Round(opacity * 255), 0, 255);
+        return $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
     }
 }
