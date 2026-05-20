@@ -45,42 +45,38 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:OverlayTranscriptLineViewModel">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding OriginalText}"
+                                        <SelectableTextBlock Text="{Binding OriginalText}"
                                                    FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
-                                                   FontWeight="Bold"
-                                                   LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
-                                                   Foreground="#FFFFFF"
-                                                   TextWrapping="Wrap"
-                                                   IsTextSelectionEnabled="True" />
-                                        <TextBlock Text="{Binding TranslatedText}"
+                                                    FontWeight="Bold"
+                                                    LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                    Foreground="#FFFFFF"
+                                                   TextWrapping="Wrap" />
+                                        <SelectableTextBlock Text="{Binding TranslatedText}"
                                                    FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                   LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                   Foreground="#E2E8F0"
+                                                    LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                    Foreground="#E2E8F0"
                                                    TextWrapping="Wrap"
-                                                   IsTextSelectionEnabled="True"
                                                    IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Text="Listening for live speech..."
+                        <SelectableTextBlock Text="Listening for live speech..."
                                    FontSize="{Binding OverlayFontSize}"
-                                    FontWeight="SemiBold"
-                                   LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                   Foreground="#CBD5E1"
-                                   TextWrapping="Wrap"
-                                   IsTextSelectionEnabled="True"
-                                   IsVisible="{Binding ShowPlaceholder}" />
-
-                        <TextBlock Text="{Binding PartialOriginalText}"
-                                   FontSize="{Binding OverlayFontSize}"
-                                     FontWeight="Bold"
-                                     LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                     Foreground="#FFFFFF"
+                                     FontWeight="SemiBold"
+                                    LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                    Foreground="#CBD5E1"
                                      TextWrapping="Wrap"
-                                     IsTextSelectionEnabled="True"
-                                     IsVisible="{Binding HasPartial}" />
+                                    IsVisible="{Binding ShowPlaceholder}" />
+
+                        <SelectableTextBlock Text="{Binding PartialOriginalText}"
+                                    FontSize="{Binding OverlayFontSize}"
+                                      FontWeight="Bold"
+                                      LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                      Foreground="#FFFFFF"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding HasPartial}" />
                     </StackPanel>
                 </ScrollViewer>
 
@@ -128,42 +124,38 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:OverlayTranscriptLineViewModel">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding OriginalText}"
+                                        <SelectableTextBlock Text="{Binding OriginalText}"
                                                    FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
-                                                   FontWeight="Bold"
-                                                   LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
-                                                   Foreground="#0F172A"
-                                                   TextWrapping="Wrap"
-                                                   IsTextSelectionEnabled="True" />
-                                        <TextBlock Text="{Binding TranslatedText}"
+                                                    FontWeight="Bold"
+                                                    LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                    Foreground="#0F172A"
+                                                   TextWrapping="Wrap" />
+                                        <SelectableTextBlock Text="{Binding TranslatedText}"
                                                    FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                   LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                   Foreground="#475569"
+                                                    LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                    Foreground="#475569"
                                                    TextWrapping="Wrap"
-                                                   IsTextSelectionEnabled="True"
                                                    IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Text="Listening for live speech..."
+                        <SelectableTextBlock Text="Listening for live speech..."
                                    FontSize="{Binding OverlayFontSize}"
-                                    FontWeight="SemiBold"
-                                   LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                   Foreground="#475569"
-                                   TextWrapping="Wrap"
-                                   IsTextSelectionEnabled="True"
-                                   IsVisible="{Binding ShowPlaceholder}" />
+                                     FontWeight="SemiBold"
+                                    LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                    Foreground="#475569"
+                                    TextWrapping="Wrap"
+                                    IsVisible="{Binding ShowPlaceholder}" />
 
-                        <TextBlock Text="{Binding PartialOriginalText}"
-                                   FontSize="{Binding OverlayFontSize}"
-                                     FontWeight="Bold"
-                                     LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                     Foreground="#0F172A"
-                                     TextWrapping="Wrap"
-                                     IsTextSelectionEnabled="True"
-                                     IsVisible="{Binding HasPartial}" />
+                        <SelectableTextBlock Text="{Binding PartialOriginalText}"
+                                    FontSize="{Binding OverlayFontSize}"
+                                      FontWeight="Bold"
+                                      LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                      Foreground="#0F172A"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding HasPartial}" />
                     </StackPanel>
                 </ScrollViewer>
 

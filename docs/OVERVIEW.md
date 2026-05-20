@@ -29,12 +29,12 @@ Capturing system audio natively is the biggest technical challenge across differ
     *   **API:** Apple `ScreenCaptureKit` (macOS 13.0+).
     *   **Bridge:** .NET `P/Invoke` (`[DllImport]`) is used to call the C++ audio buffer callback directly into C#.
 
-### 2.4. AI Processing Layer (Optimized for Free-Tier / Low Latency)
-To keep infrastructure costs at zero while maintaining real-time performance (< 500ms latency):
-*   **Speech-to-Text (STT):** **Groq API** (running Whisper Large V3).
-    *   *Implementation:* Audio is chunked (e.g., every 2 seconds) and sent via HTTP/WebSocket. Groq provides ultra-fast inference with a generous free tier.
-*   **Translation Engine:** **Cloudflare Workers AI** (Meta M2M100 model) or **Google Gemini API** (Flash 1.5).
-    *   *Implementation:* Translates the transcribed text string asynchronously. Both offer massive free daily quotas suitable for real-time processing.
+### 2.4. AI Processing Layer
+*   **Speech-to-Text (STT):** **Vosk** local speech recognition.
+    *   *Implementation:* Audio is chunked in-process and transcribed locally without a hosted STT dependency.
+*   **Translation Engine:** Settings-driven provider factory.
+    *   *Initial providers:* `GoogleTranslateFreeApi` and `LibreTranslate`.
+    *   *Implementation:* The app resolves one provider or an ordered fallback chain from settings, then translates the transcript text asynchronously.
 
 ---
 
@@ -48,9 +48,9 @@ Graph TD
     WinAudio --> AudioBuffer[C# Audio Buffer Manager]
     MacAudio -- P/Invoke --> AudioBuffer
     
-    AudioBuffer -- "Chunking (2s)" --> STT_API[Groq API / Whisper]
+    AudioBuffer -- "Chunking" --> STT_API[Vosk]
     
-    STT_API -- Original Text --> Translator[Cloudflare AI / Gemini]
+    STT_API -- Original Text --> Translator[Translation Provider Factory]
     
     Translator -- Translated Text --> ViewModel[Avalonia MVVM]
     ViewModel --> UI[Avalonia Transparent Overlay]
@@ -60,8 +60,8 @@ Graph TD
 1. **Init:** The Avalonia app launches a borderless, transparent window overlay.
 2. **Capture:** The OS-specific audio module hooks into the system output and streams raw PCM Float32 audio data into the C# buffer.
 3. **Process:** C# logic downsamples the audio to 16kHz Mono (standard AI format) and splits it into small chunks using Voice Activity Detection (VAD) or fixed time-windows.
-4. **Recognize:** Chunks are dispatched to the Groq API.
-5. **Translate:** Recognized text is piped to the Translation API.
+4. **Recognize:** Chunks are dispatched to the local Vosk recognizer.
+5. **Translate:** Recognized text is piped to the configured translation provider chain.
 6. **Render:** The Avalonia `ViewModel` updates the `Text` property, and the XAML UI re-renders the subtitle on the user's screen instantly.
 
 ---
@@ -99,5 +99,5 @@ Graph TD
 *   **Phase 1:** Setup Avalonia project, create the transparent overlay UI, and implement mock text data binding.
 *   **Phase 2:** Implement Windows audio loopback (`NAudio`) and test saving system audio to a `.wav` file.
 *   **Phase 3:** Write the C++/Objective-C++ wrapper for macOS `ScreenCaptureKit` and integrate via `P/Invoke`.
-*   **Phase 4:** Integrate Groq API for STT and Cloudflare AI for translation. Connect the audio buffer to the network pipeline.
+*   **Phase 4:** Keep Vosk as the STT engine and integrate real translation providers through the factory. Connect the audio buffer to the translation pipeline.
 *   **Phase 5:** Finalize UI polish (stroke, fonts, drag-to-move) and compile final binaries (`.exe` for Windows, `.app` for macOS).

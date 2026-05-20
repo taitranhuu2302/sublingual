@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Sublingual.App.Services;
+using Sublingual.App.Services.Translation;
 
 namespace Sublingual.App.ViewModels;
 
@@ -174,8 +175,17 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             new Sublingual.Application.Audio.ProcessAudioChunkUseCase(
                 new Sublingual.Infrastructure.Audio.Processing.PassthroughAudioChunkProcessor()),
             new Sublingual.Application.Audio.TranscribeAudioChunkUseCase(new MockTranscriptionService()),
-            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()),
-            new CaptureSessionStorage());
+            new ConfigurableTranslationService(
+                [
+                    new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
+                    new LibreTranslateTranslationProvider(new HttpClient()),
+                ],
+                new AppSettingsStore()
+            ),
+            new CaptureSessionStorage(),
+            new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
+            new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
+            new AppSettingsStore());
     }
 
     private static string ToHexColor(double opacity, byte red, byte green, byte blue)

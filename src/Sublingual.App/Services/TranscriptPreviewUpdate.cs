@@ -5,4 +5,7 @@ public sealed record TranscriptPreviewUpdate(
     string PartialTranslatedText,
     string FinalText,
     string FinalTranslatedText,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string TranslationProvider,
+    string TranslationDiagnostics,
+    bool TranslationCacheHit);

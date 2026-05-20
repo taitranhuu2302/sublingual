@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
+using Sublingual.App.Services.Translation;
 using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
 
@@ -19,6 +20,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly CaptureSessionStorage _sessionStorage;
     private readonly AppSettingsStore _settingsStore;
     private readonly ITranscriptionService? _transcriptionService;
+    private readonly ITranslationService? _translationService;
     private readonly string _sessionsRoot;
     private readonly List<CaptureSessionItemViewModel> _allSavedSessions = [];
     private string _outputPath;
@@ -27,6 +29,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _disposed;
     private readonly Queue<double> _waveformSamples = new();
     private const int WaveformSampleCapacity = 24;
+    private const int RuntimeLogLineLimit = 180;
 
     public Action? ToggleOverlayAction { get; set; }
     public Action? EnsureOverlayVisibleAction { get; set; }
@@ -69,7 +72,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private SpeechToTextModelOption? selectedSpeechToTextModel;
     [ObservableProperty] private string sessionsDirectoryPath;
     [ObservableProperty] private string speechToTextStatus;
+    [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
+    [ObservableProperty] private string selectedSourceLanguage = "en";
+    [ObservableProperty] private string selectedTargetLanguage = "vi";
+    [ObservableProperty] private string translationPrimaryProvider = TranslationProviders.GoogleTranslateFreeApi;
+    [ObservableProperty] private string translationSecondaryProvider = TranslationProviders.LibreTranslate;
+    [ObservableProperty] private bool googleTranslateFreeApiEnabled = true;
+    [ObservableProperty] private string googleTranslateFreeApiEndpoint = "https://translate.googleapis.com/translate_a/single";
+    [ObservableProperty] private bool libreTranslateEnabled = true;
+    [ObservableProperty] private string libreTranslateEndpoint = "https://libretranslate.com/translate";
+    [ObservableProperty] private string libreTranslateApiKey = string.Empty;
+    [ObservableProperty] private bool translatePartials;
+    [ObservableProperty] private string translationStatus = string.Empty;
+    [ObservableProperty] private string translationTestSourceText = "Hello, how are you today?";
+    [ObservableProperty] private string translationTestSourceLanguage = "en";
+    [ObservableProperty] private string translationTestTargetLanguage = "vi";
+    [ObservableProperty] private string translationTestResult = string.Empty;
+    [ObservableProperty] private string translationTestError = string.Empty;
+    [ObservableProperty] private bool isTestingTranslation;
     [ObservableProperty] private CaptureSessionItemViewModel? selectedSavedSession;
+    [ObservableProperty] private string activeSessionsPage = "list";
     [ObservableProperty] private string sessionSearchText = string.Empty;
     [ObservableProperty] private string selectedSessionModelName = "Unknown";
     [ObservableProperty] private string selectedSessionDeviceName = "Unknown";
@@ -83,6 +105,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<AudioDeviceItemViewModel> Devices { get; }
     public ObservableCollection<SpeechToTextModelOption> SpeechToTextModels { get; }
+    public ObservableCollection<LanguageOptionViewModel> TranslationLanguages { get; }
     public ObservableCollection<CaptureSessionItemViewModel> SavedSessions { get; }
     public ObservableCollection<SavedTranscriptEntryViewModel> SelectedSessionTranscriptEntries { get; }
     public ObservableCollection<AudioLevelBarViewModel> AudioLevelBars { get; }
@@ -100,11 +123,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsSettingsTabActive => string.Equals(ActiveTab, "settings", StringComparison.OrdinalIgnoreCase);
     public bool IsGeneralSettingsTabActive => string.Equals(ActiveSettingsTab, "general", StringComparison.OrdinalIgnoreCase);
     public bool IsSpeechSettingsTabActive => string.Equals(ActiveSettingsTab, "speech", StringComparison.OrdinalIgnoreCase);
+    public bool IsTranslationSettingsTabActive => string.Equals(ActiveSettingsTab, "translation", StringComparison.OrdinalIgnoreCase);
     public bool IsOverlaySettingsTabActive => string.Equals(ActiveSettingsTab, "overlay", StringComparison.OrdinalIgnoreCase);
+    public bool IsFallbackTranslationFactory => string.Equals(SelectedTranslationFactory, TranslationFactories.FallbackChain, StringComparison.OrdinalIgnoreCase);
+    public bool IsRealtimeTranslationEnabled => !string.Equals(SelectedSourceLanguage, SelectedTargetLanguage, StringComparison.OrdinalIgnoreCase);
+    public bool CanTestTranslation => !IsTestingTranslation && !string.IsNullOrWhiteSpace(TranslationTestSourceText);
+    public bool HasTranslationTestResult => !string.IsNullOrWhiteSpace(TranslationTestResult);
+    public bool HasTranslationTestError => !string.IsNullOrWhiteSpace(TranslationTestError);
     public bool HasSavedSessions => SavedSessions.Count > 0;
     public bool NoSavedSessions => !HasSavedSessions;
     public bool HasSelectedSessions => SavedSessions.Any(session => session.IsSelected);
     public bool HasSelectedSavedSession => SelectedSavedSession is not null;
+    public bool IsSessionsListPageActive => string.Equals(ActiveSessionsPage, "list", StringComparison.OrdinalIgnoreCase);
+    public bool IsSessionsDetailPageActive => string.Equals(ActiveSessionsPage, "detail", StringComparison.OrdinalIgnoreCase);
     public bool HasSelectedSessionTranscriptEntries => SelectedSessionTranscriptEntries.Count > 0;
     public bool NoSelectedSessionTranscriptEntries => !HasSelectedSessionTranscriptEntries;
     public string SelectedSessionEntryCountText => $"{SelectedSessionTranscriptEntries.Count} transcript entr{(SelectedSessionTranscriptEntries.Count == 1 ? "y" : "ies")}";
@@ -124,7 +155,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SpeechToTextModelImporter modelImporter,
         CaptureSessionStorage sessionStorage,
         AppSettingsStore settingsStore,
-        ITranscriptionService? transcriptionService = null)
+        ITranscriptionService? transcriptionService = null,
+        ITranslationService? translationService = null)
     {
         _session = session;
         _modelCatalog = modelCatalog;
@@ -132,6 +164,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _sessionStorage = sessionStorage;
         _settingsStore = settingsStore;
         _transcriptionService = transcriptionService;
+        _translationService = translationService;
         _session.ChunkObserved += OnChunkObserved;
 
         _outputPath = Path.Combine(Environment.CurrentDirectory, "system-audio.wav");
@@ -139,6 +172,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         Devices = [];
         SpeechToTextModels = [];
+        TranslationLanguages =
+        [
+            new LanguageOptionViewModel("English", "en"),
+            new LanguageOptionViewModel("Chinese", "zh"),
+            new LanguageOptionViewModel("Vietnamese", "vi"),
+        ];
         SavedSessions = [];
         SelectedSessionTranscriptEntries = [];
         AudioLevelBars = [];
@@ -167,6 +206,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             : "Speech-to-text provider ready.";
 
         LoadSpeechToTextModels();
+        LoadTranslationSettings();
         LoadSavedSessions();
 
         _session.TranscriptPreviewUpdated += OnTranscriptPreviewUpdated;
@@ -180,12 +220,41 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             new SpeechToTextModelCatalog(),
             new SpeechToTextModelImporter(new SpeechToTextModelCatalog()),
             new CaptureSessionStorage(),
-            new AppSettingsStore())
+            new AppSettingsStore(),
+            translationService: new ConfigurableTranslationService(
+                [
+                    new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
+                    new LibreTranslateTranslationProvider(new HttpClient()),
+                ],
+                new AppSettingsStore()
+            ))
     {
     }
 
     [RelayCommand]
-    private void SelectTab(string tab) => ActiveTab = tab;
+    private void SelectTab(string tab)
+    {
+        ActiveTab = tab;
+
+        // Sessions has internal navigation (list/detail). Default to list when entering.
+        if (string.Equals(tab, "sessions", StringComparison.OrdinalIgnoreCase))
+        {
+            ActiveSessionsPage = "list";
+        }
+    }
+
+    [RelayCommand]
+    private void OpenSessionDetail(CaptureSessionItemViewModel session)
+    {
+        SelectedSavedSession = session;
+        ActiveSessionsPage = "detail";
+    }
+
+    [RelayCommand]
+    private void BackToSessionsList()
+    {
+        ActiveSessionsPage = "list";
+    }
 
     [RelayCommand]
     private void SelectSettingsTab(string tab) => ActiveSettingsTab = tab;
@@ -309,6 +378,50 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             };
 
         Process.Start(psi);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanTestTranslation))]
+    private async Task TestTranslationAsync()
+    {
+        if (_translationService is null)
+        {
+            TranslationTestError = "Translation service is not available.";
+            TranslationTestResult = string.Empty;
+            return;
+        }
+
+        try
+        {
+            IsTestingTranslation = true;
+            TranslationTestError = string.Empty;
+            TranslationTestResult = string.Empty;
+
+            var sourceLanguage = string.IsNullOrWhiteSpace(TranslationTestSourceLanguage)
+                ? "en"
+                : TranslationTestSourceLanguage.Trim();
+            var targetLanguage = string.IsNullOrWhiteSpace(TranslationTestTargetLanguage)
+                ? "vi"
+                : TranslationTestTargetLanguage.Trim();
+
+            var result = await _translationService.TranslateAsync(
+                new TranslationRequest(TranslationTestSourceText.Trim(), sourceLanguage, targetLanguage)
+            );
+
+            TranslationTestResult = result.TranslatedText;
+            TranslationTestError = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            TranslationTestResult = string.Empty;
+            TranslationTestError = ex.Message;
+        }
+        finally
+        {
+            IsTestingTranslation = false;
+            TestTranslationCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationTestResult)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationTestError)));
+        }
     }
 
     [RelayCommand]
@@ -459,6 +572,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         var deletedCount = _sessionStorage.DeleteSessions([SelectedSavedSession.DirectoryPath]);
         LoadSavedSessions();
+        ActiveSessionsPage = "list";
         RuntimeLog = deletedCount == 0
             ? "Current session was not deleted."
             : "Current session deleted.";
@@ -533,7 +647,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         if (SelectedSpeechToTextModel is not null)
         {
-            SpeechToTextStatus = $"Selected model: {SelectedSpeechToTextModel.Name}";
+            UpdateSpeechToTextStatus();
             return;
         }
 
@@ -551,8 +665,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         SpeechToTextStatus = SelectedSpeechToTextModel is null
             ? "Model imported but could not be selected."
-            : $"Selected model: {SelectedSpeechToTextModel.Name}";
-        RuntimeLog = $"Imported speech-to-text model from {selectedDirectory}";
+            : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+        AppendRuntimeLog($"Imported speech-to-text model from {selectedDirectory}");
 
         return Task.CompletedTask;
     }
@@ -568,10 +682,182 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         SpeechToTextStatus = SelectedSpeechToTextModel is null
             ? "Zip model imported but could not be selected."
-            : $"Selected model: {SelectedSpeechToTextModel.Name}";
-        RuntimeLog = $"Imported zipped speech-to-text model from {selectedFile}";
+            : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+        AppendRuntimeLog($"Imported zipped speech-to-text model from {selectedFile}");
 
         return Task.CompletedTask;
+    }
+
+    private void LoadTranslationSettings()
+    {
+        var settings = _settingsStore.Load().Translation;
+        SelectedTranslationFactory = NormalizeTranslationFactory(settings.Factory);
+
+        var providerOrder = settings.ProviderOrder
+            .Where(static provider => !string.IsNullOrWhiteSpace(provider))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        TranslationPrimaryProvider = NormalizeTranslationProvider(
+            providerOrder.ElementAtOrDefault(0),
+            TranslationProviders.GoogleTranslateFreeApi
+        );
+
+        TranslationSecondaryProvider = NormalizeTranslationProvider(
+            providerOrder.FirstOrDefault(provider =>
+                !string.Equals(provider, TranslationPrimaryProvider, StringComparison.OrdinalIgnoreCase)),
+            string.Equals(TranslationPrimaryProvider, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.LibreTranslate
+                : TranslationProviders.GoogleTranslateFreeApi
+        );
+
+        GoogleTranslateFreeApiEnabled = settings.GoogleTranslateFreeApi.Enabled;
+        GoogleTranslateFreeApiEndpoint = string.IsNullOrWhiteSpace(settings.GoogleTranslateFreeApi.Endpoint)
+            ? "https://translate.googleapis.com/translate_a/single"
+            : settings.GoogleTranslateFreeApi.Endpoint;
+
+        LibreTranslateEnabled = settings.LibreTranslate.Enabled;
+        LibreTranslateEndpoint = string.IsNullOrWhiteSpace(settings.LibreTranslate.Endpoint)
+            ? "https://libretranslate.com/translate"
+            : settings.LibreTranslate.Endpoint;
+        LibreTranslateApiKey = settings.LibreTranslate.ApiKey ?? string.Empty;
+        TranslatePartials = settings.TranslatePartials;
+
+        TranslationStatus = BuildTranslationStatus();
+        UpdateSpeechToTextStatus();
+    }
+
+    private void SaveTranslationSettings()
+    {
+        var settings = _settingsStore.Load();
+        settings.Translation.Factory = NormalizeTranslationFactory(SelectedTranslationFactory);
+        settings.Translation.ProviderOrder = BuildTranslationProviderOrder();
+        settings.Translation.GoogleTranslateFreeApi.Enabled = GoogleTranslateFreeApiEnabled;
+        settings.Translation.GoogleTranslateFreeApi.Endpoint = GoogleTranslateFreeApiEndpoint.Trim();
+        settings.Translation.LibreTranslate.Enabled = LibreTranslateEnabled;
+        settings.Translation.LibreTranslate.Endpoint = LibreTranslateEndpoint.Trim();
+        settings.Translation.LibreTranslate.ApiKey = LibreTranslateApiKey.Trim();
+        settings.Translation.TranslatePartials = TranslatePartials;
+        _settingsStore.Save(settings);
+        TranslationStatus = BuildTranslationStatus();
+        UpdateSpeechToTextStatus();
+    }
+
+    private List<string> BuildTranslationProviderOrder()
+    {
+        var providers = new List<string>();
+        foreach (var provider in new[] { TranslationPrimaryProvider, TranslationSecondaryProvider })
+        {
+            var normalized = NormalizeTranslationProvider(provider, TranslationProviders.GoogleTranslateFreeApi);
+            if (!providers.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+            {
+                providers.Add(normalized);
+            }
+        }
+
+        return providers;
+    }
+
+    private string BuildTranslationStatus()
+    {
+        var factory = NormalizeTranslationFactory(SelectedTranslationFactory);
+        if (string.Equals(factory, TranslationFactories.FallbackChain, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Fallback chain: {string.Join(" -> ", BuildTranslationProviderOrder())} | {(TranslatePartials ? "partials on" : "final-only")}";
+        }
+
+        return $"Active provider: {factory} | {(TranslatePartials ? "partials on" : "final-only")}";
+    }
+
+    private static string NormalizeTranslationFactory(string? factory)
+    {
+        return string.Equals(factory, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
+            ? TranslationProviders.GoogleTranslateFreeApi
+            : string.Equals(factory, TranslationProviders.LibreTranslate, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.LibreTranslate
+                : TranslationFactories.FallbackChain;
+    }
+
+    private static string NormalizeTranslationProvider(string? provider, string fallback)
+    {
+        return string.Equals(provider, TranslationProviders.LibreTranslate, StringComparison.OrdinalIgnoreCase)
+            ? TranslationProviders.LibreTranslate
+            : string.Equals(provider, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.GoogleTranslateFreeApi
+                : fallback;
+    }
+
+    private void UpdateSpeechToTextStatus()
+    {
+        if (SelectedSpeechToTextModel is null)
+        {
+            SpeechToTextStatus = "No local speech model found.";
+            return;
+        }
+
+        SpeechToTextStatus = BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+    }
+
+    private string BuildSpeechToTextStatus(string modelName)
+    {
+        var warning = GetSourceLanguageModelWarning(modelName, SelectedSourceLanguage);
+        return string.IsNullOrWhiteSpace(warning)
+            ? $"Selected model: {modelName}"
+            : $"Selected model: {modelName} | Warning: {warning}";
+    }
+
+    private static string GetSourceLanguageModelWarning(string? modelName, string sourceLanguage)
+    {
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            return string.Empty;
+        }
+
+        var normalizedName = modelName.ToLowerInvariant();
+        var expectedHints = sourceLanguage switch
+        {
+            "zh" => new[] { "zh", "cn", "chinese", "mandarin" },
+            "vi" => new[] { "vi", "vn", "viet", "vietnamese" },
+            _ => new[] { "en", "eng", "english" },
+        };
+
+        var conflictingHints = sourceLanguage switch
+        {
+            "zh" => new[] { "english", "vietnamese", "viet" },
+            "vi" => new[] { "english", "chinese", "mandarin" },
+            _ => new[] { "vietnamese", "viet", "chinese", "mandarin" },
+        };
+
+        var hasExpectedHint = expectedHints.Any(normalizedName.Contains);
+        var hasConflictingHint = conflictingHints.Any(normalizedName.Contains);
+
+        if (!hasExpectedHint && hasConflictingHint)
+        {
+            return $"source language `{sourceLanguage}` may not match the current Vosk model";
+        }
+
+        return string.Empty;
+    }
+
+    private void AppendRuntimeLog(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        var existingLines = string.IsNullOrWhiteSpace(RuntimeLog)
+            ? []
+            : RuntimeLog.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var messageLines = message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var combined = existingLines.Concat(messageLines).ToList();
+        if (combined.Count > RuntimeLogLineLimit)
+        {
+            combined = combined.Skip(combined.Count - RuntimeLogLineLimit).ToList();
+        }
+
+        RuntimeLog = string.Join(Environment.NewLine, combined);
     }
 
     private void LoadSavedSessions()
@@ -775,7 +1061,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             PeakAudioLevel = Math.Max(PeakAudioLevel * 0.90, level);
             AudioLevelText = $"{level:0}%";
             PushWaveformSample(level);
-            RuntimeLog = $"Chunk #{_chunkCount}: {chunk.Data.Length} B | {chunk.SampleRate} Hz | {chunk.Channels}ch | {chunk.BitsPerSample}bit | {chunk.Duration.TotalMilliseconds:F0}ms";
+            AppendRuntimeLog($"Chunk #{_chunkCount}: {chunk.Data.Length} B | {chunk.SampleRate} Hz | {chunk.Channels}ch | {chunk.BitsPerSample}bit | {chunk.Duration.TotalMilliseconds:F0}ms");
         });
     }
 
@@ -784,13 +1070,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             PartialTranscript = update.PartialText ?? string.Empty;
-            PartialTranslatedTranscript = string.Empty;
+            PartialTranslatedTranscript = update.PartialTranslatedText ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(update.FinalText))
                 FinalTranscript = update.FinalText;
             if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
                 FinalTranslatedTranscript = update.FinalTranslatedText;
             if (!string.IsNullOrWhiteSpace(update.FinalText) || !string.IsNullOrWhiteSpace(update.PartialText))
-                TranscriptStatus = $"Updated {update.UpdatedAt:HH:mm:ss}";
+                TranscriptStatus = $"Updated {update.UpdatedAt:HH:mm:ss} | {update.TranslationProvider}{(update.TranslationCacheHit ? " | cache" : string.Empty)}";
+
+            if (!string.IsNullOrWhiteSpace(update.TranslationDiagnostics))
+            {
+                AppendRuntimeLog($"Translation: {update.TranslationDiagnostics}");
+            }
 
             if (SelectedSavedSession is not null
                 && string.Equals(SelectedSavedSession.AudioPath, _outputPath, StringComparison.OrdinalIgnoreCase))
@@ -881,12 +1172,23 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             var settings = _settingsStore.Load();
             settings.SpeechToText.SelectedModel = SelectedSpeechToTextModel.Name;
             _settingsStore.Save(settings);
-            SpeechToTextStatus = $"Selected model: {SelectedSpeechToTextModel.Name}";
+            UpdateSpeechToTextStatus();
+        }
+
+        if (e.PropertyName == nameof(SelectedSourceLanguage))
+        {
+            UpdateSpeechToTextStatus();
         }
 
         if (e.PropertyName == nameof(SelectedSavedSession))
         {
             LoadSelectedSessionTranscript();
+        }
+
+        if (e.PropertyName == nameof(ActiveSessionsPage))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSessionsListPageActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSessionsDetailPageActive)));
         }
 
         if (e.PropertyName == nameof(OverlayLineHeight))
@@ -905,7 +1207,43 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsGeneralSettingsTabActive)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSpeechSettingsTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsTranslationSettingsTabActive)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlaySettingsTabActive)));
+        }
+
+        if (e.PropertyName == nameof(SelectedTranslationFactory))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsFallbackTranslationFactory)));
+            SaveTranslationSettings();
+        }
+
+        if (e.PropertyName is nameof(TranslationPrimaryProvider)
+            or nameof(TranslationSecondaryProvider)
+            or nameof(GoogleTranslateFreeApiEnabled)
+            or nameof(GoogleTranslateFreeApiEndpoint)
+            or nameof(LibreTranslateEnabled)
+            or nameof(LibreTranslateEndpoint)
+            or nameof(LibreTranslateApiKey)
+            or nameof(TranslatePartials)
+            or nameof(SelectedSourceLanguage)
+            or nameof(SelectedTargetLanguage))
+        {
+            SaveTranslationSettings();
+        }
+
+        if (e.PropertyName is nameof(TranslationTestSourceText) or nameof(IsTestingTranslation))
+        {
+            TestTranslationCommand.NotifyCanExecuteChanged();
+        }
+
+        if (e.PropertyName == nameof(TranslationTestResult))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationTestResult)));
+        }
+
+        if (e.PropertyName == nameof(TranslationTestError))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationTestError)));
         }
 
         if (e.PropertyName is nameof(RuntimeLog))
@@ -1005,8 +1343,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             new Sublingual.Application.Audio.ProcessAudioChunkUseCase(
                 new Sublingual.Infrastructure.Audio.Processing.PassthroughAudioChunkProcessor()),
             new Sublingual.Application.Audio.TranscribeAudioChunkUseCase(new MockTranscriptionService()),
-            new Sublingual.Application.Audio.TranslateTranscriptUseCase(new MockTranslationService()),
-            new CaptureSessionStorage());
+            new ConfigurableTranslationService(
+                [
+                    new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
+                    new LibreTranslateTranslationProvider(new HttpClient()),
+                ],
+                new AppSettingsStore()
+            ),
+            new CaptureSessionStorage(),
+            new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
+            new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
+            new AppSettingsStore());
     }
 }
 
@@ -1016,6 +1363,12 @@ public sealed class AudioDeviceItemViewModel(AudioDevice device)
     public string Name { get; } = device.Name;
     public bool IsDefault { get; } = device.IsDefault;
     public string DisplayName => IsDefault ? $"{Name} (Default)" : Name;
+}
+
+public sealed class LanguageOptionViewModel(string name, string code)
+{
+    public string Name { get; } = name;
+    public string Code { get; } = code;
 }
 
 public sealed partial class CaptureSessionItemViewModel : ObservableObject

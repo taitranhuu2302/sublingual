@@ -4,6 +4,7 @@ public sealed class AppSettings
 {
     public OverlaySettings Overlay { get; set; } = new();
     public SpeechToTextSettings SpeechToText { get; set; } = new();
+    public TranslationSettings Translation { get; set; } = new();
 }
 
 public sealed class OverlaySettings
@@ -22,4 +23,43 @@ public sealed class OverlaySettings
 public sealed class SpeechToTextSettings
 {
     public string SelectedModel { get; set; } = "default";
+}
+
+public sealed class TranslationSettings
+{
+    public string Factory { get; set; } = TranslationFactories.FallbackChain;
+    public string SourceLanguage { get; set; } = "en";
+    public string TargetLanguage { get; set; } = "vi";
+    public bool TranslatePartials { get; set; }
+    public List<string> ProviderOrder { get; set; } =
+    [
+        TranslationProviders.GoogleTranslateFreeApi,
+        TranslationProviders.LibreTranslate,
+    ];
+    public GoogleTranslateFreeApiSettings GoogleTranslateFreeApi { get; set; } = new();
+    public LibreTranslateSettings LibreTranslate { get; set; } = new();
+}
+
+public sealed class GoogleTranslateFreeApiSettings
+{
+    public bool Enabled { get; set; } = true;
+    public string Endpoint { get; set; } = "https://translate.googleapis.com/translate_a/single";
+}
+
+public sealed class LibreTranslateSettings
+{
+    public bool Enabled { get; set; } = true;
+    public string Endpoint { get; set; } = "https://libretranslate.com/translate";
+    public string ApiKey { get; set; } = string.Empty;
+}
+
+public static class TranslationFactories
+{
+    public const string FallbackChain = "FallbackChain";
+}
+
+public static class TranslationProviders
+{
+    public const string GoogleTranslateFreeApi = "GoogleTranslateFreeApi";
+    public const string LibreTranslate = "LibreTranslate";
 }

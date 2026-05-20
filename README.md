@@ -47,10 +47,11 @@ This project is planned as a native desktop application with a strong focus on:
 ### AI Processing Strategy
 
 - Speech-to-Text:
-  - `Groq API` running Whisper models
+  - `Vosk` local speech recognition
 - Translation:
-  - `Cloudflare Workers AI`
-  - or `Google Gemini API`
+  - settings-driven translation factory
+  - `GoogleTranslateFreeApi`
+  - `LibreTranslate`
 
 ## Architecture
 
@@ -62,8 +63,8 @@ graph TD
     WinAudio --> AudioBuffer[C# Audio Buffer Manager]
     MacAudio -- P/Invoke --> AudioBuffer
 
-    AudioBuffer -- Chunking --> STT[Groq API / Whisper]
-    STT -- Original Text --> Translator[Cloudflare AI / Gemini]
+    AudioBuffer -- Chunking --> STT[Vosk]
+    STT -- Original Text --> Translator[Translation Provider Factory]
     Translator -- Translated Text --> ViewModel[Avalonia MVVM]
     ViewModel --> Overlay[Avalonia Transparent Overlay]
 ```
@@ -113,8 +114,8 @@ Short chunks reduce delay but can hurt recognition quality. Longer chunks improv
 
 ### Phase 4
 
-- integrate STT with `Groq API`
-- integrate translation service
+- keep STT on `Vosk`
+- integrate real translation providers through the factory
 - connect audio buffer to the network pipeline
 
 ### Phase 5
@@ -137,4 +138,4 @@ Short chunks reduce delay but can hurt recognition quality. Longer chunks improv
 
 ## Status
 
-The repository currently contains product planning, architecture notes, and implementation task documents. The project is under active iteration.
+The repository already contains a working Avalonia desktop shell, native capture services, local Vosk transcription, session persistence, and an in-progress translation provider pipeline. The project is under active iteration.

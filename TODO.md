@@ -10,9 +10,9 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Remove or isolate experimental legacy parts that are no longer part of the plan
 
 - [ ] Complete the solution structure
-  - Replace placeholders with real files and folders in each project
-  - Define consistent namespace, folder, and file naming conventions
-  - Normalize project references according to the architecture layers
+  - `Domain`, `Application`, `Infrastructure`, `Interop`, `Desktop`, and `App` projects now exist and build together
+  - Some project boundaries are still blurred, especially inside `Sublingual.App`
+  - Placeholder / low-value artifacts still exist, for example `src/Sublingual.UI/Class1.cs`
 
 - [x] Set up dependency injection and application bootstrap
   - `Microsoft.Extensions.DependencyInjection` used as DI mechanism
@@ -45,7 +45,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 3. Audio Domain Model
 
-- [ ] Define audio contracts in `Sublingual.Domain`
+- [x] Define audio contracts in `Sublingual.Domain`
   - `AudioSourceType`
   - `AudioChunk`
   - `IAudioCaptureService`
@@ -54,26 +54,27 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - `ITranslationService`
 
 - [ ] Define the session model
-  - Session lifecycle: idle, starting, capturing, processing, error, stopped
-  - Session metadata: source type, language pair, start time, end time
-  - Session title strategy
+  - Core session types exist (`SessionInfo`, `SessionState`, capture metadata, saved transcript entries)
+  - Runtime lifecycle is still spread across `AudioCaptureState`, `AudioCaptureDebugSession`, and persisted session records
+  - Session title strategy is still missing
 
 ## 4. Windows Audio Capture
 
-- [ ] Integrate `NAudio`
-  - Add required packages
-  - Create `WasapiLoopbackCaptureService`
-  - Enumerate playback devices
-  - Select the default output or a specific output device
+- [x] Integrate `NAudio`
+  - Required packages are referenced
+  - `WasapiLoopbackCaptureService` exists
+  - Playback devices can be enumerated
+  - The default output or a specific output device can be selected
 
-- [ ] Save captured audio to a file for pipeline verification
-  - Capture system audio to `.wav`
-  - Verify sample rate, channel count, and format
+- [x] Save captured audio to a file for pipeline verification
+  - Captured audio is saved to session `.wav` output
+  - Session file output is already used in the capture debug pipeline
+  - Further verification / inspection tooling could still improve diagnostics
 
-- [ ] Normalize audio data
-  - Convert to mono when needed
-  - Downsample to `16kHz`
-  - Convert into the format expected by the STT pipeline
+- [x] Normalize audio data
+  - Shared `AudioFormatNormalizer` now converts to mono when needed
+  - Shared resampling path now targets `16kHz`
+  - `VoskInputVerifier` now guards the STT pipeline input as `16kHz mono PCM16`
 
 ## 5. macOS Native Audio Plugin
 
@@ -84,32 +85,27 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Verify that capture follows the current active system output device, including built-in speakers, wired headphones, and Bluetooth audio outputs
 
 - [ ] Complete the native build script
-  - Build the `.dylib`
-  - Place the output where the .NET application can load it
-  - Document the prerequisites for macOS native builds
+  - `scripts/build-macos-native.sh` and `native/macos/ScreenCaptureKitBridge/build.sh` exist
+  - Output copy and prerequisites need better end-to-end validation and documentation
 
 - [ ] Create the `P/Invoke` interop layer in `Sublingual.Interop`
-  - `[DllImport]` signatures
-  - Native structs
-  - Callback delegates
-  - Error code mapping
+  - Basic interop files and callback delegates already exist
+  - Native structs / error mapping still need tightening and validation
 
 - [ ] Create `ScreenCaptureKitCaptureService`
-  - Load the native library
-  - Start/stop capture
-  - Forward native audio callbacks into the .NET pipeline
-  - Handle unsupported macOS versions
-  - Validate behavior when the active output route changes between speakers, wired headphones, and Bluetooth headphones
+  - Service skeleton exists and is wired into DI for macOS
+  - Start/stop and callback forwarding paths exist at code level
+  - Unsupported-version handling, native validation, and route-switch behavior still need real platform testing
 
 ## 6. Audio Processing Pipeline
 
 - [ ] Create an audio buffer manager
-  - Receive raw PCM / Float32 data from platform capture services
-  - Keep buffering stable without leaking memory
+  - `FixedWindowAudioChunkProcessor` currently acts as the effective rolling buffer for chunk emission
+  - A clearer dedicated buffer manager abstraction still does not exist
 
-- [ ] Create a resampler
-  - Convert to `16kHz mono`
-  - Handle different sample rates across Windows and macOS
+- [x] Create a resampler
+  - `AudioFormatNormalizer` now converts incoming chunks to `16kHz mono PCM16`
+  - The implementation currently uses a simple linear resampling path and may need further quality tuning later
 
 - [x] Create a chunking strategy
   - `FixedWindowAudioChunkProcessor` (750ms default) implemented in `Sublingual.Infrastructure`
@@ -121,34 +117,35 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 7. STT Integration
 
-- [ ] Create an abstraction for the STT provider
-  - Common transcription interface
-  - Allow provider replacement without impacting the UI
+- [x] Create an abstraction for the STT provider
+  - `ITranscriptionService` is in place and the UI consumes the abstraction
+  - Current direction is intentionally `Vosk` only, not provider-swappable cloud STT
 
-- [ ] Integrate the Groq API
-  - Manage API keys
-  - Send audio chunks in the correct format
-  - Parse transcript responses
-  - Handle rate limits, timeouts, and retries
+- [ ] Keep `Vosk` as the STT provider
+  - Local Vosk transcription is the primary STT path now
+  - Model management and selection UX exist, but can still be improved
+  - Input normalization / verification now exists, but model-language validation is still heuristic
 
-- [ ] Define a partial/final transcript strategy
-  - Show partial results if the provider supports them
-  - If true partials are unavailable, provide a reasonable debug/placeholder strategy
+- [x] Define a partial/final transcript strategy
+  - Partial and final transcript flow is already implemented in the realtime session pipeline
+  - Translation is now final-only by default, with optional partial translation toggle
 
 ## 8. Translation Integration
 
-- [ ] Create an abstraction for the translation provider
-  - Translation service interface
-  - Request/response DTOs
+- [x] Create an abstraction for the translation provider
+  - `ITranslationService` exists in `Sublingual.Domain`
+  - Runtime execution now also uses `ITranslationExecutionService` for provider diagnostics and cache metadata
 
-- [ ] Integrate Cloudflare Workers AI or Gemini
-  - Manage API keys and configuration
-  - Send original transcript text to the translation service
-  - Return translated text for overlay rendering
+- [x] Integrate translation providers via factory
+  - Provider selection from settings is implemented
+  - `GoogleTranslateFreeApi` is implemented
+  - `LibreTranslate` is implemented
+  - Ordered fallback across multiple providers is implemented
 
 - [ ] Optimize the transcript -> translation pipeline
-  - Do not block the UI thread
-  - Avoid retranslating identical text repeatedly
+  - UI-thread blocking is already avoided in the current async pipeline
+  - Repeated translation is reduced through bounded cache and final-only default behavior
+  - The processing pipeline is still serialized and can still add latency under slow providers
 
 ## 9. Overlay Rendering
 
@@ -167,56 +164,51 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Theme: `Dark` / `Light` implemented
   - Opacity implemented
   - Width / height implemented
+  - Position persistence implemented
   - Auto-hide not implemented
-  - Position persistence not implemented
   - Display mode: bilingual / original only / translated only not implemented
 
 ## 10. Settings and Configuration
 
-- [ ] Create the settings model
-  - STT provider
-  - Translation provider
-  - API keys
-  - Overlay settings: size, theme, opacity, font size, position
-  - Audio capture preferences
+- [x] Create the settings model
+  - STT model selection exists
+  - Translation provider / factory settings exist
+  - API key / endpoint settings exist for translation providers
+  - Overlay settings exist: size, theme, opacity, font size, line height, position
+  - Audio capture preferences are still minimal
 
-- [ ] Persist settings
-  - Local file or user config directory
-  - Safe load/save behavior
+- [x] Persist settings
+  - Settings persist to local user config storage via `AppSettingsStore`
+  - Safe load/save fallback behavior exists
 
 - [ ] Create the settings UI
-  - Sidebar/tab shell is now in place and can host future settings pages
-  - Overlay preferences currently live inside the `Overlay` tab
-  - API key form and audio source preferences still need dedicated settings UI
+  - Sidebar/tab shell is in place
+  - Speech, translation, and overlay settings UI now exist
+  - Translation provider testing UI exists
+  - Audio source preferences still need deeper settings UI
 
 ## 11. Session History and Persistence
 
-- [ ] Choose a persistence mechanism
-  - SQLite or local JSON for MVP
+- [x] Choose a persistence mechanism
+  - Local JSON / file-based persistence is already being used for the MVP
 
 - [ ] Save session metadata
-  - Session title
-  - Start/end time
-  - Provider used
-  - Source type
+  - Model, device, language, duration, and created-at are already persisted
+  - Session title, provider details, and fuller session metadata are still incomplete
 
-- [ ] Save transcript segments
-  - Original text
-  - Translated text
-  - Timestamp
+- [x] Save transcript segments
+  - Original text, translated text, and timestamp are persisted for session playback/export
 
-- [ ] Create the history view
-  - Session list
-  - Session transcript detail view
+- [x] Create the history view
+  - Session list exists
+  - Session transcript detail view exists
+  - The list UX still needs refinement
 
 ## 12. Error Handling and UX Guidance
 
 - [ ] Create a unified error model
-  - Audio capture error
-  - Native plugin load error
-  - STT API error
-  - Translation API error
-  - Permission error
+  - Errors are currently surfaced ad hoc through status text, runtime log, and transcript preview diagnostics
+  - A formal shared error model is still missing
 
 - [ ] Show platform-specific guidance
   - Windows capture issues
@@ -225,16 +217,14 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Missing native library
 
 - [ ] Add diagnostic logging
-  - Application logs
-  - Native plugin logs when needed
-  - API request/response summaries for debugging
+  - Runtime log, translation diagnostics, provider/fallback details, and Vosk input verification summaries now exist in-app
+  - Formal application/native log sinks are still missing
 
 ## 13. Packaging and Dev Tooling
 
 - [ ] Complete development scripts
-  - `scripts/run-dev.sh`
-  - `scripts/build-all.sh`
-  - `scripts/build-macos-native.sh`
+  - `scripts/run-dev.sh`, `scripts/build-all.sh`, and `scripts/build-macos-native.sh` already exist
+  - They still need stronger end-to-end validation and documentation
 
 - [ ] Complete packaging
   - Build macOS app bundle
@@ -253,12 +243,12 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 15. Suggested Execution Order
 
-- [ ] 1. Complete `Domain + Application + Infrastructure` contracts
-- [ ] 2. Implement Windows audio capture end to end first
-- [ ] 3. Build the audio processing pipeline and save-to-file verification
-- [ ] 4. Integrate STT and translation APIs
-- [ ] 5. Render the real overlay subtitle flow
-  - Current overlay is now interactive and visually closer to a live-caption panel, but still uses mock transcript/translation data
+- [x] 1. Complete `Domain + Application + Infrastructure` contracts
+- [x] 2. Implement Windows audio capture end to end first
+- [x] 3. Build the audio processing pipeline and save-to-file verification
+- [x] 4. Keep `Vosk` as STT and integrate translation providers
+- [x] 5. Render the real overlay subtitle flow
+  - Overlay now uses real local Vosk transcription and live translation providers, not only mock data
 - [ ] 6. Implement the macOS `ScreenCaptureKit + P/Invoke` bridge
-- [ ] 7. Add settings, persistence, and history
+- [ ] 7. Add settings, persistence, and history polish
 - [ ] 8. Finish packaging and documentation

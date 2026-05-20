@@ -259,7 +259,8 @@
                           VerticalScrollBarVisibility="Auto"
                           IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=sessions}">
                 <StackPanel Margin="28,24" Spacing="16">
-                    <Border Classes="surface-card" Padding="20">
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsSessionsListPageActive}">
                         <StackPanel Spacing="12">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
                                 <StackPanel Spacing="2">
@@ -291,14 +292,17 @@
                                 </Button>
                             </Grid>
 
-                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSelectedSessions}">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  MinHeight="34">
                                 <TextBlock Text="Selected sessions ready"
                                            Foreground="#8BA3C7"
-                                           VerticalAlignment="Center" />
+                                           VerticalAlignment="Center"
+                                           Opacity="{Binding HasSelectedSessions, Converter={StaticResource StringEquals}, ConverterParameter=True}" />
                                 <Button Grid.Column="1"
                                         Classes="action-button neutral-action"
                                         Command="{Binding DeleteSelectedSessionsCommand}"
-                                        VerticalAlignment="Top">
+                                        VerticalAlignment="Top"
+                                        IsEnabled="{Binding HasSelectedSessions}">
                                     <ToolTip.Tip>Delete selected</ToolTip.Tip>
                                     <i:Icon Value="fa-solid fa-trash" FontSize="14" />
                                 </Button>
@@ -317,56 +321,68 @@
                                   RowSpacing="8">
                                 <Grid ColumnDefinitions="72,3*,2*,*"
                                       Margin="0,0,0,4">
-                                    <Button Classes="action-button secondary-action"
-                                            Command="{Binding ToggleSelectAllSessionsCommand}"
-                                            HorizontalAlignment="Left">
+                                    <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
+                                              Command="{Binding ToggleSelectAllSessionsCommand}"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Center">
                                         <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
-                                        <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
-                                    </Button>
+                                    </CheckBox>
                                     <TextBlock Grid.Column="1" Text="Session" Foreground="#64748B" FontSize="12" />
                                     <TextBlock Grid.Column="2" Text="Created" Foreground="#64748B" FontSize="12" />
                                     <TextBlock Grid.Column="3" Text="Audio" Foreground="#64748B" FontSize="12" />
                                 </Grid>
-                                <ListBox Grid.Row="1"
-                                         MaxHeight="320"
-                                         ItemsSource="{Binding SavedSessions}"
-                                         SelectedItem="{Binding SelectedSavedSession}">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
-                                            <Border Margin="0,0,0,6"
-                                                    Background="#0B1220"
-                                                    BorderBrush="#1E3A5F"
-                                                    BorderThickness="1"
-                                                    CornerRadius="10"
-                                                    Padding="10">
-                                                <Grid ColumnDefinitions="72,3*,2*,*"
-                                                      ColumnSpacing="12">
-                                                    <ToggleButton Classes="action-button secondary-action"
-                                                                  IsChecked="{Binding IsSelected}"
-                                                                  VerticalAlignment="Center"
-                                                                  HorizontalAlignment="Left">
-                                                        <ToolTip.Tip>Select session</ToolTip.Tip>
-                                                        <i:Icon Value="fa-solid fa-check" FontSize="12" />
-                                                    </ToggleButton>
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding SessionId}"
-                                                               Foreground="#F0F4FF"
-                                                               FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Grid.Column="2"
-                                                               Text="{Binding CreatedAtText}"
-                                                               Foreground="#8BA3C7"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Grid.Column="3"
-                                                               Text="{Binding AudioPath}"
-                                                               Foreground="#8BA3C7"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Grid>
+                                 <ListBox Grid.Row="1"
+                                          MaxHeight="320"
+                                          ItemsSource="{Binding SavedSessions}"
+                                          SelectedItem="{Binding SelectedSavedSession}">
+                                     <ListBox.ItemTemplate>
+                                         <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
+                                             <Border Margin="0,0,0,6"
+                                                     Background="#0B1220"
+                                                     BorderBrush="#1E3A5F"
+                                                     BorderThickness="1"
+                                                     CornerRadius="10"
+                                                     Padding="10">
+                                                 <Grid ColumnDefinitions="72,3*,2*,*"
+                                                       ColumnSpacing="12">
+                                                     <CheckBox IsChecked="{Binding IsSelected}"
+                                                               VerticalAlignment="Center"
+                                                               HorizontalAlignment="Left">
+                                                         <ToolTip.Tip>Select session</ToolTip.Tip>
+                                                     </CheckBox>
+
+                                                     <!-- Click on the row (excluding the checkbox) opens detail page -->
+                                                     <Button Grid.Column="1"
+                                                             Grid.ColumnSpan="3"
+                                                             Background="Transparent"
+                                                             BorderBrush="Transparent"
+                                                             BorderThickness="0"
+                                                             Padding="0"
+                                                             HorizontalContentAlignment="Stretch"
+                                                             Command="{Binding $parent[Window].DataContext.OpenSessionDetailCommand}"
+                                                             CommandParameter="{Binding}">
+                                                         <Grid ColumnDefinitions="3*,2*,*"
+                                                               ColumnSpacing="12">
+                                                             <TextBlock Text="{Binding SessionId}"
+                                                                        Foreground="#F0F4FF"
+                                                                        FontWeight="SemiBold"
+                                                                        TextTrimming="CharacterEllipsis" />
+                                                             <TextBlock Grid.Column="1"
+                                                                        Text="{Binding CreatedAtText}"
+                                                                        Foreground="#8BA3C7"
+                                                                        TextTrimming="CharacterEllipsis" />
+                                                             <TextBlock Grid.Column="2"
+                                                                        Text="{Binding AudioPath}"
+                                                                        Foreground="#8BA3C7"
+                                                                        TextTrimming="CharacterEllipsis" />
+                                                         </Grid>
+                                                     </Button>
+                                                 </Grid>
+                                             </Border>
+                                         </DataTemplate>
+                                     </ListBox.ItemTemplate>
+                                 </ListBox>
+                             </Grid>
 
                             <Grid ColumnDefinitions="Auto,*,Auto"
                                   IsVisible="{Binding HasSavedSessions}">
@@ -383,127 +399,133 @@
                                         Command="{Binding NextSessionsPageCommand}"
                                         Content="Next" />
                             </Grid>
-                            <Border Classes="stat-card"
-                                     Padding="16"
-                                     IsVisible="{Binding HasSelectedSavedSession}">
-                                <StackPanel Spacing="10">
-                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Session Detail"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#F0F4FF" />
-                                            <TextBlock Text="{Binding SelectedSessionEntryCountText}"
-                                                       Foreground="#8BA3C7"
-                                                       FontSize="12" />
-                                        </StackPanel>
-                                        <Button Grid.Column="1"
-                                                Classes="action-button secondary-action"
-                                                Command="{Binding OpenSelectedSessionFolderCommand}"
-                                                Content="Open Folder"
-                                                VerticalAlignment="Top" />
-                                        <Button Grid.Column="2"
-                                                Classes="action-button secondary-action"
-                                                Command="{Binding PlaySelectedSessionAudioCommand}"
-                                                Content="Play Audio"
-                                                VerticalAlignment="Top" />
-                                        <Button Grid.Column="3"
-                                                Classes="action-button neutral-action"
-                                                Command="{Binding ExportSelectedSessionTranscriptAsTxtCommand}"
-                                                Content="Export TXT"
-                                                VerticalAlignment="Top" />
-                                        <Button Grid.Column="4"
-                                                Classes="action-button neutral-action"
-                                                Command="{Binding DeleteCurrentSessionCommand}"
-                                                Content="Delete"
-                                                VerticalAlignment="Top" />
-                                    </Grid>
+                        </StackPanel>
+                    </Border>
 
-                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Classes="eyebrow" Text="Model" />
-                                            <TextBlock Text="{Binding SelectedSessionModelName}"
-                                                       Foreground="#F0F4FF" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Spacing="4">
-                                            <TextBlock Classes="eyebrow" Text="Device" />
-                                            <TextBlock Text="{Binding SelectedSessionDeviceName}"
-                                                       Foreground="#F0F4FF" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2" Spacing="4">
-                                            <TextBlock Classes="eyebrow" Text="Language / Duration" />
-                                            <TextBlock Text="{Binding SelectedSessionLanguage}"
-                                                       Foreground="#F0F4FF" />
-                                            <TextBlock Text="{Binding SelectedSessionDurationText}"
-                                                       Foreground="#8BA3C7"
-                                                       FontSize="12" />
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Classes="eyebrow" Text="Audio File" />
-                                            <SelectableTextBlock Text="{Binding SelectedSessionAudioPath}"
-                                                                 Foreground="#8BA3C7"
-                                                                 TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <Button Grid.Column="1"
-                                                Classes="action-button neutral-action"
-                                                Command="{Binding ExportSelectedSessionTranscriptAsJsonCommand}"
-                                                Content="Export JSON"
-                                                VerticalAlignment="Top" />
-                                    </Grid>
-
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Classes="eyebrow" Text="Transcript File" />
-                                        <SelectableTextBlock Text="{Binding SelectedSessionTranscriptPath}"
-                                                             Foreground="#64748B"
-                                                             TextWrapping="Wrap" />
-                                    </StackPanel>
-
-                                    <TextBlock Text="Session Transcript"
+                    <!-- Detail page (navigated from sessions list) -->
+                    <Border Classes="stat-card"
+                            Padding="16"
+                            IsVisible="{Binding IsSessionsDetailPageActive}">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+                                <Button Classes="action-button secondary-action"
+                                        Command="{Binding BackToSessionsListCommand}"
+                                        Content="Back"
+                                        VerticalAlignment="Top" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="Session Detail"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <TextBlock Text="No transcript entries saved yet."
+                                    <TextBlock Text="{Binding SelectedSessionEntryCountText}"
                                                Foreground="#8BA3C7"
-                                               IsVisible="{Binding NoSelectedSessionTranscriptEntries}" />
-                                    <ScrollViewer MaxHeight="420"
-                                                  IsVisible="{Binding HasSelectedSessionTranscriptEntries}">
-                                        <ItemsControl ItemsSource="{Binding SelectedSessionTranscriptEntries}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:SavedTranscriptEntryViewModel">
-                                                    <Border Margin="0,0,0,10"
-                                                            Background="#0B1220"
-                                                            BorderBrush="#1E3A5F"
-                                                            BorderThickness="1"
-                                                            CornerRadius="10"
-                                                            Padding="12">
-                                                        <StackPanel Spacing="6">
-                                                            <TextBlock Text="{Binding UpdatedAtText}"
-                                                                       Foreground="#64748B"
-                                                                       FontSize="11" />
-                                                            <TextBlock Text="{Binding PartialText}"
-                                                                       Foreground="#60A5FA"
-                                                                       FontStyle="Italic"
-                                                                       TextWrapping="Wrap"
-                                                                       IsVisible="{Binding HasPartial}" />
-                                                            <TextBlock Text="{Binding FinalText}"
-                                                                       Foreground="#F0F4FF"
-                                                                       FontWeight="SemiBold"
-                                                                       TextWrapping="Wrap"
-                                                                       IsVisible="{Binding HasFinal}" />
-                                                            <TextBlock Text="{Binding FinalTranslatedText}"
-                                                                       Foreground="#BAE6FD"
-                                                                       FontSize="12"
-                                                                       TextWrapping="Wrap"
-                                                                       IsVisible="{Binding HasFinalTranslation}" />
-                                                        </StackPanel>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
+                                               FontSize="12" />
                                 </StackPanel>
-                            </Border>
+                                <Button Grid.Column="2"
+                                        Classes="action-button secondary-action"
+                                        Command="{Binding OpenSelectedSessionFolderCommand}"
+                                        Content="Open Folder"
+                                        VerticalAlignment="Top" />
+                                <Button Grid.Column="3"
+                                        Classes="action-button secondary-action"
+                                        Command="{Binding PlaySelectedSessionAudioCommand}"
+                                        Content="Play Audio"
+                                        VerticalAlignment="Top" />
+                                <Button Grid.Column="4"
+                                        Classes="action-button neutral-action"
+                                        Command="{Binding ExportSelectedSessionTranscriptAsTxtCommand}"
+                                        Content="Export TXT"
+                                        VerticalAlignment="Top" />
+                                <Button Grid.Column="5"
+                                        Classes="action-button neutral-action"
+                                        Command="{Binding DeleteCurrentSessionCommand}"
+                                        Content="Delete"
+                                        VerticalAlignment="Top" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Classes="eyebrow" Text="Model" />
+                                    <TextBlock Text="{Binding SelectedSessionModelName}"
+                                               Foreground="#F0F4FF" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Classes="eyebrow" Text="Device" />
+                                    <TextBlock Text="{Binding SelectedSessionDeviceName}"
+                                               Foreground="#F0F4FF" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="4">
+                                    <TextBlock Classes="eyebrow" Text="Language / Duration" />
+                                    <TextBlock Text="{Binding SelectedSessionLanguage}"
+                                               Foreground="#F0F4FF" />
+                                    <TextBlock Text="{Binding SelectedSessionDurationText}"
+                                               Foreground="#8BA3C7"
+                                               FontSize="12" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Classes="eyebrow" Text="Audio File" />
+                                    <SelectableTextBlock Text="{Binding SelectedSessionAudioPath}"
+                                                         Foreground="#8BA3C7"
+                                                         TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Classes="action-button neutral-action"
+                                        Command="{Binding ExportSelectedSessionTranscriptAsJsonCommand}"
+                                        Content="Export JSON"
+                                        VerticalAlignment="Top" />
+                            </Grid>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Classes="eyebrow" Text="Transcript File" />
+                                <SelectableTextBlock Text="{Binding SelectedSessionTranscriptPath}"
+                                                     Foreground="#64748B"
+                                                     TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <TextBlock Text="Session Transcript"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F0F4FF" />
+                            <TextBlock Text="No transcript entries saved yet."
+                                       Foreground="#8BA3C7"
+                                       IsVisible="{Binding NoSelectedSessionTranscriptEntries}" />
+                            <ScrollViewer MaxHeight="420"
+                                          IsVisible="{Binding HasSelectedSessionTranscriptEntries}">
+                                <ItemsControl ItemsSource="{Binding SelectedSessionTranscriptEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SavedTranscriptEntryViewModel">
+                                            <Border Margin="0,0,0,10"
+                                                    Background="#0B1220"
+                                                    BorderBrush="#1E3A5F"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12">
+                                                <StackPanel Spacing="6">
+                                                    <TextBlock Text="{Binding UpdatedAtText}"
+                                                               Foreground="#64748B"
+                                                               FontSize="11" />
+                                                    <TextBlock Text="{Binding PartialText}"
+                                                               Foreground="#60A5FA"
+                                                               FontStyle="Italic"
+                                                               TextWrapping="Wrap"
+                                                               IsVisible="{Binding HasPartial}" />
+                                                    <TextBlock Text="{Binding FinalText}"
+                                                               Foreground="#F0F4FF"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap"
+                                                               IsVisible="{Binding HasFinal}" />
+                                                    <TextBlock Text="{Binding FinalTranslatedText}"
+                                                               Foreground="#BAE6FD"
+                                                               FontSize="12"
+                                                               TextWrapping="Wrap"
+                                                               IsVisible="{Binding HasFinalTranslation}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -529,6 +551,10 @@
                                 Command="{Binding SelectSettingsTabCommand}"
                                 CommandParameter="speech"
                                 Content="Speech" />
+                        <Button Classes="action-button primary-action"
+                                Command="{Binding SelectSettingsTabCommand}"
+                                CommandParameter="translation"
+                                Content="Translation" />
                         <Button Classes="action-button primary-action"
                                 Command="{Binding SelectSettingsTabCommand}"
                                 CommandParameter="overlay"
@@ -570,6 +596,269 @@
                                        Foreground="#8BA3C7"
                                        FontSize="12"
                                        TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="surface-card" Padding="20"
+                            IsVisible="{Binding IsTranslationSettingsTabActive}">
+                        <StackPanel Spacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Translation Factory"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#F0F4FF" />
+                                <TextBlock Classes="muted"
+                                           FontSize="13"
+                                           Text="Choose one provider directly or run an ordered fallback chain from settings."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                <TextBlock Text="Factory"
+                                           VerticalAlignment="Center"
+                                           Foreground="#8BA3C7" />
+                                <ComboBox Grid.Column="1"
+                                          SelectedItem="{Binding SelectedTranslationFactory}">
+                                    <x:String>FallbackChain</x:String>
+                                    <x:String>GoogleTranslateFreeApi</x:String>
+                                    <x:String>LibreTranslate</x:String>
+                                </ComboBox>
+                            </Grid>
+
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Realtime Translation Languages"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F4FF" />
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                        <TextBlock Text="From"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding TranslationLanguages}"
+                                                  SelectedValueBinding="{Binding Code}"
+                                                  SelectedValue="{Binding SelectedSourceLanguage}"
+                                                  DisplayMemberBinding="{Binding Name}"
+                                                  HorizontalAlignment="Stretch" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="To"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="3"
+                                                  ItemsSource="{Binding TranslationLanguages}"
+                                                  SelectedValueBinding="{Binding Code}"
+                                                  SelectedValue="{Binding SelectedTargetLanguage}"
+                                                  DisplayMemberBinding="{Binding Name}"
+                                                  HorizontalAlignment="Stretch" />
+                                    </Grid>
+                                    <TextBlock Text="If From and To are the same, realtime translation is skipped and only the original transcript is shown."
+                                               Foreground="#8BA3C7"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Translate Partials"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <TextBlock Text="Off by default. Keep this disabled to reduce jitter, duplicate requests, and unstable live translations."
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1"
+                                                  IsChecked="{Binding TranslatePartials}"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14"
+                                    IsVisible="{Binding IsFallbackTranslationFactory}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Fallback Provider Order"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F4FF" />
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                        <TextBlock Text="Primary"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="1"
+                                                  SelectedItem="{Binding TranslationPrimaryProvider}">
+                                            <x:String>GoogleTranslateFreeApi</x:String>
+                                            <x:String>LibreTranslate</x:String>
+                                        </ComboBox>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="Secondary"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="3"
+                                                  SelectedItem="{Binding TranslationSecondaryProvider}">
+                                            <x:String>GoogleTranslateFreeApi</x:String>
+                                            <x:String>LibreTranslate</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="GoogleTranslateFreeApi"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <TextBlock Text="Free Google endpoint. Useful as the first lightweight fallback."
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1"
+                                                  IsChecked="{Binding GoogleTranslateFreeApiEnabled}"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
+                                    <TextBlock Text="Endpoint"
+                                               Foreground="#8BA3C7"
+                                               FontSize="12" />
+                                    <TextBox Text="{Binding GoogleTranslateFreeApiEndpoint}"
+                                             Watermark="https://translate.googleapis.com/translate_a/single"
+                                             HorizontalAlignment="Stretch" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="LibreTranslate"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <TextBlock Text="Configurable hosted or self-hosted LibreTranslate endpoint."
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1"
+                                                  IsChecked="{Binding LibreTranslateEnabled}"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
+                                    <TextBlock Text="Endpoint"
+                                               Foreground="#8BA3C7"
+                                               FontSize="12" />
+                                    <TextBox Text="{Binding LibreTranslateEndpoint}"
+                                             Watermark="https://libretranslate.com/translate"
+                                             HorizontalAlignment="Stretch" />
+                                    <TextBlock Text="API Key"
+                                               Foreground="#8BA3C7"
+                                               FontSize="12" />
+                                    <TextBox Text="{Binding LibreTranslateApiKey}"
+                                             Watermark="Optional API key"
+                                             HorizontalAlignment="Stretch" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="{Binding TranslationStatus}"
+                                       Foreground="#8BA3C7"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+
+                            <Border Background="#0D1F38"
+                                    CornerRadius="10"
+                                    Padding="14">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Test Translation"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F0F4FF" />
+                                        <TextBlock Text="Run a quick translation request using the current factory and provider settings."
+                                                   Foreground="#8BA3C7"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="Source Text"
+                                               Foreground="#8BA3C7"
+                                               FontSize="12" />
+                                    <TextBox Text="{Binding TranslationTestSourceText}"
+                                             Watermark="Enter text to translate"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="80"
+                                             HorizontalAlignment="Stretch" />
+
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                        <TextBlock Text="From"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding TranslationLanguages}"
+                                                  SelectedValueBinding="{Binding Code}"
+                                                  SelectedValue="{Binding TranslationTestSourceLanguage}"
+                                                  DisplayMemberBinding="{Binding Name}"
+                                                  HorizontalAlignment="Stretch" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="To"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#8BA3C7" />
+                                        <ComboBox Grid.Column="3"
+                                                  ItemsSource="{Binding TranslationLanguages}"
+                                                  SelectedValueBinding="{Binding Code}"
+                                                  SelectedValue="{Binding TranslationTestTargetLanguage}"
+                                                  DisplayMemberBinding="{Binding Name}"
+                                                  HorizontalAlignment="Stretch" />
+                                    </Grid>
+
+                                    <Button Classes="action-button primary-action"
+                                            Command="{Binding TestTranslationCommand}"
+                                            Content="Run Translation Test"
+                                            HorizontalAlignment="Left"
+                                            MinWidth="180" />
+
+                                    <TextBlock Text="Testing translation..."
+                                               Foreground="#3B82F6"
+                                               FontSize="12"
+                                               IsVisible="{Binding IsTestingTranslation}" />
+
+                                    <Border Background="#081221"
+                                            BorderBrush="#1E3A5F"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="12"
+                                            IsVisible="{Binding HasTranslationTestResult}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Result"
+                                                       Foreground="#F0F4FF"
+                                                       FontWeight="SemiBold" />
+                                            <SelectableTextBlock Text="{Binding TranslationTestResult}"
+                                                                 Foreground="#C7D7F2"
+                                                                 TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Background="#2A1111"
+                                            BorderBrush="#7F1D1D"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="12"
+                                            IsVisible="{Binding HasTranslationTestError}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Error"
+                                                       Foreground="#FECACA"
+                                                       FontWeight="SemiBold" />
+                                            <SelectableTextBlock Text="{Binding TranslationTestError}"
+                                                                 Foreground="#FECACA"
+                                                                 TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 

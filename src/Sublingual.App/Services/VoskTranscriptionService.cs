@@ -48,13 +48,12 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
                 return Task.FromResult(CreateUnavailableResult("Speech model could not be loaded."));
             }
 
-            var normalizedChunk = NormalizeChunkForRecognition(request.Chunk);
-            if (normalizedChunk.Data.Length == 0)
+            if (request.Chunk.Data.Length == 0)
             {
                 return Task.FromResult(new TranscriptionResult([]));
             }
 
-            var recognitionResult = Recognize(normalizedChunk);
+            var recognitionResult = Recognize(request.Chunk);
             return Task.FromResult(recognitionResult);
         }
         catch (Exception ex)
@@ -150,73 +149,6 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
 
             return new TranscriptionResult(segments);
         }
-    }
-
-    private static Domain.Audio.AudioChunk NormalizeChunkForRecognition(Domain.Audio.AudioChunk chunk)
-    {
-        if (chunk.BitsPerSample == 16 && chunk.Channels == 1)
-        {
-            return chunk;
-        }
-
-        if (chunk.BitsPerSample == 32)
-        {
-            return ConvertFloatChunkToPcm16Mono(chunk);
-        }
-
-        if (chunk.BitsPerSample == 16 && chunk.Channels > 1)
-        {
-            return DownmixPcm16ChunkToMono(chunk);
-        }
-
-        return chunk;
-    }
-
-    private static Domain.Audio.AudioChunk ConvertFloatChunkToPcm16Mono(Domain.Audio.AudioChunk chunk)
-    {
-        var frameCount = chunk.Data.Length / sizeof(float) / Math.Max(1, chunk.Channels);
-        var output = new byte[frameCount * sizeof(short)];
-
-        for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
-        {
-            double sum = 0;
-            for (var channelIndex = 0; channelIndex < chunk.Channels; channelIndex++)
-            {
-                var sampleOffset = (frameIndex * chunk.Channels + channelIndex) * sizeof(float);
-                sum += BitConverter.ToSingle(chunk.Data, sampleOffset);
-            }
-
-            var monoSample = (float)(sum / chunk.Channels);
-            var pcm16Sample = (short)Math.Clamp(monoSample * short.MaxValue, short.MinValue, short.MaxValue);
-            var outputOffset = frameIndex * sizeof(short);
-            output[outputOffset] = (byte)(pcm16Sample & 0xFF);
-            output[outputOffset + 1] = (byte)((pcm16Sample >> 8) & 0xFF);
-        }
-
-        return new Domain.Audio.AudioChunk(output, chunk.SampleRate, 1, 16, chunk.Duration, chunk.CapturedAt);
-    }
-
-    private static Domain.Audio.AudioChunk DownmixPcm16ChunkToMono(Domain.Audio.AudioChunk chunk)
-    {
-        var frameCount = chunk.Data.Length / sizeof(short) / Math.Max(1, chunk.Channels);
-        var output = new byte[frameCount * sizeof(short)];
-
-        for (var frameIndex = 0; frameIndex < frameCount; frameIndex++)
-        {
-            int sum = 0;
-            for (var channelIndex = 0; channelIndex < chunk.Channels; channelIndex++)
-            {
-                var sampleOffset = (frameIndex * chunk.Channels + channelIndex) * sizeof(short);
-                sum += BitConverter.ToInt16(chunk.Data, sampleOffset);
-            }
-
-            var pcm16Sample = (short)(sum / chunk.Channels);
-            var outputOffset = frameIndex * sizeof(short);
-            output[outputOffset] = (byte)(pcm16Sample & 0xFF);
-            output[outputOffset + 1] = (byte)((pcm16Sample >> 8) & 0xFF);
-        }
-
-        return new Domain.Audio.AudioChunk(output, chunk.SampleRate, 1, 16, chunk.Duration, chunk.CapturedAt);
     }
 
     private static string ExtractText(string json)

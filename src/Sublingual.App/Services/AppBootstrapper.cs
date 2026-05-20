@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Sublingual.App.Services.Translation;
 using Sublingual.App.ViewModels;
 using Sublingual.App.Views;
 using Sublingual.Domain.Audio;
@@ -57,12 +58,18 @@ public sealed class AppBootstrapper : IDisposable
     {
         services.AddSingleton<IAudioCaptureService>(_ => CreateAudioCaptureService());
         services.AddSingleton<IAudioChunkProcessor, FixedWindowAudioChunkProcessor>();
+        services.AddSingleton<AudioFormatNormalizer>();
+        services.AddSingleton<VoskInputVerifier>();
+        services.AddSingleton(new HttpClient());
         services.AddSingleton<SpeechToTextModelCatalog>();
         services.AddSingleton<SpeechToTextModelImporter>();
         services.AddSingleton<CaptureSessionStorage>();
         services.AddSingleton<VoskTranscriptionService>();
         services.AddSingleton<ITranscriptionService>(provider => provider.GetRequiredService<VoskTranscriptionService>());
-        services.AddSingleton<ITranslationService, MockTranslationService>();
+        services.AddSingleton<ITranslationProvider, GoogleTranslateFreeApiTranslationProvider>();
+        services.AddSingleton<ITranslationProvider, LibreTranslateTranslationProvider>();
+        services.AddSingleton<ITranslationExecutionService, ConfigurableTranslationService>();
+        services.AddSingleton<ITranslationService>(provider => provider.GetRequiredService<ITranslationExecutionService>());
 
         services.AddSingleton<Sublingual.Application.Audio.StartCaptureUseCase>();
         services.AddSingleton<Sublingual.Application.Audio.StopCaptureUseCase>();
