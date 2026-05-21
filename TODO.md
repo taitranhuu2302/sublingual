@@ -305,3 +305,114 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 - [ ] 14. Remove capture logs from the end-user experience
   - Simplify capture UX after the flat-folder refactor is stable
 - [ ] 15. Finish packaging and documentation
+
+## 16. Translate Service MVP
+
+This section tracks the new self-hosted translation microservice for the existing Vosk-based realtime subtitle pipeline. Scope here is translation only: no ASR, no Vosk changes, no audio capture, and no microphone work.
+
+### Goals
+
+- [ ] Build a local/self-hosted translation API based on `FastAPI + MarianTokenizer + CTranslate2`
+  - Keep inference on `ctranslate2.Translator`
+  - Use `transformers` only for tokenizer loading and decode/encode flow
+  - Optimize for low latency partial/final subtitle translation from the current Vosk pipeline
+
+### Priority 1. Service Skeleton
+
+- [ ] Create `translate-service/` project structure
+  - Add `app/`, `scripts/`, `models/`, `docker/`, `requirements.txt`, `README.md`, and `.env.example`
+  - Keep the service isolated from the current desktop app so the Vosk pipeline can call it over HTTP
+
+- [ ] Implement configuration loading in `app/config.py`
+  - Read all required runtime settings from `.env`
+  - Expose defaults for CPU-first local deployment
+
+- [ ] Implement request/response schemas in `app/schemas.py`
+  - Cover `/health`, `/models`, `/translate`, `/translate/batch`, and `/translate/realtime`
+  - Validate input sizes and language fields conservatively
+
+### Priority 2. Core Translation Runtime
+
+- [ ] Implement `MarianCT2Translator` in `app/translator/marian_ct2.py`
+  - Load `ctranslate2.Translator` from converted model directory
+  - Load `MarianTokenizer` from the same directory
+  - Implement single and batch translation without using `MarianMTModel`
+  - Normalize input text before tokenization and decode with `skip_special_tokens=True`
+
+- [ ] Implement `TranslationModelManager` in `app/translator/model_manager.py`
+  - Resolve pair names like `en-vi` and `vi-en`
+  - Lazy load translators on first request
+  - Cache translators per pair and avoid reloading per request
+  - Fail with clear HTTP 400 when a pair has not been converted yet
+
+### Priority 3. Realtime Optimization For Vosk
+
+- [ ] Implement text normalization helpers in `app/utils/text.py`
+  - Normalize whitespace and strip control characters
+  - Truncate oversized requests
+  - Detect weak partial boundaries
+  - Detect near-duplicate partials using minimum delta heuristics
+
+- [ ] Implement `RealtimeSessionCache`
+  - Track per-session last source text and last translated text
+  - Skip redundant partial translations
+  - Respect `MIN_REALTIME_CHARS` and TTL cleanup
+  - Always translate non-empty final text
+
+- [ ] Implement `/translate/realtime` behavior in `app/main.py`
+  - Return `should_display=false` when partial text is too short or too similar
+  - Deduplicate repeated requests in the same session
+  - Clear or refresh cached state on final updates
+
+### Priority 4. API Layer And Observability
+
+- [ ] Implement FastAPI app in `app/main.py`
+  - Initialize config, model manager, and realtime cache globally
+  - Expose `/health`, `/models`, `/translate`, `/translate/batch`, `/translate/realtime`
+  - Measure latency with `time.perf_counter()`
+  - Add clear `HTTPException` responses and basic request latency logging
+
+- [ ] Implement logger utilities in `app/utils/logger.py`
+  - Centralize log formatting and log level setup
+  - Keep logging minimal but useful for latency and model-loading diagnostics
+
+### Priority 5. Model Conversion And Validation Scripts
+
+- [ ] Implement `scripts/convert_marian_to_ct2.py`
+  - Convert Hugging Face Marian model to CTranslate2 via `ct2-transformers-converter`
+  - Save tokenizer artifacts into the converted output directory
+  - Validate output directory and exit with clear errors on failure
+
+- [ ] Implement `scripts/test_translate.py`
+  - Call `/translate` and print translation result and latency
+
+- [ ] Implement `scripts/benchmark.py`
+  - Send repeated translation requests against the local API
+  - Report average latency, `p50`, `p95`, `p99`, and requests/second
+
+### Priority 6. Packaging And Docs
+
+- [ ] Add `docker/Dockerfile`
+  - Use `python:3.11-slim`
+  - Install dependencies and run `uvicorn app.main:app`
+
+- [ ] Add `docker/docker-compose.yml`
+  - Mount `models/` for converted Marian CT2 models
+  - Load environment variables from `.env`
+
+- [ ] Add `requirements.txt`
+  - Include only required translation-service dependencies
+  - Exclude ASR/audio-related packages
+
+- [ ] Write `README.md` in Vietnamese
+  - Explain service goal, architecture, install flow, model conversion, API usage, Docker usage, benchmark, and troubleshooting
+  - Include Python example for calling `/translate/realtime` from the existing Vosk system
+
+### Suggested Execution Order For This Service
+
+- [ ] 1. Create the isolated `translate-service/` skeleton and config/schema foundation
+- [ ] 2. Implement Marian + CTranslate2 runtime and model manager
+- [ ] 3. Expose `/health`, `/models`, `/translate`, and `/translate/batch`
+- [ ] 4. Add realtime partial/final optimization and session cache
+- [ ] 5. Add conversion, test, and benchmark scripts
+- [ ] 6. Add Docker packaging and Vietnamese README
