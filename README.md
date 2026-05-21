@@ -134,6 +134,7 @@ Short chunks reduce delay but can hurt recognition quality. Longer chunks improv
 ## Documentation
 
 - High-level architecture: `docs/OVERVIEW.md`
+- Packaging guide for macOS and Windows: `docs/PACKAGING.md`
 - Task breakdown and implementation planning: `tasks/prd-lingostream-mvp/`
 
 ## Status
