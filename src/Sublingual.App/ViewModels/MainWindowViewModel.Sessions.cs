@@ -13,7 +13,7 @@ public sealed partial class MainWindowViewModel
     {
         var deletedCount = _sessionStorage.ClearAllSessions();
         LoadSavedSessions();
-        RuntimeLog = deletedCount == 0
+        StatusMessage = deletedCount == 0
             ? $"No saved sessions found in {_sessionsRoot}"
             : $"Deleted {deletedCount} saved session(s) from {_sessionsRoot}";
     }
@@ -28,12 +28,31 @@ public sealed partial class MainWindowViewModel
     private void ToggleSelectAllSessions()
     {
         var target = !AreAllSessionsSelected;
-        foreach (var session in SavedSessions)
+        AreAllSessionsSelected = target;
+    }
+
+    partial void OnAreAllSessionsSelectedChanged(bool value)
+    {
+        if (_isUpdatingSessionSelection)
         {
-            session.IsSelected = target;
+            return;
         }
 
-        AreAllSessionsSelected = target;
+        _isUpdatingSessionSelection = true;
+        try
+        {
+            foreach (var session in SavedSessions)
+            {
+                session.IsSelected = value;
+            }
+        }
+        finally
+        {
+            _isUpdatingSessionSelection = false;
+        }
+
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessions)));
+        DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(HasSelectedSessions))]
@@ -47,7 +66,7 @@ public sealed partial class MainWindowViewModel
         var deletedCount = _sessionStorage.DeleteSessions(selectedPaths);
         LoadSavedSessions();
         LoadSelectedSessionTranscript();
-        RuntimeLog = deletedCount == 0
+        StatusMessage = deletedCount == 0
             ? "No selected sessions were deleted."
             : $"Deleted {deletedCount} selected session(s).";
     }
@@ -82,7 +101,7 @@ public sealed partial class MainWindowViewModel
     {
         if (SelectedSavedSession is null || !File.Exists(SelectedSavedSession.AudioPath))
         {
-            RuntimeLog = "Selected session audio file was not found.";
+            StatusMessage = "Selected session audio file was not found.";
             return;
         }
 
@@ -106,7 +125,7 @@ public sealed partial class MainWindowViewModel
         var deletedCount = _sessionStorage.DeleteSessions([SelectedSavedSession.DirectoryPath]);
         LoadSavedSessions();
         ActiveSessionsPage = "list";
-        RuntimeLog = deletedCount == 0
+        StatusMessage = deletedCount == 0
             ? "Current session was not deleted."
             : "Current session deleted.";
     }
@@ -132,7 +151,7 @@ public sealed partial class MainWindowViewModel
         });
 
         File.WriteAllLines(exportPath, lines);
-        RuntimeLog = $"Exported transcript txt to {exportPath}";
+        StatusMessage = $"Exported transcript txt to {exportPath}";
     }
 
     [RelayCommand(CanExecute = nameof(HasSelectedSavedSession))]
@@ -150,7 +169,7 @@ public sealed partial class MainWindowViewModel
             WriteIndented = true,
         });
         File.WriteAllText(exportPath, json);
-        RuntimeLog = $"Exported transcript json to {exportPath}";
+        StatusMessage = $"Exported transcript json to {exportPath}";
     }
 
     [RelayCommand(CanExecute = nameof(CanGoToPreviousSessionsPage))]
@@ -325,7 +344,21 @@ public sealed partial class MainWindowViewModel
     {
         if (e.PropertyName == nameof(CaptureSessionItemViewModel.IsSelected))
         {
-            AreAllSessionsSelected = SavedSessions.Count > 0 && SavedSessions.All(session => session.IsSelected);
+            if (_isUpdatingSessionSelection)
+            {
+                return;
+            }
+
+            _isUpdatingSessionSelection = true;
+            try
+            {
+                AreAllSessionsSelected = SavedSessions.Count > 0 && SavedSessions.All(session => session.IsSelected);
+            }
+            finally
+            {
+                _isUpdatingSessionSelection = false;
+            }
+
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSelectedSessions)));
             DeleteSelectedSessionsCommand.NotifyCanExecuteChanged();
         }

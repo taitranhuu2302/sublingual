@@ -56,6 +56,14 @@ public sealed class AppBootstrapper : IDisposable
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        services.AddSingleton<AppSettingsStore>();
+        services.AddSingleton(provider =>
+        {
+            var runtimeOptions = new SpeechToTextRuntimeOptions();
+            var settings = provider.GetRequiredService<AppSettingsStore>().Load();
+            runtimeOptions.ApplyChunkPreset(settings.SpeechToText.RealtimeChunkPreset);
+            return runtimeOptions;
+        });
         services.AddSingleton<IAudioCaptureService>(_ => CreateAudioCaptureService());
         services.AddSingleton<IAudioChunkProcessor, FixedWindowAudioChunkProcessor>();
         services.AddSingleton<AudioFormatNormalizer>();
@@ -64,6 +72,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<SpeechToTextModelCatalog>();
         services.AddSingleton<SpeechToTextModelImporter>();
         services.AddSingleton<CaptureSessionStorage>();
+        services.AddSingleton<RealtimeTranslationScheduler>();
         services.AddSingleton<VoskTranscriptionService>();
         services.AddSingleton<ITranscriptionService>(provider => provider.GetRequiredService<VoskTranscriptionService>());
         services.AddSingleton<ITranslationProvider, GoogleTranslateFreeApiTranslationProvider>();
@@ -77,7 +86,6 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<Sublingual.Application.Audio.TranscribeAudioChunkUseCase>();
         services.AddSingleton<Sublingual.Application.Audio.TranslateTranscriptUseCase>();
 
-        services.AddSingleton<AppSettingsStore>();
         services.AddSingleton<AudioCaptureDebugSession>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<OverlayWindowViewModel>();

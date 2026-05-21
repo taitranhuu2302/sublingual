@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
+using Sublingual.Infrastructure.Audio.Processing;
 
 namespace Sublingual.App.ViewModels;
 
@@ -106,7 +107,23 @@ public sealed partial class MainWindowViewModel
             var settings = _settingsStore.Load();
             settings.SpeechToText.SelectedModel = SelectedSpeechToTextModel.Name;
             _settingsStore.Save(settings);
-            UpdateSpeechToTextStatus();
+            _ = PreloadSelectedSpeechToTextModelAsync(SelectedSpeechToTextModel.Name);
+        }
+
+        if (e.PropertyName == nameof(SelectedSpeechToTextChunkPreset))
+        {
+            var normalizedPreset = SpeechToTextRuntimeOptions.NormalizeChunkPreset(SelectedSpeechToTextChunkPreset);
+            if (!string.Equals(SelectedSpeechToTextChunkPreset, normalizedPreset, StringComparison.Ordinal))
+            {
+                SelectedSpeechToTextChunkPreset = normalizedPreset;
+                return;
+            }
+
+            var settings = _settingsStore.Load();
+            settings.SpeechToText.RealtimeChunkPreset = normalizedPreset;
+            _settingsStore.Save(settings);
+            _speechToTextRuntimeOptions.ApplyChunkPreset(normalizedPreset);
+            PipelineSummary = BuildPipelineSummary(_speechToTextRuntimeOptions.ChunkWindow);
         }
 
         if (e.PropertyName is nameof(SessionsDirectoryPath) or nameof(SpeechToTextModelsDirectoryPath) or nameof(SessionFolderId))

@@ -9,6 +9,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
     private readonly SpeechToTextModelCatalog _modelCatalog;
     private readonly AppSettingsStore _settingsStore;
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _modelLoadGate = new(1, 1);
     private Model? _model;
     private VoskRecognizer? _recognizer;
     private string? _loadedModelPath;
@@ -27,7 +28,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
         Vosk.Vosk.SetLogLevel(-1);
     }
 
-    public Task<TranscriptionResult> TranscribeAsync(
+    public async Task<TranscriptionResult> TranscribeAsync(
         TranscriptionRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -38,28 +39,39 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
             var modelPath = ResolveModelPath();
             if (string.IsNullOrWhiteSpace(modelPath) || !Directory.Exists(modelPath))
             {
-                return Task.FromResult(CreateUnavailableResult("No local speech model found."));
+                return CreateUnavailableResult("No local speech model found.");
             }
 
-            EnsureModelLoaded(modelPath);
+            await EnsureModelLoadedAsync(modelPath, cancellationToken);
 
             if (_model is null)
             {
-                return Task.FromResult(CreateUnavailableResult("Speech model could not be loaded."));
+                return CreateUnavailableResult("Speech model could not be loaded.");
             }
 
             if (request.Chunk.Data.Length == 0)
             {
-                return Task.FromResult(new TranscriptionResult([]));
+                return new TranscriptionResult([]);
             }
 
             var recognitionResult = Recognize(request.Chunk);
-            return Task.FromResult(recognitionResult);
+            return recognitionResult;
         }
         catch (Exception ex)
         {
-            return Task.FromResult(CreateUnavailableResult($"Speech recognition failed: {ex.Message}"));
+            return CreateUnavailableResult($"Speech recognition failed: {ex.Message}");
         }
+    }
+
+    public Task PreloadModelAsync(string? modelName = null, CancellationToken cancellationToken = default)
+    {
+        var modelPath = ResolveModelPath(modelName);
+        if (string.IsNullOrWhiteSpace(modelPath) || !Directory.Exists(modelPath))
+        {
+            throw new InvalidOperationException("No local speech model found.");
+        }
+
+        return EnsureModelLoadedAsync(modelPath, cancellationToken);
     }
 
     public void Dispose()
@@ -73,6 +85,8 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
             _loadedModelPath = null;
             _recognizerSampleRate = null;
         }
+
+        _modelLoadGate.Dispose();
     }
 
     public void ResetSession()
@@ -85,10 +99,12 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
         }
     }
 
-    private string? ResolveModelPath()
+    private string? ResolveModelPath(string? modelName = null)
     {
         var settings = _settingsStore.Load();
-        var selectedModel = settings.SpeechToText.SelectedModel;
+        var selectedModel = string.IsNullOrWhiteSpace(modelName)
+            ? settings.SpeechToText.SelectedModel
+            : modelName;
         var available = _modelCatalog.GetAvailableModels();
 
         return available.FirstOrDefault(model =>
@@ -98,7 +114,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
             ?? available.FirstOrDefault()?.Path;
     }
 
-    private void EnsureModelLoaded(string modelPath)
+    private async Task EnsureModelLoadedAsync(string modelPath, CancellationToken cancellationToken)
     {
         lock (_sync)
         {
@@ -106,13 +122,44 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
             {
                 return;
             }
+        }
 
-            _recognizer?.Dispose();
-            _recognizer = null;
-            _recognizerSampleRate = null;
-            _model?.Dispose();
-            _model = new Model(modelPath);
-            _loadedModelPath = modelPath;
+        await _modelLoadGate.WaitAsync(cancellationToken);
+        Model? loadedModel = null;
+
+        try
+        {
+            lock (_sync)
+            {
+                if (_model is not null && string.Equals(_loadedModelPath, modelPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            loadedModel = await Task.Run(() => new Model(modelPath), cancellationToken);
+
+            lock (_sync)
+            {
+                if (_model is not null && string.Equals(_loadedModelPath, modelPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    loadedModel.Dispose();
+                    return;
+                }
+
+                _recognizer?.Dispose();
+                _recognizer = null;
+                _recognizerSampleRate = null;
+                _model?.Dispose();
+                _model = loadedModel;
+                _loadedModelPath = modelPath;
+                loadedModel = null;
+            }
+        }
+        finally
+        {
+            loadedModel?.Dispose();
+            _modelLoadGate.Release();
         }
     }
 

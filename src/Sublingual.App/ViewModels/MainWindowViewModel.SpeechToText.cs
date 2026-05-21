@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Sublingual.App.Services;
 using Sublingual.Domain.Transcription;
+using Sublingual.Infrastructure.Audio.Processing;
 
 namespace Sublingual.App.ViewModels;
 
@@ -11,14 +14,13 @@ public sealed partial class MainWindowViewModel
     {
         if (PickSpeechToTextModelDirectoryAsync is null)
         {
-            RuntimeLog = "Model import is not available in the current UI context.";
+            StatusMessage = "Model import is not available in the current UI context.";
             return;
         }
 
         var selectedDirectory = await PickSpeechToTextModelDirectoryAsync();
         if (string.IsNullOrWhiteSpace(selectedDirectory))
         {
-            RuntimeLog = "Model import cancelled.";
             return;
         }
 
@@ -30,14 +32,13 @@ public sealed partial class MainWindowViewModel
     {
         if (PickSpeechToTextModelZipFileAsync is null)
         {
-            RuntimeLog = "Zip model import is not available in the current UI context.";
+            StatusMessage = "Zip model import is not available in the current UI context.";
             return;
         }
 
         var selectedFile = await PickSpeechToTextModelZipFileAsync();
         if (string.IsNullOrWhiteSpace(selectedFile))
         {
-            RuntimeLog = "Zip model import cancelled.";
             return;
         }
 
@@ -91,6 +92,57 @@ public sealed partial class MainWindowViewModel
         SpeechToTextStatus = "No local speech model found.";
     }
 
+    private void LoadSpeechToTextSettings()
+    {
+        var settings = _settingsStore.Load().SpeechToText;
+        SelectedSpeechToTextChunkPreset = SpeechToTextRuntimeOptions.NormalizeChunkPreset(settings.RealtimeChunkPreset);
+        _speechToTextRuntimeOptions.ApplyChunkPreset(SelectedSpeechToTextChunkPreset);
+        PipelineSummary = BuildPipelineSummary(_speechToTextRuntimeOptions.ChunkWindow);
+    }
+
+    private static string BuildPipelineSummary(TimeSpan chunkWindow)
+    {
+        return $"16kHz mono PCM16, {(int)Math.Round(chunkWindow.TotalMilliseconds)}ms fixed chunks";
+    }
+
+    private async Task PreloadSelectedSpeechToTextModelAsync(string modelName)
+    {
+        if (_transcriptionService is not VoskTranscriptionService vosk)
+        {
+            await Dispatcher.UIThread.InvokeAsync(UpdateSpeechToTextStatus);
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() => SpeechToTextStatus = $"Loading model: {modelName}");
+
+        try
+        {
+            await vosk.PreloadModelAsync(modelName);
+
+            if (!string.Equals(SelectedSpeechToTextModel?.Name, modelName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SpeechToTextStatus = BuildSpeechToTextStatus(modelName);
+            });
+        }
+        catch (Exception ex)
+        {
+            if (!string.Equals(SelectedSpeechToTextModel?.Name, modelName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                SpeechToTextStatus = $"Selected model: {modelName} | Load failed: {ex.Message}";
+            });
+        }
+    }
+
     private Task ImportSpeechToTextModelCoreAsync(string selectedDirectory)
     {
         var importedPath = _modelImporter.ImportFromDirectory(selectedDirectory);
@@ -103,7 +155,7 @@ public sealed partial class MainWindowViewModel
         SpeechToTextStatus = SelectedSpeechToTextModel is null
             ? "Model imported but could not be selected."
             : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
-        AppendRuntimeLog($"Imported speech-to-text model from {selectedDirectory}");
+        StatusMessage = $"Imported speech-to-text model from {selectedDirectory}.";
 
         return Task.CompletedTask;
     }
@@ -120,7 +172,7 @@ public sealed partial class MainWindowViewModel
         SpeechToTextStatus = SelectedSpeechToTextModel is null
             ? "Zip model imported but could not be selected."
             : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
-        AppendRuntimeLog($"Imported zipped speech-to-text model from {selectedFile}");
+        StatusMessage = $"Imported zipped speech-to-text model from {selectedFile}.";
 
         return Task.CompletedTask;
     }

@@ -98,21 +98,6 @@ bool sc_forward_audio_sample_buffer(
         return false;
     }
 
-    static int g_forward_count = 0;
-    g_forward_count += 1;
-    if (g_forward_count <= 5 || g_forward_count % 50 == 0) {
-        NSLog(@"[ScreenCaptureKitBridge] Forwarding audio buffer #%d, frames=%ld, channels=%d, sampleRate=%.0f, bitsPerChannel=%u, bytesPerFrame=%u, bytesPerPacket=%u, formatFlags=%u, nonInterleaved=%@",
-              g_forward_count,
-              (long)frameCount,
-              channels,
-              streamDescription->mSampleRate,
-              streamDescription->mBitsPerChannel,
-              streamDescription->mBytesPerFrame,
-              streamDescription->mBytesPerPacket,
-              streamDescription->mFormatFlags,
-              isNonInterleaved ? @"YES" : @"NO");
-    }
-
     const bool isFloat = (streamDescription->mFormatFlags & kAudioFormatFlagIsFloat) != 0;
     const bool isSignedInteger = (streamDescription->mFormatFlags & kAudioFormatFlagIsSignedInteger) != 0;
     const bool isPacked = (streamDescription->mFormatFlags & kAudioFormatFlagIsPacked) != 0;

@@ -62,6 +62,7 @@ public sealed partial class MainWindowViewModel
         SpeechToTextModelsDirectoryPath = _modelCatalog.GetManagedModelsRoot();
         SessionFolderId = _sessionStorage.GetPreferredFolderId();
         _suspendStorageSettingsSave = false;
+        LoadSpeechToTextSettings();
 
         SelectedTranslationFactory = NormalizeTranslationFactory(settings.Factory);
 

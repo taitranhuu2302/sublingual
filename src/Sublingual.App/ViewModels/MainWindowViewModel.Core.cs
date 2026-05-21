@@ -8,6 +8,7 @@ using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
 using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
+using Sublingual.Infrastructure.Audio.Processing;
 
 namespace Sublingual.App.ViewModels;
 
@@ -18,6 +19,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly SpeechToTextModelImporter _modelImporter;
     private readonly CaptureSessionStorage _sessionStorage;
     private readonly AppSettingsStore _settingsStore;
+    private readonly SpeechToTextRuntimeOptions _speechToTextRuntimeOptions;
     private readonly ITranscriptionService? _transcriptionService;
     private readonly ITranslationService? _translationService;
     private readonly string _sessionsRoot;
@@ -28,8 +30,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _disposed;
     private readonly Queue<double> _waveformSamples = new();
     private const int WaveformSampleCapacity = 24;
-    private const int RuntimeLogLineLimit = 180;
     private bool _suspendStorageSettingsSave;
+    private bool _isUpdatingSessionSelection;
 
     public Action? ToggleOverlayAction { get; set; }
     public Action? EnsureOverlayVisibleAction { get; set; }
@@ -45,6 +47,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CaptureSessionStorage sessionStorage,
         AppSettingsStore settingsStore,
         ITranscriptionService? transcriptionService = null,
+        SpeechToTextRuntimeOptions? speechToTextRuntimeOptions = null,
         ITranslationService? translationService = null)
     {
         _session = session;
@@ -52,6 +55,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _modelImporter = modelImporter;
         _sessionStorage = sessionStorage;
         _settingsStore = settingsStore;
+        _speechToTextRuntimeOptions = speechToTextRuntimeOptions ?? CreateSpeechToTextRuntimeOptions(settingsStore);
         _transcriptionService = transcriptionService;
         _translationService = translationService;
         _session.ChunkObserved += OnChunkObserved;
@@ -77,12 +81,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         statusMessage = "Ready.";
-        runtimeLog = string.Empty;
         outputFilePath = _outputPath;
         totalBytesText = "0 bytes";
         currentPlatform = DetectPlatform();
         captureState = _session.State.ToString();
-        pipelineSummary = "16kHz mono PCM16, 750ms fixed chunks";
+        pipelineSummary = BuildPipelineSummary(_speechToTextRuntimeOptions.ChunkWindow);
         selectedDeviceName = "No device selected.";
         audioLevelText = "Silence";
         partialTranscript = string.Empty;
@@ -103,6 +106,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _session.TranscriptPreviewUpdated += OnTranscriptPreviewUpdated;
         PropertyChanged += OnPropertyChanged;
+        if (SelectedSpeechToTextModel is not null)
+        {
+            _ = PreloadSelectedSpeechToTextModelAsync(SelectedSpeechToTextModel.Name);
+        }
+
         _ = LoadDevicesAsync();
     }
 
@@ -113,6 +121,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             new SpeechToTextModelImporter(CreateDesignTimeModelCatalog()),
             new CaptureSessionStorage(new AppSettingsStore()),
             new AppSettingsStore(),
+            speechToTextRuntimeOptions: CreateSpeechToTextRuntimeOptions(new AppSettingsStore()),
             translationService: new ConfigurableTranslationService(
                 [
                     new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
@@ -121,6 +130,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 new AppSettingsStore()
             ))
     {
+    }
+
+    private static SpeechToTextRuntimeOptions CreateSpeechToTextRuntimeOptions(AppSettingsStore settingsStore)
+    {
+        var runtimeOptions = new SpeechToTextRuntimeOptions();
+        runtimeOptions.ApplyChunkPreset(settingsStore.Load().SpeechToText.RealtimeChunkPreset);
+        return runtimeOptions;
     }
 
     [RelayCommand]

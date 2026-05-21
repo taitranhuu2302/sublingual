@@ -4,17 +4,12 @@ namespace Sublingual.Infrastructure.Audio.Processing;
 
 public sealed class FixedWindowAudioChunkProcessor : IAudioChunkProcessor
 {
-    private readonly TimeSpan _targetWindow;
+    private readonly SpeechToTextRuntimeOptions _runtimeOptions;
     private readonly List<byte> _buffer = [];
 
-    public FixedWindowAudioChunkProcessor()
-        : this(TimeSpan.FromMilliseconds(750))
+    public FixedWindowAudioChunkProcessor(SpeechToTextRuntimeOptions runtimeOptions)
     {
-    }
-
-    public FixedWindowAudioChunkProcessor(TimeSpan targetWindow)
-    {
-        _targetWindow = targetWindow;
+        _runtimeOptions = runtimeOptions;
     }
 
     public IReadOnlyList<AudioChunk> Process(AudioChunk inputChunk)
@@ -26,9 +21,10 @@ public sealed class FixedWindowAudioChunkProcessor : IAudioChunkProcessor
 
         _buffer.AddRange(inputChunk.Data);
 
+        var targetWindow = _runtimeOptions.ChunkWindow;
         var bytesPerSample = Math.Max(1, inputChunk.BitsPerSample / 8);
         var bytesPerSecond = Math.Max(1, inputChunk.SampleRate * inputChunk.Channels * bytesPerSample);
-        var targetByteCount = Math.Max(bytesPerSample, (int)Math.Round(bytesPerSecond * _targetWindow.TotalSeconds));
+        var targetByteCount = Math.Max(bytesPerSample, (int)Math.Round(bytesPerSecond * targetWindow.TotalSeconds));
         targetByteCount -= targetByteCount % bytesPerSample;
 
         if (targetByteCount <= 0)

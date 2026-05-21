@@ -167,11 +167,12 @@ public partial class App : Avalonia.Application
 
     private void SaveOverlaySettings(MainWindowViewModel mainVm)
     {
-        if (_settingsStore is null || _settings is null)
+        if (_settingsStore is null)
         {
             return;
         }
 
+        _settings = _settingsStore.Load();
         _settings.Overlay.FontSize = mainVm.OverlayFontSize;
         _settings.Overlay.LineHeight = mainVm.OverlayLineHeight;
         _settings.Overlay.Theme = mainVm.OverlayTheme;
@@ -182,11 +183,12 @@ public partial class App : Avalonia.Application
 
     private void SaveOverlayPosition(OverlayWindow overlayWindow, MainWindowViewModel mainVm)
     {
-        if (_settingsStore is null || _settings is null)
+        if (_settingsStore is null)
         {
             return;
         }
 
+        _settings = _settingsStore.Load();
         _settings.Overlay.PositionX = overlayWindow.Position.X;
         _settings.Overlay.PositionY = overlayWindow.Position.Y;
         _settings.Overlay.Width = overlayWindow.Width;

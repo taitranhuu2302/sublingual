@@ -17,6 +17,7 @@ public class AudioCaptureDebugSession : IDisposable
     private readonly AudioFormatNormalizer _audioFormatNormalizer;
     private readonly VoskInputVerifier _voskInputVerifier;
     private readonly AppSettingsStore _settingsStore;
+    private readonly RealtimeTranslationScheduler _translationScheduler;
     private readonly VoskTranscriptionService? _voskTranscriptionService;
     private readonly SemaphoreSlim _pipelineGate = new(1, 1);
     private WaveFileCaptureVerifier? _captureVerifier;
@@ -27,6 +28,13 @@ public class AudioCaptureDebugSession : IDisposable
     private bool _translatePartials;
     private double _capturedDurationSeconds;
     private DateTimeOffset _currentSessionCreatedAt;
+    private long _sessionGeneration;
+    private long _realtimeTranscriptSequenceId;
+    private int _stableSegmentIndex;
+    private string _currentDraftSegmentId = CreateDraftSegmentId();
+    private string _currentDraftSourceText = string.Empty;
+    private readonly Lock _translationStateLock = new();
+    private readonly Dictionary<string, string> _pendingStableTranslations = new(StringComparer.Ordinal);
     private bool _disposed;
 
     public AudioCaptureDebugSession(
@@ -40,6 +48,7 @@ public class AudioCaptureDebugSession : IDisposable
         AudioFormatNormalizer audioFormatNormalizer,
         VoskInputVerifier voskInputVerifier,
         AppSettingsStore settingsStore,
+        RealtimeTranslationScheduler translationScheduler,
         VoskTranscriptionService? voskTranscriptionService = null)
     {
         _audioCaptureService = audioCaptureService;
@@ -52,9 +61,11 @@ public class AudioCaptureDebugSession : IDisposable
         _audioFormatNormalizer = audioFormatNormalizer;
         _voskInputVerifier = voskInputVerifier;
         _settingsStore = settingsStore;
+        _translationScheduler = translationScheduler;
         _voskTranscriptionService = voskTranscriptionService;
 
         _audioCaptureService.AudioChunkCaptured += OnAudioChunkCaptured;
+        _translationScheduler.TranslationCompleted += OnTranslationCompleted;
     }
 
     public AudioCaptureState State => _audioCaptureService.State;
@@ -62,6 +73,8 @@ public class AudioCaptureDebugSession : IDisposable
     public event EventHandler<AudioChunk>? ChunkObserved;
 
     public event EventHandler<TranscriptPreviewUpdate>? TranscriptPreviewUpdated;
+
+    public event EventHandler<RealtimeTranscriptEvent>? RealtimeTranscriptEventPublished;
 
     public Task<IReadOnlyList<AudioDevice>> GetAvailableDevicesAsync(CancellationToken cancellationToken = default)
     {
@@ -82,6 +95,15 @@ public class AudioCaptureDebugSession : IDisposable
         _translatePartials = translationSettings.TranslatePartials;
         _capturedDurationSeconds = 0;
         _currentSessionCreatedAt = DateTimeOffset.UtcNow;
+        _sessionGeneration += 1;
+        _realtimeTranscriptSequenceId = 0;
+        _stableSegmentIndex = 0;
+        _currentDraftSegmentId = CreateDraftSegmentId();
+        _currentDraftSourceText = string.Empty;
+        lock (_translationStateLock)
+        {
+            _pendingStableTranslations.Clear();
+        }
         _captureSessionStorage.SaveSessionMetadata(
             outputPath,
             new Models.CaptureSessionMetadata
@@ -105,6 +127,13 @@ public class AudioCaptureDebugSession : IDisposable
         await _stopCaptureUseCase.ExecuteAsync(cancellationToken);
         _voskTranscriptionService?.ResetSession();
         _translationService.ClearCache();
+        _sessionGeneration += 1;
+        lock (_translationStateLock)
+        {
+            _pendingStableTranslations.Clear();
+            _currentDraftSegmentId = CreateDraftSegmentId();
+            _currentDraftSourceText = string.Empty;
+        }
 
         if (!string.IsNullOrWhiteSpace(_currentOutputPath))
         {
@@ -134,6 +163,7 @@ public class AudioCaptureDebugSession : IDisposable
         }
 
         _audioCaptureService.AudioChunkCaptured -= OnAudioChunkCaptured;
+        _translationScheduler.TranslationCompleted -= OnTranslationCompleted;
         DisposeVerifier();
 
         if (_audioCaptureService is IDisposable disposableCaptureService)
@@ -161,7 +191,7 @@ public class AudioCaptureDebugSession : IDisposable
                 _captureVerifier?.Append(chunk);
                 _capturedDurationSeconds += chunk.Duration.TotalSeconds;
                 ChunkObserved?.Invoke(this, chunk);
-                await PublishTranscriptPreviewAsync(chunk);
+                await ProcessTranscriptAsync(chunk);
             }
         }
         catch (Exception ex)
@@ -184,7 +214,7 @@ public class AudioCaptureDebugSession : IDisposable
         }
     }
 
-    private async Task PublishTranscriptPreviewAsync(AudioChunk chunk)
+    private async Task ProcessTranscriptAsync(AudioChunk chunk)
     {
         var normalizedChunk = _audioFormatNormalizer.NormalizeForSpeechRecognition(chunk);
         _voskInputVerifier.Verify(normalizedChunk);
@@ -194,41 +224,193 @@ public class AudioCaptureDebugSession : IDisposable
 
         var partialText = transcription.Segments.LastOrDefault(segment => segment.IsPartial)?.Text ?? string.Empty;
         var finalText = transcription.Segments.LastOrDefault(segment => !segment.IsPartial)?.Text ?? string.Empty;
-        var translationTarget = !string.IsNullOrWhiteSpace(finalText)
-            ? finalText
-            : _translatePartials
-                ? partialText
-                : string.Empty;
+        var updatedAt = DateTimeOffset.Now;
+        var diagnostics = _voskInputVerifier.Describe(normalizedChunk);
+        PublishTranscriptEvents(partialText, finalText, updatedAt);
 
-        var shouldTranslate = !string.IsNullOrWhiteSpace(translationTarget)
-            && !string.Equals(_currentSourceLanguage, _currentTargetLanguage, StringComparison.OrdinalIgnoreCase);
+        ScheduleTranslation(partialText, finalText, updatedAt);
+        if (string.IsNullOrWhiteSpace(finalText) && !_translatePartials)
+        {
+            PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+                NextRealtimeTranscriptSequenceId(),
+                _currentDraftSegmentId,
+                TranscriptTranslationTarget.Draft,
+                partialText,
+                string.Empty,
+                false,
+                "SkippedNoTranslationTarget",
+                false,
+                updatedAt));
+            EmitTranscriptPreviewUpdate(partialText, string.Empty, finalText, string.Empty, "SkippedNoTranslationTarget", diagnostics, false, updatedAt);
+        }
+    }
 
-        var translation = !shouldTranslate
-            ? new TranslationExecutionResult(
-                new TranslationResult(translationTarget, string.Empty, _currentTargetLanguage),
-                string.Equals(_currentSourceLanguage, _currentTargetLanguage, StringComparison.OrdinalIgnoreCase)
-                    ? "SkippedSameLanguage"
-                    : "SkippedNoTranslationTarget",
-                string.Equals(_currentSourceLanguage, _currentTargetLanguage, StringComparison.OrdinalIgnoreCase)
-                    ? ["Skipped: source and target languages match"]
-                    : ["Skipped: partial translation disabled or no translatable text"],
-                false
-            )
-            : await _translationService.TranslateWithDiagnosticsAsync(
-                new TranslationRequest(translationTarget, _currentSourceLanguage, _currentTargetLanguage));
+    private void PublishTranscriptEvents(string partialText, string finalText, DateTimeOffset updatedAt)
+    {
+        if (!string.IsNullOrWhiteSpace(partialText))
+        {
+            _currentDraftSourceText = partialText;
+            PublishRealtimeTranscriptEvent(new DraftTranscriptChanged(
+                NextRealtimeTranscriptSequenceId(),
+                _currentDraftSegmentId,
+                partialText,
+                updatedAt));
+        }
 
-        var partialTranslatedText = string.IsNullOrWhiteSpace(finalText) ? translation.Result.TranslatedText : string.Empty;
-        var finalTranslatedText = string.IsNullOrWhiteSpace(finalText) ? string.Empty : translation.Result.TranslatedText;
+        if (!string.IsNullOrWhiteSpace(finalText))
+        {
+            _stableSegmentIndex += 1;
+            PublishRealtimeTranscriptEvent(new StableTranscriptCommitted(
+                NextRealtimeTranscriptSequenceId(),
+                BuildStableSegmentId(_stableSegmentIndex),
+                finalText,
+                updatedAt));
+            _currentDraftSegmentId = CreateDraftSegmentId();
+            _currentDraftSourceText = string.Empty;
+        }
+    }
 
+    private void ScheduleTranslation(string partialText, string finalText, DateTimeOffset updatedAt)
+    {
+        if (!string.IsNullOrWhiteSpace(finalText))
+        {
+            var segmentId = BuildStableSegmentId(_stableSegmentIndex);
+            PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+                NextRealtimeTranscriptSequenceId(),
+                segmentId,
+                TranscriptTranslationTarget.StableSegment,
+                finalText,
+                string.Empty,
+                true,
+                "Pending",
+                false,
+                updatedAt));
+
+            _translationScheduler.EnqueueStable(new StableTranslationRequest(
+                _sessionGeneration,
+                segmentId,
+                finalText,
+                _currentSourceLanguage,
+                _currentTargetLanguage));
+            lock (_translationStateLock)
+            {
+                _pendingStableTranslations[segmentId] = finalText;
+            }
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(partialText) || !_translatePartials)
+        {
+            return;
+        }
+
+        PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+            NextRealtimeTranscriptSequenceId(),
+            _currentDraftSegmentId,
+            TranscriptTranslationTarget.Draft,
+            partialText,
+            string.Empty,
+            true,
+            "Pending",
+            false,
+            updatedAt));
+
+        _translationScheduler.EnqueueDraft(new DraftTranslationRequest(
+            _sessionGeneration,
+            _currentDraftSegmentId,
+            partialText,
+            _currentSourceLanguage,
+            _currentTargetLanguage));
+    }
+
+    private void OnTranslationCompleted(object? sender, RealtimeTranslationCompleted completed)
+    {
+        if (completed.SessionGeneration != _sessionGeneration)
+        {
+            return;
+        }
+
+        if (completed.Target == TranscriptTranslationTarget.Draft)
+        {
+            if (!string.Equals(completed.SegmentId, _currentDraftSegmentId, StringComparison.Ordinal)
+                || !string.Equals(completed.SourceText, GetCurrentDraftSourceText(), StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+        else
+        {
+            lock (_translationStateLock)
+            {
+                if (!_pendingStableTranslations.TryGetValue(completed.SegmentId, out var expectedSourceText)
+                    || !string.Equals(expectedSourceText, completed.SourceText, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _pendingStableTranslations.Remove(completed.SegmentId);
+            }
+        }
+
+        var diagnostics = completed.AttemptLog.Count == 0
+            ? completed.ProviderName
+            : string.Join(" | ", completed.AttemptLog);
+
+        PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+            NextRealtimeTranscriptSequenceId(),
+            completed.SegmentId,
+            completed.Target,
+            completed.SourceText,
+            completed.TranslatedText,
+            false,
+            completed.ProviderName,
+            completed.IsCacheHit,
+            completed.UpdatedAt));
+
+        if (completed.Target == TranscriptTranslationTarget.Draft)
+        {
+            EmitTranscriptPreviewUpdate(
+                completed.SourceText,
+                completed.TranslatedText,
+                string.Empty,
+                string.Empty,
+                completed.ProviderName,
+                diagnostics,
+                completed.IsCacheHit,
+                completed.UpdatedAt);
+            return;
+        }
+
+        EmitTranscriptPreviewUpdate(
+            string.Empty,
+            string.Empty,
+            completed.SourceText,
+            completed.TranslatedText,
+            completed.ProviderName,
+            diagnostics,
+            completed.IsCacheHit,
+            completed.UpdatedAt);
+    }
+
+    private void EmitTranscriptPreviewUpdate(
+        string partialText,
+        string partialTranslatedText,
+        string finalText,
+        string finalTranslatedText,
+        string providerName,
+        string diagnostics,
+        bool isCacheHit,
+        DateTimeOffset updatedAt)
+    {
         var update = new TranscriptPreviewUpdate(
             partialText,
             partialTranslatedText,
             finalText,
             finalTranslatedText,
-            DateTimeOffset.Now,
-            translation.ProviderName,
-            $"{_voskInputVerifier.Describe(normalizedChunk)} | {string.Join(" | ", translation.AttemptLog)}",
-            translation.IsCacheHit);
+            updatedAt,
+            providerName,
+            diagnostics,
+            isCacheHit);
 
         if (!string.IsNullOrWhiteSpace(_currentOutputPath))
         {
@@ -247,10 +429,35 @@ public class AudioCaptureDebugSession : IDisposable
         TranscriptPreviewUpdated?.Invoke(this, update);
     }
 
+    private string GetCurrentDraftSourceText()
+    {
+        return _currentDraftSourceText;
+    }
+
     private void DisposeVerifier()
     {
         _captureVerifier?.Dispose();
         _captureVerifier = null;
+    }
+
+    private void PublishRealtimeTranscriptEvent(RealtimeTranscriptEvent transcriptEvent)
+    {
+        RealtimeTranscriptEventPublished?.Invoke(this, transcriptEvent);
+    }
+
+    private long NextRealtimeTranscriptSequenceId()
+    {
+        return Interlocked.Increment(ref _realtimeTranscriptSequenceId);
+    }
+
+    private static string BuildStableSegmentId(int stableSegmentIndex)
+    {
+        return $"stable-{stableSegmentIndex:D8}";
+    }
+
+    private static string CreateDraftSegmentId()
+    {
+        return $"draft-{Guid.NewGuid():N}";
     }
 
     private static string NormalizeLanguage(string? language, string fallback)

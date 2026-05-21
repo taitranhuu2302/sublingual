@@ -93,10 +93,6 @@ static const char* g_session_error_message = "No error";
     }
 
     g_audio_callback_count += 1;
-    if (g_audio_callback_count <= 5 || g_audio_callback_count % 50 == 0) {
-        const CMItemCount frameCount = CMSampleBufferGetNumSamples(sampleBuffer);
-        NSLog(@"[ScreenCaptureKitBridge] Audio callback #%d, frames=%ld", g_audio_callback_count, (long)frameCount);
-    }
 
     const char* error_message = nullptr;
     if (!sc_forward_audio_sample_buffer(sampleBuffer, _callback, _context, &error_message)) {

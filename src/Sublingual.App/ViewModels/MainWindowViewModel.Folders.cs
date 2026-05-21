@@ -41,13 +41,13 @@ public sealed partial class MainWindowViewModel
     {
         if (SelectedSessionFolder is null)
         {
-            RuntimeLog = "Select a folder.";
+            StatusMessage = "Select a folder.";
             return;
         }
 
         if (string.Equals(SelectedSessionFolder.FolderId, CaptureSessionStorage.GlobalSessionFolderId, StringComparison.OrdinalIgnoreCase))
         {
-            RuntimeLog = "Global folder cannot be renamed.";
+            StatusMessage = "Global folder cannot be renamed.";
             return;
         }
 
@@ -93,13 +93,13 @@ public sealed partial class MainWindowViewModel
     {
         if (SelectedSessionFolder is null)
         {
-            RuntimeLog = "Select a folder.";
+            StatusMessage = "Select a folder.";
             return;
         }
 
         if (string.Equals(SelectedSessionFolder.FolderId, CaptureSessionStorage.GlobalSessionFolderId, StringComparison.OrdinalIgnoreCase))
         {
-            RuntimeLog = "Global folder cannot be deleted.";
+            StatusMessage = "Global folder cannot be deleted.";
             return;
         }
 
@@ -128,13 +128,13 @@ public sealed partial class MainWindowViewModel
             IsDeleteSessionFolderDialogOpen = false;
             LoadSessionFolders();
             LoadSavedSessions();
-            RuntimeLog = movedCount == 0
+            StatusMessage = movedCount == 0
                 ? "Folder deleted."
                 : $"Folder deleted. Moved {movedCount} session(s) to Global.";
         }
         catch (Exception ex)
         {
-            RuntimeLog = ex.Message;
+            StatusMessage = ex.Message;
         }
     }
 
@@ -143,7 +143,7 @@ public sealed partial class MainWindowViewModel
     {
         if (!HasSelectedSessions)
         {
-            RuntimeLog = "No sessions selected.";
+            StatusMessage = "No sessions selected.";
             return;
         }
 
@@ -170,7 +170,7 @@ public sealed partial class MainWindowViewModel
         var target = MoveTargetSessionFolder;
         if (target is null)
         {
-            RuntimeLog = "Select a target folder.";
+            StatusMessage = "Select a target folder.";
             return;
         }
 
@@ -182,7 +182,7 @@ public sealed partial class MainWindowViewModel
         var movedCount = _sessionStorage.MoveSessions(selectedPaths, target.FolderId);
         IsMoveSessionsDialogOpen = false;
         LoadSavedSessions();
-        RuntimeLog = movedCount == 0
+        StatusMessage = movedCount == 0
             ? "No sessions were moved."
             : $"Moved {movedCount} session(s) to {target.DisplayName}.";
     }

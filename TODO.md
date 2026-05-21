@@ -148,6 +148,31 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Repeated translation is reduced through bounded cache and final-only default behavior
   - The processing pipeline is still serialized and can still add latency under slow providers
 
+- [ ] Rebuild realtime translation architecture around `Stable + Draft`
+  - Introduce a transcript event model with `segmentId` / `sequenceId` for draft updates, stable segment commits, and translation updates
+  - Refactor `AudioCaptureDebugSession` so capture/STT never awaits translation inside `_pipelineGate`
+  - Add a dedicated `TranslationScheduler`
+  - Draft translation rules:
+    - debounce updates
+    - latest-only queue behavior
+    - cancel in-flight draft requests when newer draft text arrives
+  - Stable translation rules:
+    - queue sequentially
+    - preserve ordering
+    - do not drop committed stable translations silently
+  - Add out-of-order protection so stale translation responses cannot overwrite newer draft/stable content
+  - Update `OverlayWindowViewModel` to render a separate draft line and stable segment list
+  - Allow stable overlay lines to receive translation updates later by `segmentId`
+  - Replace append-only transcript persistence with a segment-based model that supports update-in-place
+  - Update session detail/export flow to read the new transcript model without creating duplicate final entries
+  - Improve translation cache behavior for partial/draft text with whitespace normalization and recent-draft reuse
+  - Verify end-to-end with `TranslatePartials = true` and slow translation providers:
+    - no capture freeze
+    - no translation request flood
+    - no out-of-order overwrites
+    - stable lines remain stable
+    - overlay draft updates feel smooth
+
 ## 9. Overlay Rendering
 
 - [x] Render subtitles in real time

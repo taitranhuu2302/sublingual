@@ -275,12 +275,6 @@
                         <Grid>
                             <StackPanel Spacing="12">
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
-                                    <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
-                                              Command="{Binding ToggleSelectAllSessionsCommand}"
-                                              VerticalAlignment="Center"
-                                              HorizontalAlignment="Left">
-                                        <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
-                                    </CheckBox>
                                     <StackPanel Grid.Column="1" Spacing="2">
                                         <TextBlock Text="Sessions"
                                                    FontSize="15"
@@ -400,7 +394,6 @@
                                     <Grid ColumnDefinitions="48,*,140,160,140"
                                           Margin="0,0,0,4">
                                         <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
-                                                  Command="{Binding ToggleSelectAllSessionsCommand}"
                                                   HorizontalAlignment="Left"
                                                   VerticalAlignment="Center">
                                             <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
@@ -798,14 +791,28 @@
                                                 Command="{Binding BrowseSpeechToTextModelsDirectoryCommand}"
                                                 Content="Browse" />
                                     </Grid>
-                                    <ComboBox ItemsSource="{Binding SpeechToTextModels}"
-                                              SelectedItem="{Binding SelectedSpeechToTextModel}"
-                                              DisplayMemberBinding="{Binding Name}"
-                                              PlaceholderText="No local model found"
-                                              HorizontalAlignment="Stretch" />
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Button Classes="action-button neutral-action"
-                                                Command="{Binding ImportSpeechToTextModelCommand}"
+                                     <ComboBox ItemsSource="{Binding SpeechToTextModels}"
+                                               SelectedItem="{Binding SelectedSpeechToTextModel}"
+                                               DisplayMemberBinding="{Binding Name}"
+                                               PlaceholderText="No local model found"
+                                               HorizontalAlignment="Stretch" />
+                                     <Grid ColumnDefinitions="Auto,*"
+                                           ColumnSpacing="12">
+                                         <TextBlock Text="Realtime"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="#8BA3C7" />
+                                         <ComboBox Grid.Column="1"
+                                                   SelectedItem="{Binding SelectedSpeechToTextChunkPreset}"
+                                                   ItemsSource="{Binding SpeechToTextChunkPresetOptions}"
+                                                   HorizontalAlignment="Stretch" />
+                                     </Grid>
+                                     <TextBlock Text="Fast = lower latency, Balanced = recommended, Accurate = steadier but slower."
+                                                Foreground="#8BA3C7"
+                                                FontSize="12"
+                                                TextWrapping="Wrap" />
+                                     <StackPanel Orientation="Horizontal" Spacing="10">
+                                         <Button Classes="action-button neutral-action"
+                                                 Command="{Binding ImportSpeechToTextModelCommand}"
                                                 Content="Import Folder" />
                                         <Button Classes="action-button neutral-action"
                                                 Command="{Binding ImportSpeechToTextModelZipCommand}"

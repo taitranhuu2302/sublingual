@@ -5,6 +5,7 @@ using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
 using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
+using Sublingual.Infrastructure.Audio.Processing;
 
 namespace Sublingual.App.ViewModels;
 
@@ -16,7 +17,6 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private string selectedDeviceId = string.Empty;
     [ObservableProperty] private AudioDeviceItemViewModel? selectedDevice;
     [ObservableProperty] private string statusMessage;
-    [ObservableProperty] private string runtimeLog;
     [ObservableProperty] private string outputFilePath;
     [ObservableProperty] private int chunkCount;
     [ObservableProperty] private string totalBytesText;
@@ -59,6 +59,7 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private bool isMoveSessionsDialogOpen;
     [ObservableProperty] private SessionFolderOptionViewModel? moveTargetSessionFolder;
     [ObservableProperty] private string speechToTextStatus;
+    [ObservableProperty] private string selectedSpeechToTextChunkPreset = SpeechToTextChunkPresets.Balanced;
     [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
     [ObservableProperty] private string selectedSourceLanguage = "en";
     [ObservableProperty] private string selectedTargetLanguage = "vi";
@@ -98,11 +99,16 @@ public sealed partial class MainWindowViewModel
     public ObservableCollection<SavedTranscriptEntryViewModel> SelectedSessionTranscriptEntries { get; }
     public ObservableCollection<AudioLevelBarViewModel> AudioLevelBars { get; }
     public ObservableCollection<SessionFolderOptionViewModel> SessionFolders { get; }
+    public IReadOnlyList<string> SpeechToTextChunkPresetOptions { get; } =
+    [
+        SpeechToTextChunkPresets.Fast,
+        SpeechToTextChunkPresets.Balanced,
+        SpeechToTextChunkPresets.Accurate,
+    ];
 
     public bool HasDevices => Devices.Count > 0;
     public bool CanStartCapture => !IsBusy && !IsCapturing && HasDevices;
     public bool CanStopCapture => !IsBusy && IsCapturing;
-    public bool HasRuntimeLog => !string.IsNullOrWhiteSpace(RuntimeLog);
     public bool HasTranscript => !string.IsNullOrWhiteSpace(PartialTranscript) || !string.IsNullOrWhiteSpace(FinalTranscript);
     public bool HasPartialTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedTranscript);
     public bool HasFinalTranslation => !string.IsNullOrWhiteSpace(FinalTranslatedTranscript);

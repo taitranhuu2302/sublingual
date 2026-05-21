@@ -186,7 +186,15 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             new CaptureSessionStorage(settingsStore),
             new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
             new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
-            settingsStore);
+            settingsStore,
+            new RealtimeTranslationScheduler(
+                new ConfigurableTranslationService(
+                    [
+                        new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
+                        new LibreTranslateTranslationProvider(new HttpClient()),
+                    ],
+                    settingsStore
+                )));
     }
 
     private static string ToHexColor(double opacity, byte red, byte green, byte blue)

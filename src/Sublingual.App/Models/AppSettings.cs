@@ -32,6 +32,7 @@ public sealed class OverlaySettings
 public sealed class SpeechToTextSettings
 {
     public string SelectedModel { get; set; } = "default";
+    public string RealtimeChunkPreset { get; set; } = "Balanced";
 }
 
 public sealed class TranslationSettings

@@ -67,27 +67,6 @@ public sealed partial class MainWindowViewModel
         }
     }
 
-    private void AppendRuntimeLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return;
-        }
-
-        var existingLines = string.IsNullOrWhiteSpace(RuntimeLog)
-            ? []
-            : RuntimeLog.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        var messageLines = message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var combined = existingLines.Concat(messageLines).ToList();
-        if (combined.Count > RuntimeLogLineLimit)
-        {
-            combined = combined.Skip(combined.Count - RuntimeLogLineLimit).ToList();
-        }
-
-        RuntimeLog = string.Join(Environment.NewLine, combined);
-    }
-
     private static AudioCaptureDebugSession CreateDesignTimeSession()
     {
         var captureService = DesignTimeAudioCaptureService.Instance;
@@ -109,7 +88,15 @@ public sealed partial class MainWindowViewModel
             new CaptureSessionStorage(settingsStore),
             new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
             new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
-            settingsStore);
+            settingsStore,
+            new RealtimeTranslationScheduler(
+                new ConfigurableTranslationService(
+                    [
+                        new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
+                        new LibreTranslateTranslationProvider(new HttpClient()),
+                    ],
+                    settingsStore
+                )));
     }
 
     private static SpeechToTextModelCatalog CreateDesignTimeModelCatalog()
