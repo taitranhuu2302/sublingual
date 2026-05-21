@@ -57,6 +57,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Core session types exist (`SessionInfo`, `SessionState`, capture metadata, saved transcript entries)
   - Runtime lifecycle is still spread across `AudioCaptureState`, `AudioCaptureDebugSession`, and persisted session records
   - Session title strategy is still missing
+  - Session folder semantics still need to be formalized: user-defined tree path, folder display name, sanitized persisted path, and the fallback `global` bucket when no folder is chosen
 
 ## 4. Windows Audio Capture
 
@@ -186,6 +187,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Speech, translation, and overlay settings UI now exist
   - Translation provider testing UI exists
   - Audio source preferences still need deeper settings UI
+  - Storage folder settings still use free-text input and should switch to OS explorer/folder-picker interaction
 
 ## 11. Session History and Persistence
 
@@ -195,6 +197,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 - [ ] Save session metadata
   - Model, device, language, duration, and created-at are already persisted
   - Session title, provider details, and fuller session metadata are still incomplete
+  - Folder identity metadata still needs to move from `TreePath` semantics to stable flat-folder ownership (`FolderId`, display name, storage slug)
 
 - [x] Save transcript segments
   - Original text, translated text, and timestamp are persisted for session playback/export
@@ -203,6 +206,41 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - Session list exists
   - Session transcript detail view exists
   - The list UX still needs refinement
+
+- [ ] Refactor session storage into flat group folders
+  - Replace nested `tree path` ownership with single-level `SessionFolder` groups
+  - Introduce a persistent folder store (`folders.json` or equivalent) with a protected default folder `Global`
+  - Persist stable folder ownership on each capture record using `FolderId` semantics instead of raw path strings
+  - Add migration rules for existing path-based sessions so old data still loads safely
+
+- [ ] Refactor the capture start flow around folder selection only
+  - Remove all folder creation and path-entry behavior from the `Capture` tab
+  - Let users choose only an existing folder before starting capture
+  - Fallback to `Global` when no valid folder is selected
+  - Persist the last selected folder by stable folder identity, not path text
+
+- [ ] Redesign the sessions page around folder-first management
+  - Left pane: flat folder browser with capture counts and `Global` badge
+  - Right pane: capture records for the selected folder, with stable columns and readable bulk actions
+  - Keep folder management and capture-record management visually separate
+  - Remove nested-folder and tree-path mental models from the UI
+
+- [ ] Add folder CRUD in the sessions page
+  - Create folder via dialog with realtime validation and no path input
+  - Rename non-default folders via dialog with duplicate-name and invalid-character validation
+  - Delete non-default folders directly when empty
+  - Delete non-default folders by moving existing captures to `Global` first when they are not empty
+
+- [ ] Add capture record move management between folders
+  - Allow single-record move via folder picker UI
+  - Allow multi-select move via the same picker pattern
+  - Move physical capture directories and metadata together so history reload remains correct
+  - Do not expose manual filesystem path entry in this flow
+
+- [ ] Remove capture log concepts from the end-user UI
+  - Remove the capture log panel from the capture screen because users do not understand or need it
+  - Replace user-facing log-heavy feedback with clearer capture status/progress messaging where still necessary
+  - Keep any developer diagnostics only if they are hidden from the normal UX and still serve debugging needs
 
 ## 12. Error Handling and UX Guidance
 
@@ -250,5 +288,20 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 - [x] 5. Render the real overlay subtitle flow
   - Overlay now uses real local Vosk transcription and live translation providers, not only mock data
 - [ ] 6. Implement the macOS `ScreenCaptureKit + P/Invoke` bridge
-- [ ] 7. Add settings, persistence, and history polish
-- [ ] 8. Finish packaging and documentation
+- [ ] 7. Refactor session folder/domain model and persistence semantics
+  - Replace `TreePath` with flat folder groups and a protected default `Global` folder
+- [ ] 8. Migrate existing session data and settings to flat folders
+  - Preserve old captures while moving ownership away from path strings
+- [ ] 9. Refactor capture flow to choose existing folders only
+  - Use `Global` fallback and remember last selected folder identity
+- [ ] 10. Build folder CRUD in the sessions page
+  - Create, rename, and delete same-level folders without exposing paths
+- [ ] 11. Build capture record move/delete management inside folders
+  - Support single and bulk operations with picker-based UX
+- [ ] 12. Redesign the sessions page around folder browser + record list
+  - Make folder grouping the primary organizational model in the UI
+- [ ] 13. Replace storage path text inputs with OS folder pickers
+  - Keep settings storage browsing simple and path-free for end users where applicable
+- [ ] 14. Remove capture logs from the end-user experience
+  - Simplify capture UX after the flat-folder refactor is stable
+- [ ] 15. Finish packaging and documentation

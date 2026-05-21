@@ -15,10 +15,23 @@ public partial class MainWindow : SukiWindow
         {
             if (DataContext is MainWindowViewModel viewModel)
             {
+                viewModel.PickSessionsDirectoryAsync = PickSessionsDirectoryAsync;
+                viewModel.PickSpeechToTextModelsRootDirectoryAsync = PickSpeechToTextModelsRootDirectoryAsync;
                 viewModel.PickSpeechToTextModelDirectoryAsync = PickSpeechToTextModelDirectoryAsync;
                 viewModel.PickSpeechToTextModelZipFileAsync = PickSpeechToTextModelZipFileAsync;
             }
         };
+    }
+
+    private async Task<string?> PickSessionsDirectoryAsync()
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select sessions folder",
+            AllowMultiple = false,
+        });
+
+        return folders.Count == 0 ? null : folders[0].TryGetLocalPath();
     }
 
     private async Task<string?> PickSpeechToTextModelDirectoryAsync()
@@ -26,6 +39,17 @@ public partial class MainWindow : SukiWindow
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Select speech-to-text model folder",
+            AllowMultiple = false,
+        });
+
+        return folders.Count == 0 ? null : folders[0].TryGetLocalPath();
+    }
+
+    private async Task<string?> PickSpeechToTextModelsRootDirectoryAsync()
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select managed models folder",
             AllowMultiple = false,
         });
 

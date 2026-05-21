@@ -3,6 +3,7 @@ namespace Sublingual.App.Models;
 public sealed class CaptureSessionRecord
 {
     public required string SessionId { get; init; }
+    public string FolderId { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string TreePath { get; init; } = string.Empty;
     public required string DirectoryPath { get; init; }

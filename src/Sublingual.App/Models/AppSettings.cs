@@ -12,6 +12,7 @@ public sealed class StorageSettings
 {
     public string SessionsRoot { get; set; } = "sessions";
     public string SpeechToTextModelsRoot { get; set; } = "speech-to-text-models";
+    public string LastSessionFolderId { get; set; } = string.Empty;
     public string LastSessionTreePath { get; set; } = string.Empty;
 }
 

@@ -164,7 +164,7 @@
                     <!-- Device picker -->
                     <suki:GlassCard Classes="surface-card" Padding="20">
                         <Grid>
-                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
                                 <StackPanel Grid.Row="0" Spacing="4">
                                     <TextBlock Text="{Binding SelectedDeviceName}"
                                                FontSize="15"
@@ -181,17 +181,22 @@
                                           PlaceholderText="No device available"
                                           HorizontalAlignment="Stretch" />
 
-                                <TextBox Grid.Row="2"
-                                         Text="{Binding SessionName}"
-                                         Watermark="Session name, project, meeting, lesson..."
-                                         HorizontalAlignment="Stretch" />
+                                <Grid Grid.Row="2"
+                                      ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="10">
+                                    <ComboBox ItemsSource="{Binding SessionFolders}"
+                                              SelectedItem="{Binding SelectedSessionFolder}"
+                                              DisplayMemberBinding="{Binding DisplayName}"
+                                              PlaceholderText="Select an existing session folder"
+                                              HorizontalAlignment="Stretch" />
+                                    <CheckBox Grid.Column="1"
+                                              IsChecked="{Binding IsGlobalSessionFolderSelected}"
+                                              IsEnabled="False"
+                                              VerticalAlignment="Center"
+                                              Content="Global" />
+                                </Grid>
 
-                                <TextBox Grid.Row="3"
-                                         Text="{Binding SessionTreePath}"
-                                         Watermark="Tree path, ex: project/client-a/weekly-sync"
-                                         HorizontalAlignment="Stretch" />
-
-                                <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10">
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10">
                                     <Button Classes="action-button secondary-action"
                                             Command="{Binding RefreshDevicesCommand}"
                                             Content="Refresh" />
@@ -258,24 +263,6 @@
                         </Grid>
                     </suki:GlassCard>
 
-                    <!-- Log — only when non-empty -->
-                    <suki:GlassCard Classes="surface-card"
-                                    Padding="16"
-                                    IsVisible="{Binding HasRuntimeLog}">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="eyebrow" Text="Log" />
-                            <TextBox Classes="log-box"
-                                     Text="{Binding RuntimeLog}"
-                                     IsReadOnly="True"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     CaretBrush="Transparent"
-                                     VerticalContentAlignment="Top"
-                                     MinHeight="56"
-                                     MaxHeight="160" />
-                        </StackPanel>
-                    </suki:GlassCard>
-
                 </StackPanel>
             </ScrollViewer>
 
@@ -287,28 +274,41 @@
                                     IsVisible="{Binding IsSessionsListPageActive}">
                         <Grid>
                             <StackPanel Spacing="12">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
-                                    <StackPanel Spacing="2">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+                                    <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
+                                              Command="{Binding ToggleSelectAllSessionsCommand}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left">
+                                        <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
+                                    </CheckBox>
+                                    <StackPanel Grid.Column="1" Spacing="2">
                                         <TextBlock Text="Sessions"
                                                    FontSize="15"
                                                    FontWeight="SemiBold"
                                                    Foreground="#F0F4FF" />
                                     </StackPanel>
-                                    <Button Grid.Column="1"
+                                    <Button Grid.Column="2"
+                                            Classes="action-button secondary-action"
+                                            Command="{Binding OpenCreateSessionDialogCommand}"
+                                            VerticalAlignment="Top">
+                                        <ToolTip.Tip>Create session folder</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-folder-plus" FontSize="14" />
+                                    </Button>
+                                    <Button Grid.Column="3"
                                             Classes="action-button secondary-action"
                                             Command="{Binding RefreshSavedSessionsCommand}"
                                             VerticalAlignment="Top">
                                         <ToolTip.Tip>Reload sessions</ToolTip.Tip>
                                         <i:Icon Value="fa-solid fa-rotate-right" FontSize="14" />
                                     </Button>
-                                    <Button Grid.Column="2"
+                                    <Button Grid.Column="4"
                                             Classes="action-button secondary-action"
                                             Command="{Binding ToggleSelectAllSessionsCommand}"
                                             VerticalAlignment="Top">
                                         <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
                                         <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
                                     </Button>
-                                    <Button Grid.Column="3"
+                                    <Button Grid.Column="5"
                                             Classes="action-button neutral-action"
                                             Command="{Binding ClearSavedSessionsCommand}"
                                             VerticalAlignment="Top">
@@ -333,76 +333,139 @@
                                     </Button>
                                 </Grid>
 
+                                <TextBox Watermark="Search sessions"
+                                          Text="{Binding SessionSearchText}" />
+
                                 <TextBlock Text="No saved sessions yet."
                                            Foreground="#8BA3C7"
                                            IsVisible="{Binding NoSavedSessions}" />
 
-                                <TextBox Watermark="Search sessions"
-                                          Text="{Binding SessionSearchText}"
-                                          IsVisible="{Binding HasSavedSessions}" />
+                                <TextBlock Text="No sessions match your search."
+                                           Foreground="#8BA3C7"
+                                           IsVisible="{Binding NoSearchResults}" />
+
+                                <suki:GlassCard Padding="12"
+                                                IsAnimated="False"
+                                                IsVisible="{Binding IsSessionsListPageActive}">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="Session Folders"
+                                                   Foreground="#F0F4FF"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="Pick a folder to view and to use for next capture"
+                                                   Foreground="#8BA3C7"
+                                                   FontSize="11" />
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                                              ColumnSpacing="10">
+                                            <ComboBox ItemsSource="{Binding SessionFolders}"
+                                                      SelectedItem="{Binding SelectedSessionFolder}"
+                                                      DisplayMemberBinding="{Binding DisplayName}"
+                                                      PlaceholderText="Select folder"
+                                                      HorizontalAlignment="Stretch" />
+                                            <Button Grid.Column="1"
+                                                    Classes="action-button neutral-action"
+                                                    Command="{Binding OpenCreateSessionDialogCommand}"
+                                                    Content="New" />
+                                            <Button Grid.Column="2"
+                                                    Classes="action-button neutral-action"
+                                                    Command="{Binding OpenMoveSelectedSessionsDialogCommand}"
+                                                    Content="Move"
+                                                    IsEnabled="{Binding HasSelectedSessions}" />
+                                            <Button Grid.Column="3"
+                                                    Classes="action-button neutral-action"
+                                                    Command="{Binding OpenRenameSessionFolderDialogCommand}"
+                                                    Content="Rename" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto"
+                                              ColumnSpacing="10">
+                                            <Button Classes="action-button neutral-action"
+                                                    Command="{Binding OpenDeleteSessionFolderDialogCommand}"
+                                                    Content="Delete Folder" />
+                                            <Button Grid.Column="1"
+                                                    Classes="action-button neutral-action"
+                                                    Command="{Binding OpenMoveSelectedSessionsDialogCommand}"
+                                                    Content="Move Selected"
+                                                    IsEnabled="{Binding HasSelectedSessions}" />
+                                            <Button Grid.Column="2"
+                                                    Classes="action-button neutral-action"
+                                                    Command="{Binding DeleteSelectedSessionsCommand}"
+                                                    Content="Delete Selected"
+                                                    IsEnabled="{Binding HasSelectedSessions}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </suki:GlassCard>
 
                                 <Grid IsVisible="{Binding HasSavedSessions}"
                                       RowDefinitions="Auto,*"
                                       RowSpacing="8">
-                                    <Grid ColumnDefinitions="72,3*,2*,*"
+                                    <Grid ColumnDefinitions="48,*,140,160,140"
                                           Margin="0,0,0,4">
                                         <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
                                                   Command="{Binding ToggleSelectAllSessionsCommand}"
                                                   HorizontalAlignment="Left"
                                                   VerticalAlignment="Center">
                                             <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
-                                        </CheckBox>
+                                         </CheckBox>
                                         <TextBlock Grid.Column="1" Text="Session" Foreground="#64748B" FontSize="12" />
-                                        <TextBlock Grid.Column="2" Text="Created" Foreground="#64748B" FontSize="12" />
-                                        <TextBlock Grid.Column="3" Text="Audio" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Grid.Column="2" Text="Folder" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Grid.Column="3" Text="Created" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Grid.Column="4" Text="Audio" Foreground="#64748B" FontSize="12" />
                                     </Grid>
-                                     <ListBox Grid.Row="1"
-                                              MaxHeight="320"
+                                      <ListBox Grid.Row="1"
+                                               MaxHeight="320"
                                               ItemsSource="{Binding SavedSessions}"
                                               SelectedItem="{Binding SelectedSavedSession}">
                                          <ListBox.ItemTemplate>
-                                             <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
-                                                 <suki:GlassCard Margin="0,0,0,6"
-                                                                 Padding="10">
-                                                     <Grid ColumnDefinitions="72,3*,2*,*"
-                                                           ColumnSpacing="12">
-                                                         <CheckBox IsChecked="{Binding IsSelected}"
-                                                                   VerticalAlignment="Center"
+                                              <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
+                                                   <suki:GlassCard Margin="0,0,0,6"
+                                                                   Padding="10">
+                                                       <Grid ColumnDefinitions="48,*,140,160,140"
+                                                             ColumnSpacing="12">
+                                                          <CheckBox IsChecked="{Binding IsSelected}"
+                                                                    VerticalAlignment="Center"
                                                                    HorizontalAlignment="Left">
                                                              <ToolTip.Tip>Select session</ToolTip.Tip>
                                                          </CheckBox>
 
-                                                         <!-- Click on the row (excluding the checkbox) opens detail page -->
-                                                         <Button Grid.Column="1"
-                                                                 Grid.ColumnSpan="3"
-                                                                 Background="Transparent"
-                                                                 BorderBrush="Transparent"
-                                                                 BorderThickness="0"
+                                                          <!-- Click on the row (excluding the checkbox) opens detail page -->
+                                                          <Button Grid.Column="1"
+                                                                  Grid.ColumnSpan="4"
+                                                                  Background="Transparent"
+                                                                  BorderBrush="Transparent"
+                                                                  BorderThickness="0"
                                                                  Padding="0"
-                                                                 HorizontalContentAlignment="Stretch"
-                                                                 Command="{Binding $parent[Window].DataContext.OpenSessionDetailCommand}"
-                                                                 CommandParameter="{Binding}">
-                                                             <Grid ColumnDefinitions="3*,2*,*"
-                                                                   ColumnSpacing="12">
-                                                                  <StackPanel Spacing="2">
-                                                                      <TextBlock Text="{Binding DisplayTitle}"
-                                                                                 Foreground="#F0F4FF"
-                                                                                 FontWeight="SemiBold"
-                                                                                 TextTrimming="CharacterEllipsis" />
-                                                                      <TextBlock Text="{Binding DisplayTreePath}"
-                                                                                 Foreground="#64748B"
-                                                                                 FontSize="11"
-                                                                                 TextTrimming="CharacterEllipsis" />
-                                                                  </StackPanel>
-                                                                 <TextBlock Grid.Column="1"
-                                                                            Text="{Binding CreatedAtText}"
-                                                                            Foreground="#8BA3C7"
-                                                                            TextTrimming="CharacterEllipsis" />
-                                                                 <TextBlock Grid.Column="2"
-                                                                            Text="{Binding AudioPath}"
-                                                                            Foreground="#8BA3C7"
-                                                                            TextTrimming="CharacterEllipsis" />
-                                                             </Grid>
+                                                                  HorizontalContentAlignment="Stretch"
+                                                                  Command="{Binding $parent[Window].DataContext.OpenSessionDetailCommand}"
+                                                                  CommandParameter="{Binding}">
+                                                               <Grid ColumnDefinitions="*,140,160,140"
+                                                                     ColumnSpacing="12">
+                                                                    <StackPanel Spacing="2">
+                                                                        <TextBlock Text="{Binding DisplayTitle}"
+                                                                                   Foreground="#F0F4FF"
+                                                                                   FontWeight="SemiBold"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   MaxLines="1" />
+                                                                        <TextBlock Text="{Binding DisplaySessionId}"
+                                                                                   Foreground="#64748B"
+                                                                                   FontSize="11"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   MaxLines="1" />
+                                                                    </StackPanel>
+                                                                   <TextBlock Grid.Column="1"
+                                                                              Text="{Binding DisplayTreePath}"
+                                                                              Foreground="#8BA3C7"
+                                                                              TextTrimming="CharacterEllipsis"
+                                                                              MaxLines="1" />
+                                                                   <TextBlock Grid.Column="2"
+                                                                              Text="{Binding CreatedAtText}"
+                                                                              Foreground="#8BA3C7"
+                                                                              TextTrimming="CharacterEllipsis"
+                                                                              MaxLines="1" />
+                                                                   <TextBlock Grid.Column="3"
+                                                                              Text="{Binding DisplayAudioFileName}"
+                                                                              Foreground="#8BA3C7"
+                                                                              TextTrimming="CharacterEllipsis"
+                                                                              MaxLines="1" />
+                                                               </Grid>
                                                          </Button>
                                                      </Grid>
                                                  </suki:GlassCard>
@@ -591,14 +654,125 @@
                                FontWeight="Bold"
                                Foreground="#F0F4FF" />
 
-                    <suki:GlassCard Classes="surface-card" Padding="20">
+                    <suki:GlassCard Background="#081221"
+                                    CornerRadius="999"
+                                    Padding="4">
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="4">
+                            <Button Classes="action-button primary-action"
+                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="general"
+                                    Content="General" />
+                            <Button Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="general"
+                                    Content="General" />
+                            <Button Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="general"
+                                    Content="General" />
+                            <Button Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="general"
+                                    Content="General" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button primary-action"
+                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="speech"
+                                    Content="Speech" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="speech"
+                                    Content="Speech" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="speech"
+                                    Content="Speech" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="speech"
+                                    Content="Speech" />
+
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="translation"
+                                    Content="Translation" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="translation"
+                                    Content="Translation" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="translation"
+                                    Content="Translation" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="translation"
+                                    Content="Translation" />
+
+                            <Button Grid.Column="3"
+                                    Classes="action-button primary-action"
+                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="overlay"
+                                    Content="Overlay" />
+                            <Button Grid.Column="3"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="overlay"
+                                    Content="Overlay" />
+                            <Button Grid.Column="3"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="overlay"
+                                    Content="Overlay" />
+                            <Button Grid.Column="3"
+                                    Classes="action-button secondary-action"
+                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
+                                    Command="{Binding SelectSettingsTabCommand}"
+                                    CommandParameter="overlay"
+                                    Content="Overlay" />
+                        </Grid>
+                    </suki:GlassCard>
+
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="20"
+                                    IsVisible="{Binding IsGeneralSettingsTabActive}">
                         <StackPanel Spacing="12">
                                     <TextBlock Text="Saved Sessions Folder"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <TextBox Text="{Binding SessionsDirectoryPath}"
-                                             Watermark="~/.sublingual/sessions"
-                                             HorizontalAlignment="Stretch" />
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="10">
+                                        <TextBox Text="{Binding SessionsDirectoryPath}"
+                                                 Watermark="~/.sublingual/sessions"
+                                                 IsReadOnly="True"
+                                                 HorizontalAlignment="Stretch" />
+                                        <Button Grid.Column="1"
+                                                Classes="action-button secondary-action"
+                                                Command="{Binding BrowseSessionsDirectoryCommand}"
+                                                Content="Browse" />
+                                    </Grid>
                                     <TextBlock Text="Relative paths are resolved under ~/.sublingual. Absolute paths are also supported."
                                                Foreground="#8BA3C7"
                                                FontSize="12"
@@ -606,14 +780,24 @@
                                 </StackPanel>
                     </suki:GlassCard>
 
-                    <suki:GlassCard Classes="surface-card" Padding="20">
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="20"
+                                    IsVisible="{Binding IsSpeechSettingsTabActive}">
                         <StackPanel Spacing="12">
                                     <TextBlock Text="Managed Models Folder"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <TextBox Text="{Binding SpeechToTextModelsDirectoryPath}"
-                                             Watermark="~/.sublingual/speech-to-text-models"
-                                             HorizontalAlignment="Stretch" />
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="10">
+                                        <TextBox Text="{Binding SpeechToTextModelsDirectoryPath}"
+                                                 Watermark="~/.sublingual/speech-to-text-models"
+                                                 IsReadOnly="True"
+                                                 HorizontalAlignment="Stretch" />
+                                        <Button Grid.Column="1"
+                                                Classes="action-button secondary-action"
+                                                Command="{Binding BrowseSpeechToTextModelsDirectoryCommand}"
+                                                Content="Browse" />
+                                    </Grid>
                                     <ComboBox ItemsSource="{Binding SpeechToTextModels}"
                                               SelectedItem="{Binding SelectedSpeechToTextModel}"
                                               DisplayMemberBinding="{Binding Name}"
@@ -637,7 +821,9 @@
                                 </StackPanel>
                     </suki:GlassCard>
 
-                    <suki:GlassCard Classes="surface-card" Padding="20">
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="20"
+                                    IsVisible="{Binding IsTranslationSettingsTabActive}">
                         <StackPanel Spacing="16">
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Translation Factory"
@@ -897,7 +1083,9 @@
                                 </StackPanel>
                     </suki:GlassCard>
 
-                    <suki:GlassCard Classes="surface-card" Padding="20">
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="20"
+                                    IsVisible="{Binding IsOverlaySettingsTabActive}">
                         <StackPanel Spacing="16">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                                         <StackPanel Spacing="4">
@@ -1112,7 +1300,192 @@
                 </StackPanel>
             </ScrollViewer>
 
+    </Grid>
+    </suki:BusyArea>
+
+        <!-- Move selected sessions dialog -->
+        <Border Grid.ColumnSpan="2"
+                IsVisible="{Binding IsMoveSessionsDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18"
+                                Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Move Selected Sessions"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="Move selected capture records to another folder."
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <ComboBox ItemsSource="{Binding SessionFolders}"
+                                  SelectedItem="{Binding MoveTargetSessionFolder}"
+                                  DisplayMemberBinding="{Binding DisplayName}"
+                                  PlaceholderText="Select target folder"
+                                  HorizontalAlignment="Stretch" />
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <TextBlock Text="This updates session metadata and moves the folder on disk."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseMoveSessionsDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding MoveSelectedSessionsCommand}"
+                                    Content="Move" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
             </Grid>
-        </suki:BusyArea>
+        </Border>
+
+        <!-- Rename folder dialog -->
+        <Border Grid.ColumnSpan="2"
+                IsVisible="{Binding IsRenameSessionFolderDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18"
+                                Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Rename Folder"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBox Text="{Binding RenameSessionFolderName}"
+                                 Watermark="Folder name"
+                                 HorizontalAlignment="Stretch" />
+                        <TextBlock Text="{Binding RenameSessionFolderValidationError}"
+                                   Foreground="#FCA5A5"
+                                   FontSize="11"
+                                   IsVisible="{Binding HasRenameSessionFolderValidationError}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <TextBlock Text="Global cannot be renamed."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseRenameSessionFolderDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding RenameSessionFolderCommand}"
+                                    Content="Rename"
+                                    IsEnabled="{Binding CanRenameSessionFolder}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
+
+        <!-- Delete folder confirm dialog -->
+        <Border Grid.ColumnSpan="2"
+                IsVisible="{Binding IsDeleteSessionFolderDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18"
+                                Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Delete Folder"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="Sessions inside this folder will be moved to Global before deletion."
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <TextBlock Text="This cannot be undone."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseDeleteSessionFolderDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding DeleteSessionFolderCommand}"
+                                    Content="Delete" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
+
+        <Border Grid.ColumnSpan="2"
+                IsVisible="{Binding IsCreateSessionDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18"
+                                Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Create Session Folder"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="Create a flat folder (no nesting). Example: Work"
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <TextBox Text="{Binding NewSessionFolderName}"
+                                 Watermark="Work"
+                                  HorizontalAlignment="Stretch" />
+                        <TextBlock Text="{Binding NewSessionFolderValidationError}"
+                                   Foreground="#FCA5A5"
+                                   FontSize="11"
+                                   IsVisible="{Binding HasNewSessionFolderValidationError}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              ColumnSpacing="10">
+                            <TextBlock Text="Folder name will be sanitized for filesystem safety."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseCreateSessionDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding CreateSessionFolderCommand}"
+                                    Content="Create"
+                                    IsEnabled="{Binding CanCreateSessionFolder}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
+
     </Grid>
 </suki:SukiWindow>
