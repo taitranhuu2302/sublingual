@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+ctranslate2
+transformers
+sentencepiece
+pydantic
+pydantic-settings
+python-dotenv
+numpy
+requests
