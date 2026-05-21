@@ -377,55 +377,23 @@ public sealed partial class MainWindowViewModel
 
     private static IReadOnlyList<SavedTranscriptEntry> BuildExportTranscriptEntries(IReadOnlyList<SavedTranscriptEntry> entries)
     {
-        var cleaned = new List<SavedTranscriptEntry>();
-        SavedTranscriptEntry? pendingPartial = null;
+        var cleaned = entries
+            .GroupBy(entry => entry.SegmentId, StringComparer.Ordinal)
+            .Select(group => group
+                .OrderByDescending(entry => entry.IsFinal)
+                .ThenByDescending(entry => !string.IsNullOrWhiteSpace(entry.TranslatedText))
+                .ThenByDescending(entry => entry.UpdatedAt)
+                .First())
+            .OrderBy(entry => entry.UpdatedAt)
+            .ToList();
 
-        foreach (var entry in entries)
+        if (cleaned.Any(entry => entry.IsFinal))
         {
-            if (!string.IsNullOrWhiteSpace(entry.FinalText) || !string.IsNullOrWhiteSpace(entry.FinalTranslatedText))
-            {
-                pendingPartial = null;
-
-                var finalEntry = new SavedTranscriptEntry
-                {
-                    PartialText = string.Empty,
-                    PartialTranslatedText = string.Empty,
-                    FinalText = entry.FinalText,
-                    FinalTranslatedText = entry.FinalTranslatedText,
-                    UpdatedAt = entry.UpdatedAt,
-                };
-
-                var last = cleaned.LastOrDefault();
-                var isDuplicateFinal = last is not null
-                    && string.Equals(last.FinalText, finalEntry.FinalText, StringComparison.Ordinal)
-                    && string.Equals(last.FinalTranslatedText, finalEntry.FinalTranslatedText, StringComparison.Ordinal);
-
-                if (!isDuplicateFinal)
-                {
-                    cleaned.Add(finalEntry);
-                }
-
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(entry.PartialText))
-            {
-                pendingPartial = new SavedTranscriptEntry
-                {
-                    PartialText = entry.PartialText,
-                    PartialTranslatedText = string.Empty,
-                    FinalText = string.Empty,
-                    FinalTranslatedText = string.Empty,
-                    UpdatedAt = entry.UpdatedAt,
-                };
-            }
+            return cleaned.Where(entry => entry.IsFinal).ToList();
         }
 
-        if (cleaned.Count == 0 && pendingPartial is not null)
-        {
-            cleaned.Add(pendingPartial);
-        }
-
-        return cleaned;
+        return cleaned
+            .TakeLast(1)
+            .ToList();
     }
 }

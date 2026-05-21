@@ -9,10 +9,12 @@ namespace Sublingual.App.ViewModels;
 public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioCaptureDebugSession _session;
+    private readonly Dictionary<string, OverlayTranscriptLineViewModel> _stableLinesBySegmentId = new(StringComparer.Ordinal);
     private bool _disposed;
 
     [ObservableProperty] private string partialOriginalText = string.Empty;
-    [ObservableProperty] private string finalTranslatedText = string.Empty;
+    [ObservableProperty] private string partialTranslatedText = string.Empty;
+    [ObservableProperty] private bool isDraftTranslating;
     [ObservableProperty] private string statusText = "Overlay ready.";
     [ObservableProperty] private double overlayFontSize = 26;
     [ObservableProperty] private double overlayLineHeight = 1.35;
@@ -31,7 +33,8 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public double OverlayPrimaryLineHeight => OverlayFontSize * EffectiveOverlayLineHeight;
     public double OverlaySecondaryLineHeight => OverlayTranslationFontSize * EffectiveOverlayLineHeight;
     public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
-    public bool HasFinalTranslation => OverlayShowTranslation && !string.IsNullOrWhiteSpace(FinalTranslatedText);
+    public bool HasDraftTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedText);
+    public bool HasDraftTranslationLine => OverlayShowTranslation && (IsDraftTranslating || HasDraftTranslation);
     public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
     public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
     public bool HasCaption => TranscriptLines.Count > 0 || HasPartial;
@@ -50,7 +53,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public OverlayWindowViewModel(AudioCaptureDebugSession session)
     {
         _session = session;
-        _session.TranscriptPreviewUpdated += OnTranscriptPreviewUpdated;
+        _session.RealtimeTranscriptEventPublished += OnRealtimeTranscriptEventPublished;
     }
 
     // Design-time constructor
@@ -62,7 +65,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _session.TranscriptPreviewUpdated -= OnTranscriptPreviewUpdated;
+        _session.RealtimeTranscriptEventPublished -= OnRealtimeTranscriptEventPublished;
         _disposed = true;
     }
 
@@ -109,9 +112,15 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasPartial));
     }
 
-    partial void OnFinalTranslatedTextChanged(string value)
+    partial void OnPartialTranslatedTextChanged(string value)
     {
-        OnPropertyChanged(nameof(HasFinalTranslation));
+        OnPropertyChanged(nameof(HasDraftTranslation));
+        OnPropertyChanged(nameof(HasDraftTranslationLine));
+    }
+
+    partial void OnIsDraftTranslatingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasDraftTranslationLine));
     }
 
     partial void OnOverlayShowTranslationChanged(bool value)
@@ -119,36 +128,58 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(EffectiveOverlayLineHeight));
         OnPropertyChanged(nameof(OverlayPrimaryLineHeight));
         OnPropertyChanged(nameof(OverlaySecondaryLineHeight));
-        OnPropertyChanged(nameof(HasFinalTranslation));
+        OnPropertyChanged(nameof(HasDraftTranslationLine));
     }
 
-    private void OnTranscriptPreviewUpdated(object? sender, TranscriptPreviewUpdate update)
+    private void OnRealtimeTranscriptEventPublished(object? sender, RealtimeTranscriptEvent transcriptEvent)
     {
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var partialText = update.PartialText ?? string.Empty;
-            PartialOriginalText = partialText;
-            if (!string.IsNullOrWhiteSpace(update.FinalText))
+            switch (transcriptEvent)
             {
-                TranscriptLines.Add(new OverlayTranscriptLineViewModel(
-                    update.FinalText,
-                    update.FinalTranslatedText,
-                    update.UpdatedAt));
+                case DraftTranscriptChanged draft:
+                    PartialOriginalText = draft.OriginalText;
+                    StatusText = $"Updated {draft.UpdatedAt:HH:mm:ss}";
+                    break;
+                case StableTranscriptCommitted stable:
+                    var line = new OverlayTranscriptLineViewModel(stable.SegmentId, stable.OriginalText, string.Empty, stable.UpdatedAt);
+                    TranscriptLines.Add(line);
+                    _stableLinesBySegmentId[stable.SegmentId] = line;
+                    while (TranscriptLines.Count > 80)
+                    {
+                        var removedLine = TranscriptLines[0];
+                        TranscriptLines.RemoveAt(0);
+                        _stableLinesBySegmentId.Remove(removedLine.SegmentId);
+                    }
 
-                while (TranscriptLines.Count > 80)
-                {
-                    TranscriptLines.RemoveAt(0);
-                }
+                    PartialOriginalText = string.Empty;
+                    PartialTranslatedText = string.Empty;
+                    IsDraftTranslating = false;
+                    StatusText = $"Updated {stable.UpdatedAt:HH:mm:ss}";
+                    break;
+                case TranscriptTranslationChanged translation when translation.Target == TranscriptTranslationTarget.Draft:
+                    if (translation.IsPending)
+                    {
+                        PartialTranslatedText = "...";
+                        IsDraftTranslating = true;
+                    }
+                    else
+                    {
+                        PartialTranslatedText = translation.TranslatedText ?? string.Empty;
+                        IsDraftTranslating = false;
+                    }
 
-                PartialOriginalText = string.Empty;
+                    StatusText = $"Updated {translation.UpdatedAt:HH:mm:ss}";
+                    break;
+                case TranscriptTranslationChanged translation when _stableLinesBySegmentId.TryGetValue(translation.SegmentId, out var stableLine):
+                    stableLine.TranslatedText = translation.IsPending
+                        ? "..."
+                        : translation.TranslatedText ?? string.Empty;
+                    stableLine.UpdatedAt = translation.UpdatedAt;
+                    StatusText = $"Updated {translation.UpdatedAt:HH:mm:ss}";
+                    break;
             }
 
-            if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
-            {
-                FinalTranslatedText = update.FinalTranslatedText;
-            }
-
-            StatusText = $"Updated {update.UpdatedAt:HH:mm:ss}";
             if (IsFixedToBottom)
             {
                 ScrollRequestVersion += 1;
@@ -204,10 +235,26 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     }
 }
 
-public sealed class OverlayTranscriptLineViewModel(string originalText, string translatedText, DateTimeOffset updatedAt)
+public sealed partial class OverlayTranscriptLineViewModel : ObservableObject
 {
-    public string OriginalText { get; } = originalText;
-    public string TranslatedText { get; } = translatedText ?? string.Empty;
-    public DateTimeOffset UpdatedAt { get; } = updatedAt;
+    public OverlayTranscriptLineViewModel(string segmentId, string originalText, string translatedText, DateTimeOffset updatedAt)
+    {
+        SegmentId = segmentId;
+        this.originalText = originalText;
+        this.translatedText = translatedText ?? string.Empty;
+        this.updatedAt = updatedAt;
+    }
+
+    public string SegmentId { get; }
+
+    [ObservableProperty] private string originalText = string.Empty;
+    [ObservableProperty] private string translatedText = string.Empty;
+    [ObservableProperty] private DateTimeOffset updatedAt;
+
     public bool HasTranslation => !string.IsNullOrWhiteSpace(TranslatedText);
+
+    partial void OnTranslatedTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasTranslation));
+    }
 }

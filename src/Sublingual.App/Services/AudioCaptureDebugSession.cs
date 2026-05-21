@@ -250,6 +250,7 @@ public class AudioCaptureDebugSession : IDisposable
         if (!string.IsNullOrWhiteSpace(partialText))
         {
             _currentDraftSourceText = partialText;
+            PersistTranscriptSegment(_currentDraftSegmentId, partialText, string.Empty, false, updatedAt);
             PublishRealtimeTranscriptEvent(new DraftTranscriptChanged(
                 NextRealtimeTranscriptSequenceId(),
                 _currentDraftSegmentId,
@@ -259,10 +260,17 @@ public class AudioCaptureDebugSession : IDisposable
 
         if (!string.IsNullOrWhiteSpace(finalText))
         {
+            if (!string.IsNullOrWhiteSpace(_currentOutputPath))
+            {
+                _captureSessionStorage.DeleteTranscriptEntry(_currentOutputPath, _currentDraftSegmentId);
+            }
+
             _stableSegmentIndex += 1;
+            var stableSegmentId = BuildStableSegmentId(_stableSegmentIndex);
+            PersistTranscriptSegment(stableSegmentId, finalText, string.Empty, true, updatedAt);
             PublishRealtimeTranscriptEvent(new StableTranscriptCommitted(
                 NextRealtimeTranscriptSequenceId(),
-                BuildStableSegmentId(_stableSegmentIndex),
+                stableSegmentId,
                 finalText,
                 updatedAt));
             _currentDraftSegmentId = CreateDraftSegmentId();
@@ -369,6 +377,7 @@ public class AudioCaptureDebugSession : IDisposable
 
         if (completed.Target == TranscriptTranslationTarget.Draft)
         {
+            PersistTranscriptSegment(completed.SegmentId, completed.SourceText, completed.TranslatedText, false, completed.UpdatedAt);
             EmitTranscriptPreviewUpdate(
                 completed.SourceText,
                 completed.TranslatedText,
@@ -381,6 +390,7 @@ public class AudioCaptureDebugSession : IDisposable
             return;
         }
 
+        PersistTranscriptSegment(completed.SegmentId, completed.SourceText, completed.TranslatedText, true, completed.UpdatedAt);
         EmitTranscriptPreviewUpdate(
             string.Empty,
             string.Empty,
@@ -412,21 +422,31 @@ public class AudioCaptureDebugSession : IDisposable
             diagnostics,
             isCacheHit);
 
-        if (!string.IsNullOrWhiteSpace(_currentOutputPath))
+        TranscriptPreviewUpdated?.Invoke(this, update);
+    }
+
+    private void PersistTranscriptSegment(
+        string segmentId,
+        string originalText,
+        string translatedText,
+        bool isFinal,
+        DateTimeOffset updatedAt)
+    {
+        if (string.IsNullOrWhiteSpace(_currentOutputPath) || string.IsNullOrWhiteSpace(segmentId) || string.IsNullOrWhiteSpace(originalText))
         {
-            _captureSessionStorage.SaveTranscriptEntry(
-                _currentOutputPath,
-                new Models.SavedTranscriptEntry
-                {
-                    PartialText = update.PartialText,
-                    PartialTranslatedText = update.PartialTranslatedText,
-                    FinalText = update.FinalText,
-                    FinalTranslatedText = update.FinalTranslatedText,
-                    UpdatedAt = update.UpdatedAt,
-                });
+            return;
         }
 
-        TranscriptPreviewUpdated?.Invoke(this, update);
+        _captureSessionStorage.SaveTranscriptEntry(
+            _currentOutputPath,
+            new Models.SavedTranscriptEntry
+            {
+                SegmentId = segmentId,
+                OriginalText = originalText,
+                TranslatedText = translatedText ?? string.Empty,
+                IsFinal = isFinal,
+                UpdatedAt = updatedAt,
+            });
     }
 
     private string GetCurrentDraftSourceText()

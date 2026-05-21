@@ -77,6 +77,12 @@
                                       Foreground="#FFFFFF"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
+                        <SelectableTextBlock Text="{Binding PartialTranslatedText}"
+                                    FontSize="{Binding OverlayTranslationFontSize}"
+                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
+                                      Foreground="#E2E8F0"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding HasDraftTranslationLine}" />
                     </StackPanel>
                 </ScrollViewer>
 
@@ -155,6 +161,12 @@
                                       Foreground="#0F172A"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
+                        <SelectableTextBlock Text="{Binding PartialTranslatedText}"
+                                    FontSize="{Binding OverlayTranslationFontSize}"
+                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
+                                      Foreground="#475569"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding HasDraftTranslationLine}" />
                     </StackPanel>
                 </ScrollViewer>
 

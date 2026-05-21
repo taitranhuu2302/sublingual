@@ -208,20 +208,46 @@ public sealed class CaptureSessionStorage
 
         var transcriptPath = Path.Combine(sessionDirectory, "transcript.json");
         var existingEntries = LoadTranscriptEntries(transcriptPath).ToList();
+        var existingIndex = existingEntries.FindIndex(existing =>
+            string.Equals(existing.SegmentId, entry.SegmentId, StringComparison.Ordinal));
 
-        var last = existingEntries.LastOrDefault();
-        var isDuplicate = last is not null
-            && string.Equals(last.PartialText, entry.PartialText, StringComparison.Ordinal)
-            && string.Equals(last.PartialTranslatedText, entry.PartialTranslatedText, StringComparison.Ordinal)
-            && string.Equals(last.FinalText, entry.FinalText, StringComparison.Ordinal)
-            && string.Equals(last.FinalTranslatedText, entry.FinalTranslatedText, StringComparison.Ordinal);
+        if (existingIndex >= 0)
+        {
+            var existing = existingEntries[existingIndex];
+            var isDuplicate = string.Equals(existing.OriginalText, entry.OriginalText, StringComparison.Ordinal)
+                && string.Equals(existing.TranslatedText, entry.TranslatedText, StringComparison.Ordinal)
+                && existing.IsFinal == entry.IsFinal;
+            if (isDuplicate)
+            {
+                return;
+            }
 
-        if (isDuplicate)
+            existingEntries[existingIndex] = entry;
+        }
+        else
+        {
+            existingEntries.Add(entry);
+        }
+
+        var json = JsonSerializer.Serialize(existingEntries, SerializerOptions);
+        File.WriteAllText(transcriptPath, json);
+    }
+
+    public void DeleteTranscriptEntry(string outputAudioPath, string segmentId)
+    {
+        var sessionDirectory = Path.GetDirectoryName(outputAudioPath);
+        if (string.IsNullOrWhiteSpace(sessionDirectory))
         {
             return;
         }
 
-        existingEntries.Add(entry);
+        var transcriptPath = Path.Combine(sessionDirectory, "transcript.json");
+        var existingEntries = LoadTranscriptEntries(transcriptPath).ToList();
+        var removed = existingEntries.RemoveAll(entry => string.Equals(entry.SegmentId, segmentId, StringComparison.Ordinal));
+        if (removed == 0)
+        {
+            return;
+        }
 
         var json = JsonSerializer.Serialize(existingEntries, SerializerOptions);
         File.WriteAllText(transcriptPath, json);
@@ -411,12 +437,117 @@ public sealed class CaptureSessionStorage
         try
         {
             var json = File.ReadAllText(transcriptPath);
-            return JsonSerializer.Deserialize<List<SavedTranscriptEntry>>(json, SerializerOptions) ?? [];
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var entries = new List<SavedTranscriptEntry>();
+            var legacyIndex = 0;
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                if (TryReadSegmentTranscriptEntry(element, out var segmentEntry))
+                {
+                    entries.Add(segmentEntry);
+                    continue;
+                }
+
+                if (TryReadLegacyTranscriptEntry(element, legacyIndex, out var legacyEntry))
+                {
+                    entries.Add(legacyEntry);
+                    legacyIndex += 1;
+                }
+            }
+
+            return entries;
         }
         catch
         {
             return [];
         }
+    }
+
+    private static bool TryReadSegmentTranscriptEntry(JsonElement element, out SavedTranscriptEntry entry)
+    {
+        entry = null!;
+
+        if (!element.TryGetProperty(nameof(SavedTranscriptEntry.SegmentId), out var segmentIdElement)
+            || !element.TryGetProperty(nameof(SavedTranscriptEntry.OriginalText), out var originalTextElement)
+            || !element.TryGetProperty(nameof(SavedTranscriptEntry.TranslatedText), out var translatedTextElement)
+            || !element.TryGetProperty(nameof(SavedTranscriptEntry.IsFinal), out var isFinalElement)
+            || !element.TryGetProperty(nameof(SavedTranscriptEntry.UpdatedAt), out var updatedAtElement))
+        {
+            return false;
+        }
+
+        var segmentId = segmentIdElement.GetString();
+        var originalText = originalTextElement.GetString();
+        if (string.IsNullOrWhiteSpace(segmentId) || originalText is null)
+        {
+            return false;
+        }
+
+        entry = new SavedTranscriptEntry
+        {
+            SegmentId = segmentId,
+            OriginalText = originalText,
+            TranslatedText = translatedTextElement.GetString() ?? string.Empty,
+            IsFinal = isFinalElement.GetBoolean(),
+            UpdatedAt = updatedAtElement.GetDateTimeOffset(),
+        };
+        return true;
+    }
+
+    private static bool TryReadLegacyTranscriptEntry(JsonElement element, int legacyIndex, out SavedTranscriptEntry entry)
+    {
+        entry = null!;
+
+        var partialText = element.TryGetProperty("PartialText", out var partialTextElement)
+            ? partialTextElement.GetString() ?? string.Empty
+            : string.Empty;
+        var partialTranslatedText = element.TryGetProperty("PartialTranslatedText", out var partialTranslatedTextElement)
+            ? partialTranslatedTextElement.GetString() ?? string.Empty
+            : string.Empty;
+        var finalText = element.TryGetProperty("FinalText", out var finalTextElement)
+            ? finalTextElement.GetString() ?? string.Empty
+            : string.Empty;
+        var finalTranslatedText = element.TryGetProperty("FinalTranslatedText", out var finalTranslatedTextElement)
+            ? finalTranslatedTextElement.GetString() ?? string.Empty
+            : string.Empty;
+
+        if (!element.TryGetProperty("UpdatedAt", out var updatedAtElement))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(finalText) || !string.IsNullOrWhiteSpace(finalTranslatedText))
+        {
+            entry = new SavedTranscriptEntry
+            {
+                SegmentId = $"legacy-final-{legacyIndex:D8}",
+                OriginalText = finalText,
+                TranslatedText = finalTranslatedText,
+                IsFinal = true,
+                UpdatedAt = updatedAtElement.GetDateTimeOffset(),
+            };
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(partialText) && string.IsNullOrWhiteSpace(partialTranslatedText))
+        {
+            return false;
+        }
+
+        entry = new SavedTranscriptEntry
+        {
+            SegmentId = $"legacy-draft-{legacyIndex:D8}",
+            OriginalText = partialText,
+            TranslatedText = partialTranslatedText,
+            IsFinal = false,
+            UpdatedAt = updatedAtElement.GetDateTimeOffset(),
+        };
+        return true;
     }
 
     private SessionFolderCollection LoadFolders()

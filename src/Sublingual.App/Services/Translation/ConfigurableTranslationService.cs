@@ -164,11 +164,22 @@ public sealed class ConfigurableTranslationService(
     private static string BuildCacheKey(TranslationRequest request)
     {
         return string.Concat(
-            request.SourceLanguage.Trim(),
+            NormalizeCacheToken(request.SourceLanguage),
             '|',
-            request.TargetLanguage.Trim(),
+            NormalizeCacheToken(request.TargetLanguage),
             '|',
-            request.SourceText.Trim()
+            NormalizeCacheToken(request.SourceText)
         );
+    }
+
+    private static string NormalizeCacheToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return string.Join(' ', value
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 }

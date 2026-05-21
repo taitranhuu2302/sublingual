@@ -6,6 +6,10 @@ public sealed class SavedTranscriptEntryViewModel
 {
     public SavedTranscriptEntryViewModel(SavedTranscriptEntry entry)
     {
+        SegmentId = entry.SegmentId;
+        OriginalText = entry.OriginalText;
+        TranslatedText = entry.TranslatedText;
+        IsFinal = entry.IsFinal;
         PartialText = entry.PartialText;
         PartialTranslatedText = entry.PartialTranslatedText;
         FinalText = entry.FinalText;
@@ -13,6 +17,10 @@ public sealed class SavedTranscriptEntryViewModel
         UpdatedAt = entry.UpdatedAt;
     }
 
+    public string SegmentId { get; }
+    public string OriginalText { get; }
+    public string TranslatedText { get; }
+    public bool IsFinal { get; }
     public string PartialText { get; }
     public string PartialTranslatedText { get; }
     public string FinalText { get; }
