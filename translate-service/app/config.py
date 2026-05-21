@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         default="int8",
         alias="TRANSLATION_COMPUTE_TYPE",
     )
-    inter_threads: int = Field(default=4, alias="INTER_THREADS")
+    inter_threads: int = Field(default=1, alias="INTER_THREADS")
     intra_threads: int = Field(default=4, alias="INTRA_THREADS")
     default_source_lang: str = Field(default="en", alias="DEFAULT_SOURCE_LANG")
     default_target_lang: str = Field(default="vi", alias="DEFAULT_TARGET_LANG")

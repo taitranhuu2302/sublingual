@@ -18,6 +18,11 @@ def parse_args() -> argparse.Namespace:
         default="int8",
         help="CTranslate2 quantization type, for example int8 or float16",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite output directory if it already exists",
+    )
     return parser.parse_args()
 
 
@@ -26,11 +31,41 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.parent.mkdir(parents=True, exist_ok=True)
 
-    converter_command = shutil.which("ct2-transformers-converter")
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        print(
+            "Error: PyTorch is required to convert Hugging Face Marian models with "
+            "ct2-transformers-converter. Install torch in the current environment "
+            "and rerun this script.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    python_dir = Path(sys.executable).parent
+    prefix_dir = Path(sys.prefix)
+    converter_candidates = [
+        python_dir / "ct2-transformers-converter",
+        prefix_dir / "bin" / "ct2-transformers-converter",
+        python_dir / "Scripts" / "ct2-transformers-converter.exe",
+        python_dir / "Scripts" / "ct2-transformers-converter",
+        prefix_dir / "Scripts" / "ct2-transformers-converter.exe",
+        prefix_dir / "Scripts" / "ct2-transformers-converter",
+    ]
+
+    converter_command = next(
+        (str(candidate) for candidate in converter_candidates if candidate.is_file()),
+        None,
+    )
+
+    if converter_command is None:
+        converter_command = shutil.which("ct2-transformers-converter")
+
     if converter_command is None:
         print(
-            "Error: ct2-transformers-converter was not found in PATH. "
-            "Install ctranslate2 and ensure the converter CLI is available.",
+            "Error: ct2-transformers-converter was not found for the current Python "
+            f"environment ({sys.executable}). Install ctranslate2 in that environment "
+            "and rerun this script.",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -44,6 +79,9 @@ def main() -> None:
         "--quantization",
         args.quantization,
     ]
+
+    if args.force:
+        command.append("--force")
 
     try:
         subprocess.run(command, check=True)

@@ -227,7 +227,7 @@ Example `.env`:
 MODEL_BASE_DIR=models/ct2
 TRANSLATION_DEVICE=cpu
 TRANSLATION_COMPUTE_TYPE=int8
-INTER_THREADS=4
+INTER_THREADS=1
 INTRA_THREADS=4
 DEFAULT_SOURCE_LANG=en
 DEFAULT_TARGET_LANG=vi
@@ -240,6 +240,18 @@ LOG_LEVEL=INFO
 ## Convert Marian Models to CTranslate2
 
 The converter script downloads a Hugging Face Marian model, runs `ct2-transformers-converter`, and saves the tokenizer into the same output directory.
+
+Install local conversion dependencies first:
+
+```bash
+./scripts/install_conversion_deps.sh
+```
+
+Use another Python interpreter explicitly:
+
+```bash
+PYTHON_BIN=./venv/bin/python ./scripts/install_conversion_deps.sh
+```
 
 Convert `en-vi`:
 
@@ -259,6 +271,51 @@ python scripts/convert_marian_to_ct2.py \
   --quantization int8
 ```
 
+Convert `zh-vi`:
+
+```bash
+python scripts/convert_marian_to_ct2.py \
+  --hf_model Helsinki-NLP/opus-mt-zh-vi \
+  --output_dir models/ct2/zh-vi \
+  --quantization int8
+```
+
+Build all pairs at once on macOS/Linux:
+
+```bash
+bash scripts/build_ct2_models.sh
+```
+
+Overwrite existing output directories:
+
+```bash
+./scripts/build_ct2_models.sh int8 --force
+```
+
+Use another quantization type:
+
+```bash
+bash scripts/build_ct2_models.sh float16
+```
+
+Build all pairs at once on PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_ct2_models.ps1
+```
+
+Overwrite existing output directories:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_ct2_models.ps1 int8 --force
+```
+
+Use another quantization type:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_ct2_models.ps1 float16
+```
+
 Expected model layout:
 
 ```text
@@ -266,6 +323,7 @@ models/
   ct2/
     en-vi/
     vi-en/
+    zh-vi/
 ```
 
 ## Run the Service
@@ -361,12 +419,39 @@ Build and run with Docker Compose:
 docker compose -f docker/docker-compose.yml up --build
 ```
 
+Run the API service only:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build translate-service
+```
+
+Start the model builder service:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build -d model-builder
+```
+
+Build CT2 models inside the model-builder container:
+
+```bash
+docker compose -f docker/docker-compose.yml exec model-builder ./scripts/build_ct2_models.sh
+```
+
+Use another quantization type:
+
+```bash
+docker compose -f docker/docker-compose.yml exec model-builder ./scripts/build_ct2_models.sh float16
+```
+
 The compose file:
 
 - builds from `docker/Dockerfile`
-- maps port `8000:8000`
+- includes the `scripts/` directory inside the image
+- installs `torch` so model conversion can run inside the container
+- maps port `3333:3333`
 - mounts `../models` into `/app/models`
 - loads variables from `../.env`
+- separates `translate-service` for the API and `model-builder` for conversion tasks
 
 ## CPU and GPU Tuning
 
@@ -374,7 +459,7 @@ Default configuration is CPU-first:
 
 - `TRANSLATION_DEVICE=cpu`
 - `TRANSLATION_COMPUTE_TYPE=int8`
-- `INTER_THREADS=4`
+- `INTER_THREADS=1`
 - `INTRA_THREADS=4`
 
 Practical tuning advice:
@@ -405,6 +490,10 @@ Convert the pair first with `scripts/convert_marian_to_ct2.py` and make sure the
 ### `ct2-transformers-converter` not found
 
 Make sure `ctranslate2` is installed in your current environment and the converter CLI is available in `PATH`.
+
+### `PyTorch was not found` or `NameError: name 'torch' is not defined`
+
+`ct2-transformers-converter` requires `torch` during model conversion, even though the service runtime itself only uses CTranslate2 for inference. Install `torch` in the same virtual environment where you run the converter, then rerun `scripts/convert_marian_to_ct2.py`.
 
 ### Empty or unstable partial translations
 

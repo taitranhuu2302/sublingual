@@ -214,3 +214,5 @@ FakesAssemblies/
 # Python cache
 __pycache__/
 *.pyc
+
+translate-service/models/ct2/*

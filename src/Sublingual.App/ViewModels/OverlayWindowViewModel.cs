@@ -137,6 +137,14 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         {
             switch (transcriptEvent)
             {
+                case TranscriptOverlayReset reset:
+                    TranscriptLines.Clear();
+                    _stableLinesBySegmentId.Clear();
+                    PartialOriginalText = string.Empty;
+                    PartialTranslatedText = string.Empty;
+                    IsDraftTranslating = false;
+                    StatusText = $"Updated {reset.UpdatedAt:HH:mm:ss}";
+                    break;
                 case DraftTranscriptChanged draft:
                     PartialOriginalText = draft.OriginalText;
                     StatusText = $"Updated {draft.UpdatedAt:HH:mm:ss}";

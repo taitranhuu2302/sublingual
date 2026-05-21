@@ -85,6 +85,9 @@ public class AudioCaptureDebugSession : IDisposable
     {
         _voskTranscriptionService?.ResetSession();
         _translationService.ClearCache();
+        PublishRealtimeTranscriptEvent(new TranscriptOverlayReset(
+            NextRealtimeTranscriptSequenceId(),
+            DateTimeOffset.Now));
         DisposeVerifier();
         _captureVerifier = new WaveFileCaptureVerifier(outputPath);
         _currentOutputPath = outputPath;

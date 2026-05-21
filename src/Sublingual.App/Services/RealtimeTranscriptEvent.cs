@@ -5,6 +5,11 @@ public abstract record RealtimeTranscriptEvent(
     DateTimeOffset UpdatedAt
 );
 
+public sealed record TranscriptOverlayReset(
+    long SequenceId,
+    DateTimeOffset UpdatedAt
+) : RealtimeTranscriptEvent(SequenceId, UpdatedAt);
+
 public sealed record DraftTranscriptChanged(
     long SequenceId,
     string DraftSegmentId,

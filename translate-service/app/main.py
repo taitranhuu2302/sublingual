@@ -136,6 +136,25 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+def warmup_default_model() -> None:
+    try:
+        translator = model_manager.get_translator(
+            settings.default_source_lang,
+            settings.default_target_lang,
+        )
+        translator.translate("hello")
+        logger.info(
+            "warmed up default model pair=%s",
+            model_manager.get_pair(
+                settings.default_source_lang,
+                settings.default_target_lang,
+            ),
+        )
+    except HTTPException as exc:
+        logger.warning("default model warmup skipped: %s", exc.detail)
+
+
 def _prepare_text(text: str) -> str:
     prepared = truncate_text(normalize_text(text), settings.max_text_chars)
     if not prepared:

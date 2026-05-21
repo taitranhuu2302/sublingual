@@ -806,7 +806,7 @@
                                                    ItemsSource="{Binding SpeechToTextChunkPresetOptions}"
                                                    HorizontalAlignment="Stretch" />
                                      </Grid>
-                                     <TextBlock Text="Fast = lower latency, Balanced = recommended, Accurate = steadier but slower."
+                                     <TextBlock Text="Fast = ~275ms/chunk, Balanced = ~350ms/chunk, Accurate = ~500ms/chunk."
                                                 Foreground="#8BA3C7"
                                                 FontSize="12"
                                                 TextWrapping="Wrap" />
