@@ -68,7 +68,7 @@ public class AudioCaptureDebugSession : IDisposable
         return _audioCaptureService.GetAvailableDevicesAsync(AudioSourceType.System, cancellationToken);
     }
 
-    public async Task StartAsync(string? deviceId, string deviceName, string outputPath, CancellationToken cancellationToken = default)
+    public async Task StartAsync(string? deviceId, string deviceName, string outputPath, string sessionTitle = "", string sessionTreePath = "", CancellationToken cancellationToken = default)
     {
         _voskTranscriptionService?.ResetSession();
         _translationService.ClearCache();
@@ -86,6 +86,8 @@ public class AudioCaptureDebugSession : IDisposable
             outputPath,
             new Models.CaptureSessionMetadata
             {
+                Title = sessionTitle,
+                TreePath = sessionTreePath,
                 ModelName = _voskTranscriptionService?.CurrentModelName ?? "Unknown",
                 DeviceName = _currentDeviceName,
                 Language = _currentSourceLanguage,
@@ -110,6 +112,8 @@ public class AudioCaptureDebugSession : IDisposable
                 _currentOutputPath,
                 new Models.CaptureSessionMetadata
                 {
+                    Title = _captureSessionStorage.GetSessionMetadata(Path.Combine(Path.GetDirectoryName(_currentOutputPath) ?? string.Empty, "session.json"))?.Title ?? string.Empty,
+                    TreePath = _captureSessionStorage.GetSessionMetadata(Path.Combine(Path.GetDirectoryName(_currentOutputPath) ?? string.Empty, "session.json"))?.TreePath ?? string.Empty,
                     ModelName = _voskTranscriptionService?.CurrentModelName ?? "Unknown",
                     DeviceName = _currentDeviceName,
                     Language = _currentSourceLanguage,

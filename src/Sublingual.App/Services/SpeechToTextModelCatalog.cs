@@ -7,14 +7,12 @@ namespace Sublingual.App.Services;
 public sealed class SpeechToTextModelCatalog
 {
     private readonly string _bundledModelsRoot;
-    private readonly string _managedModelsRoot;
+    private readonly AppSettingsStore _settingsStore;
 
-    public SpeechToTextModelCatalog()
+    public SpeechToTextModelCatalog(AppSettingsStore settingsStore)
     {
+        _settingsStore = settingsStore;
         _bundledModelsRoot = Path.Combine(AppContext.BaseDirectory, "speech-to-text-models");
-
-        var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _managedModelsRoot = Path.Combine(appDataRoot, "Sublingual", "speech-to-text-models");
     }
 
     public IReadOnlyList<SpeechToTextModelOption> GetAvailableModels()
@@ -35,13 +33,19 @@ public sealed class SpeechToTextModelCatalog
 
     public string GetManagedModelsRoot()
     {
-        Directory.CreateDirectory(_managedModelsRoot);
-        return _managedModelsRoot;
+        var settings = _settingsStore.Load();
+        var managedModelsRoot = AppPathHelper.ResolveConfiguredPath(
+            settings.Storage.SpeechToTextModelsRoot,
+            "speech-to-text-models"
+        );
+
+        Directory.CreateDirectory(managedModelsRoot);
+        return managedModelsRoot;
     }
 
     private IEnumerable<string> GetModelRoots()
     {
-        yield return _managedModelsRoot;
+        yield return GetManagedModelsRoot();
         yield return _bundledModelsRoot;
     }
 }

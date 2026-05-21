@@ -15,9 +15,8 @@ public sealed class AppSettingsStore
 
     public AppSettingsStore()
     {
-        var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataRoot, "Sublingual");
-        _settingsFilePath = Path.Combine(appFolder, "settings.json");
+        var appRoot = AppPathHelper.GetDefaultAppRoot();
+        _settingsFilePath = Path.Combine(appRoot, "settings.json");
     }
 
     public AppSettings Load()

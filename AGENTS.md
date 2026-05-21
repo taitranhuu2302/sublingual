@@ -58,3 +58,9 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+
+## Important
+
+- When writing UI/UX, you must use SukiUI components.
+- Information about SukiUI components is documented in `docs\SUKI-UI.md`.

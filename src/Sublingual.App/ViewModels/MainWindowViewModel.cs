@@ -71,6 +71,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string activeTab = "capture";
     [ObservableProperty] private SpeechToTextModelOption? selectedSpeechToTextModel;
     [ObservableProperty] private string sessionsDirectoryPath;
+    [ObservableProperty] private string speechToTextModelsDirectoryPath;
+    [ObservableProperty] private string sessionName = string.Empty;
+    [ObservableProperty] private string sessionTreePath = string.Empty;
     [ObservableProperty] private string speechToTextStatus;
     [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
     [ObservableProperty] private string selectedSourceLanguage = "en";
@@ -96,6 +99,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string selectedSessionModelName = "Unknown";
     [ObservableProperty] private string selectedSessionDeviceName = "Unknown";
     [ObservableProperty] private string selectedSessionLanguage = "en";
+    [ObservableProperty] private string selectedSessionTreePath = string.Empty;
     [ObservableProperty] private string selectedSessionDurationText = "0.0 s";
     [ObservableProperty] private string selectedSessionAudioPath = string.Empty;
     [ObservableProperty] private string selectedSessionTranscriptPath = string.Empty;
@@ -201,9 +205,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         finalTranslatedTranscript = string.Empty;
         transcriptStatus = string.Empty;
         sessionsDirectoryPath = _sessionsRoot;
+        speechToTextModelsDirectoryPath = _modelCatalog.GetManagedModelsRoot();
         speechToTextStatus = _transcriptionService is VoskTranscriptionService vosk
             ? $"Active model: {vosk.CurrentModelName}"
             : "Speech-to-text provider ready.";
+        sessionTreePath = _settingsStore.Load().Storage.LastSessionTreePath;
 
         LoadSpeechToTextModels();
         LoadTranslationSettings();
@@ -217,9 +223,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel()
         : this(
             CreateDesignTimeSession(),
-            new SpeechToTextModelCatalog(),
-            new SpeechToTextModelImporter(new SpeechToTextModelCatalog()),
-            new CaptureSessionStorage(),
+            CreateDesignTimeModelCatalog(),
+            new SpeechToTextModelImporter(CreateDesignTimeModelCatalog()),
+            new CaptureSessionStorage(new AppSettingsStore()),
             new AppSettingsStore(),
             translationService: new ConfigurableTranslationService(
                 [
@@ -264,7 +270,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         await RunBusyOperationAsync(async () =>
         {
-            _outputPath = _sessionStorage.CreateSessionOutputPath();
+            _outputPath = _sessionStorage.CreateSessionOutputPath(SessionName, SessionTreePath);
             _chunkCount = 0;
             _totalBytesCaptured = 0;
             ChunkCount = 0;
@@ -283,13 +289,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             await _session.StartAsync(
                 string.IsNullOrWhiteSpace(SelectedDevice?.Id) ? null : SelectedDevice.Id,
                 SelectedDeviceName,
-                _outputPath);
+                _outputPath,
+                SessionName,
+                SessionTreePath);
 
             EnsureOverlayVisibleAction?.Invoke();
 
             LoadSavedSessions();
             SelectedSavedSession = SavedSessions.FirstOrDefault(session =>
                 string.Equals(session.AudioPath, _outputPath, StringComparison.OrdinalIgnoreCase));
+            SessionName = string.Empty;
+
+            var settings = _settingsStore.Load();
+            settings.Storage.LastSessionTreePath = SessionTreePath.Trim();
+            _settingsStore.Save(settings);
 
             IsCapturing = true;
             CaptureState = _session.State.ToString();
@@ -690,7 +703,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void LoadTranslationSettings()
     {
-        var settings = _settingsStore.Load().Translation;
+        var appSettings = _settingsStore.Load();
+        var settings = appSettings.Translation;
+        SessionsDirectoryPath = _sessionStorage.GetSessionsRoot();
+        SpeechToTextModelsDirectoryPath = _modelCatalog.GetManagedModelsRoot();
+        SessionTreePath = appSettings.Storage.LastSessionTreePath;
         SelectedTranslationFactory = NormalizeTranslationFactory(settings.Factory);
 
         var providerOrder = settings.ProviderOrder
@@ -741,6 +758,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settingsStore.Save(settings);
         TranslationStatus = BuildTranslationStatus();
         UpdateSpeechToTextStatus();
+    }
+
+    private void SaveStorageSettings()
+    {
+        var settings = _settingsStore.Load();
+        settings.Storage.SessionsRoot = SessionsDirectoryPath.Trim();
+        settings.Storage.SpeechToTextModelsRoot = SpeechToTextModelsDirectoryPath.Trim();
+        settings.Storage.LastSessionTreePath = SessionTreePath.Trim();
+        _settingsStore.Save(settings);
+        SessionsDirectoryPath = _sessionStorage.GetSessionsRoot();
+        SpeechToTextModelsDirectoryPath = _modelCatalog.GetManagedModelsRoot();
+        LoadSpeechToTextModels();
+        LoadSavedSessions();
     }
 
     private List<string> BuildTranslationProviderOrder()
@@ -939,6 +969,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ? _allSavedSessions.ToList()
             : _allSavedSessions.Where(session =>
                 session.SessionId.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.Title.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
+                || session.TreePath.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
                 || session.AudioPath.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase)
                 || session.CreatedAtText.Contains(SessionSearchText, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -953,6 +985,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SelectedSessionModelName = "Unknown";
             SelectedSessionDeviceName = "Unknown";
             SelectedSessionLanguage = "en";
+            SelectedSessionTreePath = string.Empty;
             SelectedSessionDurationText = "0.0 s";
             SelectedSessionAudioPath = string.Empty;
             SelectedSessionTranscriptPath = string.Empty;
@@ -972,6 +1005,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SelectedSessionModelName = metadata?.ModelName ?? "Unknown";
         SelectedSessionDeviceName = metadata?.DeviceName ?? "Unknown";
         SelectedSessionLanguage = metadata?.Language ?? "en";
+        SelectedSessionTreePath = metadata?.TreePath ?? SelectedSavedSession.TreePath;
         SelectedSessionDurationText = $"{(metadata?.DurationSeconds ?? 0):0.0} s";
         SelectedSessionAudioPath = SelectedSavedSession.AudioPath;
         SelectedSessionTranscriptPath = SelectedSavedSession.TranscriptPath;
@@ -1175,6 +1209,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             UpdateSpeechToTextStatus();
         }
 
+        if (e.PropertyName is nameof(SessionsDirectoryPath) or nameof(SpeechToTextModelsDirectoryPath) or nameof(SessionTreePath))
+        {
+            SaveStorageSettings();
+        }
+
         if (e.PropertyName == nameof(SelectedSourceLanguage))
         {
             UpdateSpeechToTextStatus();
@@ -1247,10 +1286,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         if (e.PropertyName is nameof(RuntimeLog))
+        {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasRuntimeLog)));
+        }
 
         if (e.PropertyName is nameof(PartialTranscript) or nameof(FinalTranscript))
+        {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranscript)));
+        }
 
         if (e.PropertyName == nameof(PartialTranslatedTranscript))
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasPartialTranslation)));
@@ -1336,6 +1379,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private static AudioCaptureDebugSession CreateDesignTimeSession()
     {
         var captureService = DesignTimeAudioCaptureService.Instance;
+        var settingsStore = new AppSettingsStore();
         return new AudioCaptureDebugSession(
             captureService,
             new Sublingual.Application.Audio.StartCaptureUseCase(captureService),
@@ -1348,12 +1392,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                     new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
                     new LibreTranslateTranslationProvider(new HttpClient()),
                 ],
-                new AppSettingsStore()
+                settingsStore
             ),
-            new CaptureSessionStorage(),
+            new CaptureSessionStorage(settingsStore),
             new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
             new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
-            new AppSettingsStore());
+            settingsStore);
+    }
+
+    private static SpeechToTextModelCatalog CreateDesignTimeModelCatalog()
+    {
+        return new SpeechToTextModelCatalog(new AppSettingsStore());
     }
 }
 
@@ -1376,6 +1425,8 @@ public sealed partial class CaptureSessionItemViewModel : ObservableObject
     public CaptureSessionItemViewModel(CaptureSessionRecord record)
     {
         SessionId = record.SessionId;
+        Title = record.Title;
+        TreePath = record.TreePath;
         DirectoryPath = record.DirectoryPath;
         AudioPath = record.AudioPath;
         TranscriptPath = record.TranscriptPath;
@@ -1386,12 +1437,16 @@ public sealed partial class CaptureSessionItemViewModel : ObservableObject
     [ObservableProperty] private bool isSelected;
 
     public string SessionId { get; }
+    public string Title { get; }
+    public string TreePath { get; }
     public string DirectoryPath { get; }
     public string AudioPath { get; }
     public string TranscriptPath { get; }
     public string MetadataPath { get; }
     public DateTimeOffset CreatedAt { get; }
     public string CreatedAtText => CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public string DisplayTitle => string.IsNullOrWhiteSpace(Title) ? SessionId : Title;
+    public string DisplayTreePath => string.IsNullOrWhiteSpace(TreePath) ? "/" : TreePath.Replace('\\', '/');
 }
 
 public sealed class SavedTranscriptEntryViewModel

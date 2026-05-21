@@ -1,23 +1,24 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Sublingual.App.ViewModels"
-        xmlns:i="https://github.com/projektanker/icons.avalonia"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        d:DesignWidth="760"
-        d:DesignHeight="220"
-        x:Class="Sublingual.App.Views.OverlayWindow"
-        x:DataType="vm:OverlayWindowViewModel"
-        Width="{Binding OverlayWidth}"
-        Height="{Binding OverlayHeight}"
-        Topmost="True"
-        ShowInTaskbar="False"
-        CanResize="True"
-        SystemDecorations="Full"
-        TransparencyLevelHint="None"
-        Background="#111827"
-        Title="Sublingual Overlay">
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:vm="using:Sublingual.App.ViewModels"
+                 xmlns:i="https://github.com/projektanker/icons.avalonia"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:suki="https://github.com/kikipoulet/SukiUI"
+                 mc:Ignorable="d"
+                 d:DesignWidth="760"
+                 d:DesignHeight="220"
+                 x:Class="Sublingual.App.Views.OverlayWindow"
+                 x:DataType="vm:OverlayWindowViewModel"
+                 Width="{Binding OverlayWidth}"
+                 Height="{Binding OverlayHeight}"
+                 Topmost="True"
+                 ShowInTaskbar="False"
+                 CanResize="True"
+                 SystemDecorations="Full"
+                 TransparencyLevelHint="None"
+                 Background="#111827"
+                 Title="Sublingual Overlay">
 
     <Design.DataContext>
         <vm:OverlayWindowViewModel />
@@ -183,4 +184,4 @@
         </Border>
 
     </Grid>
-</Window>
+</suki:SukiWindow>

@@ -168,6 +168,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     private static AudioCaptureDebugSession CreateDesignTimeSession()
     {
         var captureService = DesignTimeAudioCaptureService.Instance;
+        var settingsStore = new AppSettingsStore();
         return new AudioCaptureDebugSession(
             captureService,
             new Sublingual.Application.Audio.StartCaptureUseCase(captureService),
@@ -180,12 +181,12 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                     new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
                     new LibreTranslateTranslationProvider(new HttpClient()),
                 ],
-                new AppSettingsStore()
+                settingsStore
             ),
-            new CaptureSessionStorage(),
+            new CaptureSessionStorage(settingsStore),
             new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
             new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
-            new AppSettingsStore());
+            settingsStore);
     }
 
     private static string ToHexColor(double opacity, byte red, byte green, byte blue)

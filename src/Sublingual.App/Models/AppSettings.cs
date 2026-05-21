@@ -2,9 +2,17 @@ namespace Sublingual.App.Models;
 
 public sealed class AppSettings
 {
+    public StorageSettings Storage { get; set; } = new();
     public OverlaySettings Overlay { get; set; } = new();
     public SpeechToTextSettings SpeechToText { get; set; } = new();
     public TranslationSettings Translation { get; set; } = new();
+}
+
+public sealed class StorageSettings
+{
+    public string SessionsRoot { get; set; } = "sessions";
+    public string SpeechToTextModelsRoot { get; set; } = "speech-to-text-models";
+    public string LastSessionTreePath { get; set; } = string.Empty;
 }
 
 public sealed class OverlaySettings

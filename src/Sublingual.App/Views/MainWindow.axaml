@@ -31,10 +31,11 @@
     <Grid ColumnDefinitions="196,*">
 
         <!-- ── Sidebar ───────────────────────────────────────────── -->
-        <Border Grid.Column="0"
-                Background="#080F1C"
-                BorderBrush="#1E3A5F"
-                BorderThickness="0,0,1,0">
+        <suki:GlassCard Grid.Column="0"
+                        Margin="10,12,0,12"
+                        Padding="0"
+                        CornerRadius="18"
+                        IsAnimated="False">
             <Grid RowDefinitions="Auto,*,Auto" Margin="0,20,0,16">
 
                 <!-- App name -->
@@ -136,17 +137,23 @@
                 </StackPanel>
 
                 <!-- Status at bottom -->
-                <StackPanel Grid.Row="2" Margin="18,0" Spacing="6">
-                    <Separator Background="#1E3A5F" />
+                <StackPanel Grid.Row="2" Margin="18,0" Spacing="8">
+                    <suki:GlassCard Height="1"
+                                    Padding="0"
+                                    IsAnimated="False"
+                                    Background="#1E3A5F" />
                     <TextBlock Text="{Binding CaptureState}"
                                FontSize="12"
                                Foreground="#5E7EA8" />
                 </StackPanel>
             </Grid>
-        </Border>
+        </suki:GlassCard>
 
         <!-- ── Main content ──────────────────────────────────────── -->
-        <Grid Grid.Column="1">
+        <suki:BusyArea Grid.Column="1"
+                       IsBusy="{Binding IsBusy}"
+                       BusyText="{Binding StatusMessage}">
+            <Grid>
 
             <!-- TAB: Capture -->
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
@@ -155,47 +162,61 @@
                 <StackPanel Margin="28,24" Spacing="16">
 
                     <!-- Device picker -->
-                    <Border Classes="surface-card" Padding="20">
-                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
-                            <StackPanel Grid.Row="0" Spacing="4">
-                                <TextBlock Text="{Binding SelectedDeviceName}"
-                                            FontSize="15"
-                                            FontWeight="SemiBold"
-                                            Foreground="#F0F4FF"
-                                            TextWrapping="Wrap" />
-                            </StackPanel>
+                    <suki:GlassCard Classes="surface-card" Padding="20">
+                        <Grid>
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="14">
+                                <StackPanel Grid.Row="0" Spacing="4">
+                                    <TextBlock Text="{Binding SelectedDeviceName}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F4FF"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
 
-                            <ComboBox Grid.Row="1"
-                                      Classes="capture-device-picker"
-                                      ItemsSource="{Binding Devices}"
-                                      SelectedItem="{Binding SelectedDevice}"
-                                      DisplayMemberBinding="{Binding DisplayName}"
-                                      PlaceholderText="No device available"
-                                      HorizontalAlignment="Stretch" />
+                                <ComboBox Grid.Row="1"
+                                          Classes="capture-device-picker"
+                                          ItemsSource="{Binding Devices}"
+                                          SelectedItem="{Binding SelectedDevice}"
+                                          DisplayMemberBinding="{Binding DisplayName}"
+                                          PlaceholderText="No device available"
+                                          HorizontalAlignment="Stretch" />
 
-                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
-                                <Button Classes="action-button secondary-action"
-                                        Command="{Binding RefreshDevicesCommand}"
-                                        Content="Refresh" />
-                                <Button Classes="action-button primary-action"
-                                        Command="{Binding StartCaptureCommand}"
-                                        Content="Start Capture" />
-                                <Button Classes="action-button neutral-action"
-                                        Command="{Binding StopCaptureCommand}"
-                                        Content="Stop" />
-                            </StackPanel>
+                                <TextBox Grid.Row="2"
+                                         Text="{Binding SessionName}"
+                                         Watermark="Session name, project, meeting, lesson..."
+                                         HorizontalAlignment="Stretch" />
+
+                                <TextBox Grid.Row="3"
+                                         Text="{Binding SessionTreePath}"
+                                         Watermark="Tree path, ex: project/client-a/weekly-sync"
+                                         HorizontalAlignment="Stretch" />
+
+                                <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10">
+                                    <Button Classes="action-button secondary-action"
+                                            Command="{Binding RefreshDevicesCommand}"
+                                            Content="Refresh" />
+                                    <Button Classes="action-button primary-action"
+                                            Command="{Binding StartCaptureCommand}"
+                                            Content="Start Capture" />
+                                    <Button Classes="action-button neutral-action"
+                                            Command="{Binding StopCaptureCommand}"
+                                            Content="Stop" />
+                                </StackPanel>
+                            </Grid>
+
                         </Grid>
-                    </Border>
+                    </suki:GlassCard>
 
-                    <Border Classes="surface-card"
-                            Padding="20">
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="20">
                         <Grid ColumnDefinitions="*,110" ColumnSpacing="16">
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="eyebrow" Text="Audio Level" />
-                                <Border Height="52"
-                                        CornerRadius="10"
-                                        Background="#0D1F38"
-                                        Padding="10,6">
+                                <suki:GlassCard Height="52"
+                                                CornerRadius="10"
+                                                Background="#0D1F38"
+                                                Padding="10,6"
+                                                IsAnimated="False">
                                     <ItemsControl ItemsSource="{Binding AudioLevelBars}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -216,28 +237,31 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                </Border>
+                                </suki:GlassCard>
                                 <TextBlock Text="{Binding AudioLevelText}"
                                            FontSize="12"
                                            Foreground="#8BA3C7" />
                             </StackPanel>
-                            <Border Grid.Column="1" Classes="stat-card">
-                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <suki:GlassCard Grid.Column="1" Classes="stat-card" Padding="12">
+                                <StackPanel Spacing="6" HorizontalAlignment="Center">
                                     <TextBlock Classes="eyebrow" Text="Peak" HorizontalAlignment="Center" />
+                                    <suki:CircleProgressBar Width="72"
+                                                            Height="72"
+                                                            Value="{Binding PeakAudioLevel}" />
                                     <TextBlock Text="{Binding PeakAudioLevel, StringFormat={}{0:0}%}"
-                                               FontSize="24"
+                                               FontSize="20"
                                                FontWeight="Bold"
                                                Foreground="#F0F4FF"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
-                            </Border>
+                            </suki:GlassCard>
                         </Grid>
-                    </Border>
+                    </suki:GlassCard>
 
                     <!-- Log — only when non-empty -->
-                    <Border Classes="surface-card"
-                            Padding="16"
-                            IsVisible="{Binding HasRuntimeLog}">
+                    <suki:GlassCard Classes="surface-card"
+                                    Padding="16"
+                                    IsVisible="{Binding HasRuntimeLog}">
                         <StackPanel Spacing="8">
                             <TextBlock Classes="eyebrow" Text="Log" />
                             <TextBox Classes="log-box"
@@ -250,7 +274,7 @@
                                      MinHeight="56"
                                      MaxHeight="160" />
                         </StackPanel>
-                    </Border>
+                    </suki:GlassCard>
 
                 </StackPanel>
             </ScrollViewer>
@@ -259,154 +283,158 @@
                           VerticalScrollBarVisibility="Auto"
                           IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=sessions}">
                 <StackPanel Margin="28,24" Spacing="16">
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsSessionsListPageActive}">
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="Sessions"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               Foreground="#F0F4FF" />
-                                </StackPanel>
-                                <Button Grid.Column="1"
-                                        Classes="action-button secondary-action"
-                                        Command="{Binding RefreshSavedSessionsCommand}"
-                                        VerticalAlignment="Top">
-                                    <ToolTip.Tip>Reload sessions</ToolTip.Tip>
-                                    <i:Icon Value="fa-solid fa-rotate-right" FontSize="14" />
-                                </Button>
-                                <Button Grid.Column="2"
-                                        Classes="action-button secondary-action"
-                                        Command="{Binding ToggleSelectAllSessionsCommand}"
-                                        VerticalAlignment="Top">
-                                    <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
-                                    <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
-                                </Button>
-                                <Button Grid.Column="3"
-                                        Classes="action-button neutral-action"
-                                        Command="{Binding ClearSavedSessionsCommand}"
-                                        VerticalAlignment="Top">
-                                    <ToolTip.Tip>Clear all sessions</ToolTip.Tip>
-                                    <i:Icon Value="fa-solid fa-broom" FontSize="14" />
-                                </Button>
-                            </Grid>
-
-                            <Grid ColumnDefinitions="*,Auto"
-                                  MinHeight="34">
-                                <TextBlock Text="Selected sessions ready"
-                                           Foreground="#8BA3C7"
-                                           VerticalAlignment="Center"
-                                           Opacity="{Binding HasSelectedSessions, Converter={StaticResource StringEquals}, ConverterParameter=True}" />
-                                <Button Grid.Column="1"
-                                        Classes="action-button neutral-action"
-                                        Command="{Binding DeleteSelectedSessionsCommand}"
-                                        VerticalAlignment="Top"
-                                        IsEnabled="{Binding HasSelectedSessions}">
-                                    <ToolTip.Tip>Delete selected</ToolTip.Tip>
-                                    <i:Icon Value="fa-solid fa-trash" FontSize="14" />
-                                </Button>
-                            </Grid>
-
-                            <TextBlock Text="No saved sessions yet."
-                                       Foreground="#8BA3C7"
-                                       IsVisible="{Binding NoSavedSessions}" />
-
-                            <TextBox Watermark="Search sessions"
-                                      Text="{Binding SessionSearchText}"
-                                      IsVisible="{Binding HasSavedSessions}" />
-
-                            <Grid IsVisible="{Binding HasSavedSessions}"
-                                  RowDefinitions="Auto,*"
-                                  RowSpacing="8">
-                                <Grid ColumnDefinitions="72,3*,2*,*"
-                                      Margin="0,0,0,4">
-                                    <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
-                                              Command="{Binding ToggleSelectAllSessionsCommand}"
-                                              HorizontalAlignment="Left"
-                                              VerticalAlignment="Center">
+                    <suki:GlassCard Classes="surface-card" Padding="20"
+                                    IsVisible="{Binding IsSessionsListPageActive}">
+                        <Grid>
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="Sessions"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F0F4FF" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Classes="action-button secondary-action"
+                                            Command="{Binding RefreshSavedSessionsCommand}"
+                                            VerticalAlignment="Top">
+                                        <ToolTip.Tip>Reload sessions</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-rotate-right" FontSize="14" />
+                                    </Button>
+                                    <Button Grid.Column="2"
+                                            Classes="action-button secondary-action"
+                                            Command="{Binding ToggleSelectAllSessionsCommand}"
+                                            VerticalAlignment="Top">
                                         <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
-                                    </CheckBox>
-                                    <TextBlock Grid.Column="1" Text="Session" Foreground="#64748B" FontSize="12" />
-                                    <TextBlock Grid.Column="2" Text="Created" Foreground="#64748B" FontSize="12" />
-                                    <TextBlock Grid.Column="3" Text="Audio" Foreground="#64748B" FontSize="12" />
+                                        <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
+                                    </Button>
+                                    <Button Grid.Column="3"
+                                            Classes="action-button neutral-action"
+                                            Command="{Binding ClearSavedSessionsCommand}"
+                                            VerticalAlignment="Top">
+                                        <ToolTip.Tip>Clear all sessions</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-broom" FontSize="14" />
+                                    </Button>
                                 </Grid>
-                                 <ListBox Grid.Row="1"
-                                          MaxHeight="320"
-                                          ItemsSource="{Binding SavedSessions}"
-                                          SelectedItem="{Binding SelectedSavedSession}">
-                                     <ListBox.ItemTemplate>
-                                         <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
-                                             <Border Margin="0,0,0,6"
-                                                     Background="#0B1220"
-                                                     BorderBrush="#1E3A5F"
-                                                     BorderThickness="1"
-                                                     CornerRadius="10"
-                                                     Padding="10">
-                                                 <Grid ColumnDefinitions="72,3*,2*,*"
-                                                       ColumnSpacing="12">
-                                                     <CheckBox IsChecked="{Binding IsSelected}"
-                                                               VerticalAlignment="Center"
-                                                               HorizontalAlignment="Left">
-                                                         <ToolTip.Tip>Select session</ToolTip.Tip>
-                                                     </CheckBox>
 
-                                                     <!-- Click on the row (excluding the checkbox) opens detail page -->
-                                                     <Button Grid.Column="1"
-                                                             Grid.ColumnSpan="3"
-                                                             Background="Transparent"
-                                                             BorderBrush="Transparent"
-                                                             BorderThickness="0"
-                                                             Padding="0"
-                                                             HorizontalContentAlignment="Stretch"
-                                                             Command="{Binding $parent[Window].DataContext.OpenSessionDetailCommand}"
-                                                             CommandParameter="{Binding}">
-                                                         <Grid ColumnDefinitions="3*,2*,*"
-                                                               ColumnSpacing="12">
-                                                             <TextBlock Text="{Binding SessionId}"
-                                                                        Foreground="#F0F4FF"
-                                                                        FontWeight="SemiBold"
-                                                                        TextTrimming="CharacterEllipsis" />
-                                                             <TextBlock Grid.Column="1"
-                                                                        Text="{Binding CreatedAtText}"
-                                                                        Foreground="#8BA3C7"
-                                                                        TextTrimming="CharacterEllipsis" />
-                                                             <TextBlock Grid.Column="2"
-                                                                        Text="{Binding AudioPath}"
-                                                                        Foreground="#8BA3C7"
-                                                                        TextTrimming="CharacterEllipsis" />
-                                                         </Grid>
-                                                     </Button>
-                                                 </Grid>
-                                             </Border>
-                                         </DataTemplate>
-                                     </ListBox.ItemTemplate>
-                                 </ListBox>
-                             </Grid>
+                                <Grid ColumnDefinitions="*,Auto"
+                                      MinHeight="34">
+                                    <TextBlock Text="Selected sessions ready"
+                                               Foreground="#8BA3C7"
+                                               VerticalAlignment="Center"
+                                               Opacity="{Binding HasSelectedSessions, Converter={StaticResource StringEquals}, ConverterParameter=True}" />
+                                    <Button Grid.Column="1"
+                                            Classes="action-button neutral-action"
+                                            Command="{Binding DeleteSelectedSessionsCommand}"
+                                            VerticalAlignment="Top"
+                                            IsEnabled="{Binding HasSelectedSessions}">
+                                        <ToolTip.Tip>Delete selected</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-trash" FontSize="14" />
+                                    </Button>
+                                </Grid>
 
-                            <Grid ColumnDefinitions="Auto,*,Auto"
-                                  IsVisible="{Binding HasSavedSessions}">
-                                <Button Classes="action-button neutral-action"
-                                        Command="{Binding PreviousSessionsPageCommand}"
-                                        Content="Prev" />
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding SessionsPageText}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           Foreground="#8BA3C7" />
-                                <Button Grid.Column="2"
-                                        Classes="action-button neutral-action"
-                                        Command="{Binding NextSessionsPageCommand}"
-                                        Content="Next" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                <TextBlock Text="No saved sessions yet."
+                                           Foreground="#8BA3C7"
+                                           IsVisible="{Binding NoSavedSessions}" />
+
+                                <TextBox Watermark="Search sessions"
+                                          Text="{Binding SessionSearchText}"
+                                          IsVisible="{Binding HasSavedSessions}" />
+
+                                <Grid IsVisible="{Binding HasSavedSessions}"
+                                      RowDefinitions="Auto,*"
+                                      RowSpacing="8">
+                                    <Grid ColumnDefinitions="72,3*,2*,*"
+                                          Margin="0,0,0,4">
+                                        <CheckBox IsChecked="{Binding AreAllSessionsSelected}"
+                                                  Command="{Binding ToggleSelectAllSessionsCommand}"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Center">
+                                            <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
+                                        </CheckBox>
+                                        <TextBlock Grid.Column="1" Text="Session" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Grid.Column="2" Text="Created" Foreground="#64748B" FontSize="12" />
+                                        <TextBlock Grid.Column="3" Text="Audio" Foreground="#64748B" FontSize="12" />
+                                    </Grid>
+                                     <ListBox Grid.Row="1"
+                                              MaxHeight="320"
+                                              ItemsSource="{Binding SavedSessions}"
+                                              SelectedItem="{Binding SelectedSavedSession}">
+                                         <ListBox.ItemTemplate>
+                                             <DataTemplate x:DataType="vm:CaptureSessionItemViewModel">
+                                                 <suki:GlassCard Margin="0,0,0,6"
+                                                                 Padding="10">
+                                                     <Grid ColumnDefinitions="72,3*,2*,*"
+                                                           ColumnSpacing="12">
+                                                         <CheckBox IsChecked="{Binding IsSelected}"
+                                                                   VerticalAlignment="Center"
+                                                                   HorizontalAlignment="Left">
+                                                             <ToolTip.Tip>Select session</ToolTip.Tip>
+                                                         </CheckBox>
+
+                                                         <!-- Click on the row (excluding the checkbox) opens detail page -->
+                                                         <Button Grid.Column="1"
+                                                                 Grid.ColumnSpan="3"
+                                                                 Background="Transparent"
+                                                                 BorderBrush="Transparent"
+                                                                 BorderThickness="0"
+                                                                 Padding="0"
+                                                                 HorizontalContentAlignment="Stretch"
+                                                                 Command="{Binding $parent[Window].DataContext.OpenSessionDetailCommand}"
+                                                                 CommandParameter="{Binding}">
+                                                             <Grid ColumnDefinitions="3*,2*,*"
+                                                                   ColumnSpacing="12">
+                                                                  <StackPanel Spacing="2">
+                                                                      <TextBlock Text="{Binding DisplayTitle}"
+                                                                                 Foreground="#F0F4FF"
+                                                                                 FontWeight="SemiBold"
+                                                                                 TextTrimming="CharacterEllipsis" />
+                                                                      <TextBlock Text="{Binding DisplayTreePath}"
+                                                                                 Foreground="#64748B"
+                                                                                 FontSize="11"
+                                                                                 TextTrimming="CharacterEllipsis" />
+                                                                  </StackPanel>
+                                                                 <TextBlock Grid.Column="1"
+                                                                            Text="{Binding CreatedAtText}"
+                                                                            Foreground="#8BA3C7"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                 <TextBlock Grid.Column="2"
+                                                                            Text="{Binding AudioPath}"
+                                                                            Foreground="#8BA3C7"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                             </Grid>
+                                                         </Button>
+                                                     </Grid>
+                                                 </suki:GlassCard>
+                                             </DataTemplate>
+                                         </ListBox.ItemTemplate>
+                                     </ListBox>
+                                 </Grid>
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      IsVisible="{Binding HasSavedSessions}">
+                                    <Button Classes="action-button neutral-action"
+                                            Command="{Binding PreviousSessionsPageCommand}"
+                                            Content="Prev" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding SessionsPageText}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="#8BA3C7" />
+                                    <Button Grid.Column="2"
+                                            Classes="action-button neutral-action"
+                                            Command="{Binding NextSessionsPageCommand}"
+                                            Content="Next" />
+                                </Grid>
+                            </StackPanel>
+
+                        </Grid>
+                    </suki:GlassCard>
 
                     <!-- Detail page (navigated from sessions list) -->
-                    <Border Classes="stat-card"
-                            Padding="16"
-                            IsVisible="{Binding IsSessionsDetailPageActive}">
-                        <StackPanel Spacing="10">
+                    <suki:GlassCard Classes="stat-card"
+                                    Padding="16"
+                                    IsVisible="{Binding IsSessionsDetailPageActive}">
+                        <StackPanel Spacing="14">
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
                                 <Button Classes="action-button secondary-action"
                                         Command="{Binding BackToSessionsListCommand}"
@@ -442,25 +470,51 @@
                                         VerticalAlignment="Top" />
                             </Grid>
 
-                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Classes="eyebrow" Text="Model" />
-                                    <TextBlock Text="{Binding SelectedSessionModelName}"
-                                               Foreground="#F0F4FF" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Classes="eyebrow" Text="Device" />
-                                    <TextBlock Text="{Binding SelectedSessionDeviceName}"
-                                               Foreground="#F0F4FF" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="4">
-                                    <TextBlock Classes="eyebrow" Text="Language / Duration" />
-                                    <TextBlock Text="{Binding SelectedSessionLanguage}"
-                                               Foreground="#F0F4FF" />
-                                    <TextBlock Text="{Binding SelectedSessionDurationText}"
-                                               Foreground="#8BA3C7"
-                                               FontSize="12" />
-                                </StackPanel>
+                            <Grid ColumnDefinitions="*,250" ColumnSpacing="20">
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Classes="eyebrow" Text="Model" />
+                                        <TextBlock Text="{Binding SelectedSessionModelName}"
+                                                   Foreground="#F0F4FF" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock Classes="eyebrow" Text="Device" />
+                                        <TextBlock Text="{Binding SelectedSessionDeviceName}"
+                                                   Foreground="#F0F4FF" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="4">
+                                        <TextBlock Classes="eyebrow" Text="Language / Duration / Tree" />
+                                        <TextBlock Text="{Binding SelectedSessionLanguage}"
+                                                   Foreground="#F0F4FF" />
+                                        <TextBlock Text="{Binding SelectedSessionDurationText}"
+                                                   Foreground="#8BA3C7"
+                                                   FontSize="12" />
+                                        <TextBlock Text="{Binding SelectedSessionTreePath}"
+                                                   Foreground="#64748B"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <suki:GlassCard Grid.Column="1"
+                                                Padding="14"
+                                                Classes="stat-card"
+                                                IsAnimated="False">
+                                    <StackPanel Spacing="10" VerticalAlignment="Center">
+                                        <TextBlock Text="Session Progress"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F0F4FF" />
+                                        <TextBlock Text="1. Metadata loaded for the selected session"
+                                                   Foreground="#8BA3C7"
+                                                   IsVisible="{Binding HasSelectedSavedSession}" />
+                                        <TextBlock Text="2. Audio file ready to open or play"
+                                                   Foreground="#8BA3C7"
+                                                   IsVisible="{Binding HasSelectedSavedSession}" />
+                                        <TextBlock Text="3. Transcript entries ready for review or export"
+                                                   Foreground="#8BA3C7"
+                                                   IsVisible="{Binding HasSelectedSessionTranscriptEntries}" />
+                                    </StackPanel>
+                                </suki:GlassCard>
                             </Grid>
 
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -495,12 +549,8 @@
                                 <ItemsControl ItemsSource="{Binding SelectedSessionTranscriptEntries}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SavedTranscriptEntryViewModel">
-                                            <Border Margin="0,0,0,10"
-                                                    Background="#0B1220"
-                                                    BorderBrush="#1E3A5F"
-                                                    BorderThickness="1"
-                                                    CornerRadius="10"
-                                                    Padding="12">
+                                            <suki:GlassCard Margin="0,0,0,10"
+                                                            Padding="12">
                                                 <StackPanel Spacing="6">
                                                     <TextBlock Text="{Binding UpdatedAtText}"
                                                                Foreground="#64748B"
@@ -521,13 +571,13 @@
                                                                TextWrapping="Wrap"
                                                                IsVisible="{Binding HasFinalTranslation}" />
                                                 </StackPanel>
-                                            </Border>
+                                            </suki:GlassCard>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
                         </StackPanel>
-                    </Border>
+                    </suki:GlassCard>
                 </StackPanel>
             </ScrollViewer>
 
@@ -536,302 +586,232 @@
                           VerticalScrollBarVisibility="Auto"
                           IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
                 <StackPanel Margin="28,24" Spacing="16">
-
                     <TextBlock Text="Settings"
                                FontSize="22"
                                FontWeight="Bold"
                                Foreground="#F0F4FF" />
 
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Classes="action-button primary-action"
-                                Command="{Binding SelectSettingsTabCommand}"
-                                CommandParameter="general"
-                                Content="General" />
-                        <Button Classes="action-button primary-action"
-                                Command="{Binding SelectSettingsTabCommand}"
-                                CommandParameter="speech"
-                                Content="Speech" />
-                        <Button Classes="action-button primary-action"
-                                Command="{Binding SelectSettingsTabCommand}"
-                                CommandParameter="translation"
-                                Content="Translation" />
-                        <Button Classes="action-button primary-action"
-                                Command="{Binding SelectSettingsTabCommand}"
-                                CommandParameter="overlay"
-                                Content="Overlay" />
-                    </StackPanel>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsGeneralSettingsTabActive}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="Saved Sessions Folder"
-                                       FontWeight="SemiBold"
-                                       Foreground="#F0F4FF" />
-                            <SelectableTextBlock Text="{Binding SessionsDirectoryPath}"
-                                                 Foreground="#8BA3C7"
-                                                 TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsSpeechSettingsTabActive}">
+                    <suki:GlassCard Classes="surface-card" Padding="20">
                         <StackPanel Spacing="12">
-                            <ComboBox ItemsSource="{Binding SpeechToTextModels}"
-                                      SelectedItem="{Binding SelectedSpeechToTextModel}"
-                                      DisplayMemberBinding="{Binding Name}"
-                                      PlaceholderText="No local model found"
-                                      HorizontalAlignment="Stretch" />
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <Button Classes="action-button neutral-action"
-                                        Command="{Binding ImportSpeechToTextModelCommand}"
-                                        Content="Import Folder" />
-                                <Button Classes="action-button neutral-action"
-                                        Command="{Binding ImportSpeechToTextModelZipCommand}"
-                                        Content="Import Zip" />
-                                <Button Classes="action-button secondary-action"
-                                        Command="{Binding OpenSpeechToTextModelsFolderCommand}"
-                                        Content="Open Models Folder" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding SpeechToTextStatus}"
-                                       Foreground="#8BA3C7"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsTranslationSettingsTabActive}">
-                        <StackPanel Spacing="16">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Translation Factory"
-                                           FontSize="15"
-                                           FontWeight="SemiBold"
-                                           Foreground="#F0F4FF" />
-                                <TextBlock Classes="muted"
-                                           FontSize="13"
-                                           Text="Choose one provider directly or run an ordered fallback chain from settings."
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                                <TextBlock Text="Factory"
-                                           VerticalAlignment="Center"
-                                           Foreground="#8BA3C7" />
-                                <ComboBox Grid.Column="1"
-                                          SelectedItem="{Binding SelectedTranslationFactory}">
-                                    <x:String>FallbackChain</x:String>
-                                    <x:String>GoogleTranslateFreeApi</x:String>
-                                    <x:String>LibreTranslate</x:String>
-                                </ComboBox>
-                            </Grid>
-
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Text="Realtime Translation Languages"
+                                    <TextBlock Text="Saved Sessions Folder"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
-                                        <TextBlock Text="From"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="1"
-                                                  ItemsSource="{Binding TranslationLanguages}"
-                                                  SelectedValueBinding="{Binding Code}"
-                                                  SelectedValue="{Binding SelectedSourceLanguage}"
-                                                  DisplayMemberBinding="{Binding Name}"
-                                                  HorizontalAlignment="Stretch" />
-                                        <TextBlock Grid.Column="2"
-                                                   Text="To"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="3"
-                                                  ItemsSource="{Binding TranslationLanguages}"
-                                                  SelectedValueBinding="{Binding Code}"
-                                                  SelectedValue="{Binding SelectedTargetLanguage}"
-                                                  DisplayMemberBinding="{Binding Name}"
-                                                  HorizontalAlignment="Stretch" />
-                                    </Grid>
-                                    <TextBlock Text="If From and To are the same, realtime translation is skipped and only the original transcript is shown."
+                                    <TextBox Text="{Binding SessionsDirectoryPath}"
+                                             Watermark="~/.sublingual/sessions"
+                                             HorizontalAlignment="Stretch" />
+                                    <TextBlock Text="Relative paths are resolved under ~/.sublingual. Absolute paths are also supported."
                                                Foreground="#8BA3C7"
                                                FontSize="12"
                                                TextWrapping="Wrap" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Translate Partials"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#F0F4FF" />
-                                            <TextBlock Text="Off by default. Keep this disabled to reduce jitter, duplicate requests, and unstable live translations."
-                                                       Foreground="#8BA3C7"
-                                                       FontSize="12"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <CheckBox Grid.Column="1"
-                                                  IsChecked="{Binding TranslatePartials}"
-                                                  VerticalAlignment="Center" />
-                                    </Grid>
                                 </StackPanel>
-                            </Border>
+                    </suki:GlassCard>
 
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14"
-                                    IsVisible="{Binding IsFallbackTranslationFactory}">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Text="Fallback Provider Order"
+                    <suki:GlassCard Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="12">
+                                    <TextBlock Text="Managed Models Folder"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F4FF" />
-                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
-                                        <TextBlock Text="Primary"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="1"
-                                                  SelectedItem="{Binding TranslationPrimaryProvider}">
-                                            <x:String>GoogleTranslateFreeApi</x:String>
-                                            <x:String>LibreTranslate</x:String>
-                                        </ComboBox>
-                                        <TextBlock Grid.Column="2"
-                                                   Text="Secondary"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="3"
-                                                  SelectedItem="{Binding TranslationSecondaryProvider}">
-                                            <x:String>GoogleTranslateFreeApi</x:String>
-                                            <x:String>LibreTranslate</x:String>
-                                        </ComboBox>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel Spacing="12">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="GoogleTranslateFreeApi"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#F0F4FF" />
-                                            <TextBlock Text="Free Google endpoint. Useful as the first lightweight fallback."
-                                                       Foreground="#8BA3C7"
-                                                       FontSize="12"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <CheckBox Grid.Column="1"
-                                                  IsChecked="{Binding GoogleTranslateFreeApiEnabled}"
-                                                  VerticalAlignment="Center" />
-                                    </Grid>
-                                    <TextBlock Text="Endpoint"
-                                               Foreground="#8BA3C7"
-                                               FontSize="12" />
-                                    <TextBox Text="{Binding GoogleTranslateFreeApiEndpoint}"
-                                             Watermark="https://translate.googleapis.com/translate_a/single"
+                                    <TextBox Text="{Binding SpeechToTextModelsDirectoryPath}"
+                                             Watermark="~/.sublingual/speech-to-text-models"
                                              HorizontalAlignment="Stretch" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel Spacing="12">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="LibreTranslate"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#F0F4FF" />
-                                            <TextBlock Text="Configurable hosted or self-hosted LibreTranslate endpoint."
-                                                       Foreground="#8BA3C7"
-                                                       FontSize="12"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <CheckBox Grid.Column="1"
-                                                  IsChecked="{Binding LibreTranslateEnabled}"
-                                                  VerticalAlignment="Center" />
-                                    </Grid>
-                                    <TextBlock Text="Endpoint"
+                                    <ComboBox ItemsSource="{Binding SpeechToTextModels}"
+                                              SelectedItem="{Binding SelectedSpeechToTextModel}"
+                                              DisplayMemberBinding="{Binding Name}"
+                                              PlaceholderText="No local model found"
+                                              HorizontalAlignment="Stretch" />
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Button Classes="action-button neutral-action"
+                                                Command="{Binding ImportSpeechToTextModelCommand}"
+                                                Content="Import Folder" />
+                                        <Button Classes="action-button neutral-action"
+                                                Command="{Binding ImportSpeechToTextModelZipCommand}"
+                                                Content="Import Zip" />
+                                        <Button Classes="action-button secondary-action"
+                                                Command="{Binding OpenSpeechToTextModelsFolderCommand}"
+                                                Content="Open Models Folder" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SpeechToTextStatus}"
                                                Foreground="#8BA3C7"
-                                               FontSize="12" />
-                                    <TextBox Text="{Binding LibreTranslateEndpoint}"
-                                             Watermark="https://libretranslate.com/translate"
-                                             HorizontalAlignment="Stretch" />
-                                    <TextBlock Text="API Key"
-                                               Foreground="#8BA3C7"
-                                               FontSize="12" />
-                                    <TextBox Text="{Binding LibreTranslateApiKey}"
-                                             Watermark="Optional API key"
-                                             HorizontalAlignment="Stretch" />
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
-                            </Border>
+                    </suki:GlassCard>
 
-                            <TextBlock Text="{Binding TranslationStatus}"
-                                       Foreground="#8BA3C7"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel Spacing="12">
+                    <suki:GlassCard Classes="surface-card" Padding="20">
+                        <StackPanel Spacing="16">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Test Translation"
+                                        <TextBlock Text="Translation Factory"
+                                                   FontSize="15"
                                                    FontWeight="SemiBold"
                                                    Foreground="#F0F4FF" />
-                                        <TextBlock Text="Run a quick translation request using the current factory and provider settings."
-                                                   Foreground="#8BA3C7"
-                                                   FontSize="12"
+                                        <TextBlock Classes="muted"
+                                                   FontSize="13"
+                                                   Text="Choose one provider directly or run an ordered fallback chain from settings."
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
 
-                                    <TextBlock Text="Source Text"
-                                               Foreground="#8BA3C7"
-                                               FontSize="12" />
-                                    <TextBox Text="{Binding TranslationTestSourceText}"
-                                             Watermark="Enter text to translate"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             MinHeight="80"
-                                             HorizontalAlignment="Stretch" />
-
-                                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
-                                        <TextBlock Text="From"
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                        <TextBlock Text="Factory"
                                                    VerticalAlignment="Center"
                                                    Foreground="#8BA3C7" />
                                         <ComboBox Grid.Column="1"
-                                                  ItemsSource="{Binding TranslationLanguages}"
-                                                  SelectedValueBinding="{Binding Code}"
-                                                  SelectedValue="{Binding TranslationTestSourceLanguage}"
-                                                  DisplayMemberBinding="{Binding Name}"
-                                                  HorizontalAlignment="Stretch" />
-                                        <TextBlock Grid.Column="2"
-                                                   Text="To"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="3"
-                                                  ItemsSource="{Binding TranslationLanguages}"
-                                                  SelectedValueBinding="{Binding Code}"
-                                                  SelectedValue="{Binding TranslationTestTargetLanguage}"
-                                                  DisplayMemberBinding="{Binding Name}"
-                                                  HorizontalAlignment="Stretch" />
+                                                  SelectedItem="{Binding SelectedTranslationFactory}">
+                                            <x:String>FallbackChain</x:String>
+                                            <x:String>GoogleTranslateFreeApi</x:String>
+                                            <x:String>LibreTranslate</x:String>
+                                        </ComboBox>
                                     </Grid>
 
-                                    <Button Classes="action-button primary-action"
-                                            Command="{Binding TestTranslationCommand}"
-                                            Content="Run Translation Test"
-                                            HorizontalAlignment="Left"
-                                            MinWidth="180" />
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Text="Realtime Translation Languages"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                                <TextBlock Text="From"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#8BA3C7" />
+                                                <ComboBox Grid.Column="1"
+                                                          ItemsSource="{Binding TranslationLanguages}"
+                                                          SelectedValueBinding="{Binding Code}"
+                                                          SelectedValue="{Binding SelectedSourceLanguage}"
+                                                          DisplayMemberBinding="{Binding Name}"
+                                                          HorizontalAlignment="Stretch" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="To"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#8BA3C7" />
+                                                <ComboBox Grid.Column="3"
+                                                          ItemsSource="{Binding TranslationLanguages}"
+                                                          SelectedValueBinding="{Binding Code}"
+                                                          SelectedValue="{Binding SelectedTargetLanguage}"
+                                                          DisplayMemberBinding="{Binding Name}"
+                                                          HorizontalAlignment="Stretch" />
+                                            </Grid>
+                                            <TextBlock Text="If From and To are the same, realtime translation is skipped and only the original transcript is shown."
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Translate Partials"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Text="Off by default. Keep this disabled to reduce jitter, duplicate requests, and unstable live translations."
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="12"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding TranslatePartials}"
+                                                          VerticalAlignment="Center" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </suki:GlassCard>
 
-                                    <TextBlock Text="Testing translation..."
-                                               Foreground="#3B82F6"
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14"
+                                                    IsVisible="{Binding IsFallbackTranslationFactory}">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Text="Fallback Provider Order"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                                <TextBlock Text="Primary"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#8BA3C7" />
+                                                <ComboBox Grid.Column="1"
+                                                          SelectedItem="{Binding TranslationPrimaryProvider}">
+                                                    <x:String>GoogleTranslateFreeApi</x:String>
+                                                    <x:String>LibreTranslate</x:String>
+                                                </ComboBox>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="Secondary"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#8BA3C7" />
+                                                <ComboBox Grid.Column="3"
+                                                          SelectedItem="{Binding TranslationSecondaryProvider}">
+                                                    <x:String>GoogleTranslateFreeApi</x:String>
+                                                    <x:String>LibreTranslate</x:String>
+                                                </ComboBox>
+                                            </Grid>
+                                        </StackPanel>
+                                    </suki:GlassCard>
+
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="12">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="GoogleTranslateFreeApi"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Text="Free Google endpoint. Useful as the first lightweight fallback."
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="12"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding GoogleTranslateFreeApiEnabled}"
+                                                          VerticalAlignment="Center" />
+                                            </Grid>
+                                            <TextBlock Text="Endpoint"
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12" />
+                                            <TextBox Text="{Binding GoogleTranslateFreeApiEndpoint}"
+                                                     Watermark="https://translate.googleapis.com/translate_a/single"
+                                                     HorizontalAlignment="Stretch" />
+                                        </StackPanel>
+                                    </suki:GlassCard>
+
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="12">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="LibreTranslate"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Text="Configurable hosted or self-hosted LibreTranslate endpoint."
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="12"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding LibreTranslateEnabled}"
+                                                          VerticalAlignment="Center" />
+                                            </Grid>
+                                            <TextBlock Text="Endpoint"
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12" />
+                                            <TextBox Text="{Binding LibreTranslateEndpoint}"
+                                                     Watermark="https://libretranslate.com/translate"
+                                                     HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="API Key"
+                                                       Foreground="#8BA3C7"
+                                                       FontSize="12" />
+                                            <TextBox Text="{Binding LibreTranslateApiKey}"
+                                                     Watermark="Optional API key"
+                                                     HorizontalAlignment="Stretch" />
+                                        </StackPanel>
+                                    </suki:GlassCard>
+
+                                    <TextBlock Text="{Binding TranslationStatus}"
+                                               Foreground="#8BA3C7"
                                                FontSize="12"
-                                               IsVisible="{Binding IsTestingTranslation}" />
+                                               TextWrapping="Wrap" />
 
-                                    <Border Background="#081221"
-                                            BorderBrush="#1E3A5F"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="12"
-                                            IsVisible="{Binding HasTranslationTestResult}">
+                                    <suki:GlassCard Background="#081221"
+                                                    BorderBrush="#1E3A5F"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="12"
+                                                    IsVisible="{Binding HasTranslationTestResult}">
                                         <StackPanel Spacing="6">
                                             <TextBlock Text="Result"
                                                        Foreground="#F0F4FF"
@@ -840,14 +820,14 @@
                                                                  Foreground="#C7D7F2"
                                                                  TextWrapping="Wrap" />
                                         </StackPanel>
-                                    </Border>
+                                    </suki:GlassCard>
 
-                                    <Border Background="#2A1111"
-                                            BorderBrush="#7F1D1D"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="12"
-                                            IsVisible="{Binding HasTranslationTestError}">
+                                    <suki:GlassCard Background="#2A1111"
+                                                    BorderBrush="#7F1D1D"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="12"
+                                                    IsVisible="{Binding HasTranslationTestError}">
                                         <StackPanel Spacing="6">
                                             <TextBlock Text="Error"
                                                        Foreground="#FECACA"
@@ -856,238 +836,283 @@
                                                                  Foreground="#FECACA"
                                                                  TextWrapping="Wrap" />
                                         </StackPanel>
-                                    </Border>
+                                    </suki:GlassCard>
+
+                                    <suki:BusyArea IsBusy="{Binding IsTestingTranslation}"
+                                                   BusyText="Testing translation...">
+                                        <suki:GlassCard Background="#0D1F38"
+                                                        CornerRadius="10"
+                                                        Padding="14">
+                                            <StackPanel Spacing="12">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="Test Translation"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Text="Run a quick translation request using the current factory and provider settings."
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="12"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+
+                                                <TextBlock Text="Source Text"
+                                                           Foreground="#8BA3C7"
+                                                           FontSize="12" />
+                                                <TextBox Text="{Binding TranslationTestSourceText}"
+                                                         Watermark="Enter text to translate"
+                                                         AcceptsReturn="True"
+                                                         TextWrapping="Wrap"
+                                                         MinHeight="80"
+                                                         HorizontalAlignment="Stretch" />
+
+                                                <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12">
+                                                    <TextBlock Text="From"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="#8BA3C7" />
+                                                    <ComboBox Grid.Column="1"
+                                                              ItemsSource="{Binding TranslationLanguages}"
+                                                              SelectedValueBinding="{Binding Code}"
+                                                              SelectedValue="{Binding TranslationTestSourceLanguage}"
+                                                              DisplayMemberBinding="{Binding Name}"
+                                                              HorizontalAlignment="Stretch" />
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="To"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="#8BA3C7" />
+                                                    <ComboBox Grid.Column="3"
+                                                              ItemsSource="{Binding TranslationLanguages}"
+                                                              SelectedValueBinding="{Binding Code}"
+                                                              SelectedValue="{Binding TranslationTestTargetLanguage}"
+                                                              DisplayMemberBinding="{Binding Name}"
+                                                              HorizontalAlignment="Stretch" />
+                                                </Grid>
+
+                                                <Button Classes="action-button primary-action"
+                                                        Command="{Binding TestTranslationCommand}"
+                                                        Content="Run Translation Test"
+                                                        HorizontalAlignment="Left"
+                                                        MinWidth="180" />
+                                            </StackPanel>
+                                        </suki:GlassCard>
+                                    </suki:BusyArea>
                                 </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
+                    </suki:GlassCard>
 
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Show Overlay Window"
-                                           FontSize="15"
-                                           FontWeight="SemiBold"
-                                           Foreground="#F0F4FF" />
-                                <TextBlock Classes="muted" FontSize="13"
-                                           Text="Toggle the transparent subtitle overlay on screen." />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Classes="action-button primary-action"
-                                    Command="{Binding ToggleOverlayCommand}"
-                                    Content="{Binding OverlayToggleLabel}"
-                                    MinWidth="120"
-                                    VerticalAlignment="Center" />
-                        </Grid>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="Subtitle Font Size"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               Foreground="#F0F4FF" />
-                                    <TextBlock Classes="muted" FontSize="13"
-                                               Text="Applies to the original subtitle text." />
-                                </StackPanel>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding OverlayFontSize, StringFormat={}{0:0}px}"
-                                           FontSize="22"
-                                           FontWeight="Bold"
-                                           Foreground="#3B82F6"
-                                           VerticalAlignment="Center" />
-                            </Grid>
-                            <TextBox Text="{Binding OverlayFontSize}"
-                                     Watermark="26"
-                                     HorizontalAlignment="Left"
-                                     Width="120" />
-                            <Slider Minimum="14"
-                                     Maximum="60"
-                                     Value="{Binding OverlayFontSize}"
-                                     TickFrequency="2"
-                                     IsSnapToTickEnabled="True" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="Line Spacing"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               Foreground="#F0F4FF" />
-                                    <TextBlock Classes="muted" FontSize="13"
-                                               Text="Controls spacing between overlay lines." />
-                                </StackPanel>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding OverlayLineHeight, StringFormat={}{0:0.00}}"
-                                           FontSize="22"
-                                           FontWeight="Bold"
-                                           Foreground="#3B82F6"
-                                           VerticalAlignment="Center" />
-                            </Grid>
-                            <Border Background="#0D1F38"
-                                    CornerRadius="10"
-                                    Padding="14">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="Original line preview"
-                                               Foreground="#F0F4FF"
-                                               FontSize="16"
-                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
-                                    <TextBlock Text="Translated line preview"
-                                               Foreground="#8BA3C7"
-                                               FontSize="14"
-                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
-                                               IsVisible="{Binding OverlayShowTranslation}" />
-                                    <TextBlock Text="Original line preview"
-                                               Foreground="#F0F4FF"
-                                               FontSize="16"
-                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
-                                    <TextBlock Text="Translated line preview"
-                                               Foreground="#8BA3C7"
-                                               FontSize="14"
-                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
-                                               IsVisible="{Binding OverlayShowTranslation}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#0D1F38"
-                                    CornerRadius="999"
-                                    Padding="4">
-                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
-                                    <Button Classes="action-button primary-action"
-                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Compact"
-                                            Content="Compact" />
-                                    <Button Classes="action-button secondary-action"
-                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Compact"
-                                            Content="Compact" />
-                                    <Button Grid.Column="1"
-                                            Classes="action-button primary-action"
-                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Default"
-                                            Content="Default" />
-                                    <Button Grid.Column="1"
-                                            Classes="action-button secondary-action"
-                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Default"
-                                            Content="Default" />
-                                    <Button Grid.Column="1"
-                                            Classes="action-button secondary-action"
-                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Default"
-                                            Content="Default" />
-                                    <Button Grid.Column="2"
-                                            Classes="action-button primary-action"
-                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Relaxed"
-                                            Content="Relaxed" />
-                                    <Button Grid.Column="2"
-                                            Classes="action-button secondary-action"
-                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Relaxed"
-                                            Content="Relaxed" />
-                                    <Button Grid.Column="2"
-                                            Classes="action-button secondary-action"
-                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
-                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
-                                            CommandParameter="Relaxed"
-                                            Content="Relaxed" />
-                                </Grid>
-                            </Border>
-                            <TextBox Text="{Binding OverlayLineHeight}"
-                                     Watermark="1.35"
-                                     HorizontalAlignment="Left"
-                                     Width="120" />
-                            <Slider Minimum="0.90"
-                                    Maximum="2.20"
-                                    Value="{Binding OverlayLineHeight}"
-                                    TickFrequency="0.05" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Show Translation"
-                                           FontSize="15"
-                                           FontWeight="SemiBold"
-                                           Foreground="#F0F4FF" />
-                                <TextBlock Classes="muted" FontSize="13"
-                                           Text="Show translated lines inside the overlay." />
-                            </StackPanel>
-                            <CheckBox Grid.Column="1"
-                                      IsChecked="{Binding OverlayShowTranslation}"
-                                      VerticalAlignment="Center" />
-                        </Grid>
-                    </Border>
-
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
+                    <suki:GlassCard Classes="surface-card" Padding="20">
                         <StackPanel Spacing="16">
-                            <TextBlock Text="Overlay Style"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="#F0F4FF" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Show Overlay Window"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <TextBlock Classes="muted" FontSize="13"
+                                                       Text="Toggle the transparent subtitle overlay on screen." />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Classes="action-button primary-action"
+                                                Command="{Binding ToggleOverlayCommand}"
+                                                Content="{Binding OverlayToggleLabel}"
+                                                MinWidth="120"
+                                                VerticalAlignment="Center" />
+                                    </Grid>
 
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                                <TextBlock Text="Theme"
-                                           VerticalAlignment="Center"
-                                           Foreground="#8BA3C7" />
-                                <ComboBox Grid.Column="1"
-                                          SelectedItem="{Binding OverlayTheme}">
-                                    <x:String>Dark</x:String>
-                                    <x:String>Light</x:String>
-                                </ComboBox>
-                            </Grid>
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="12">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Subtitle Font Size"
+                                                               FontSize="15"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Classes="muted" FontSize="13"
+                                                               Text="Applies to the original subtitle text." />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding OverlayFontSize, StringFormat={}{0:0}px}"
+                                                           FontSize="22"
+                                                           FontWeight="Bold"
+                                                           Foreground="#3B82F6"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                            <TextBox Text="{Binding OverlayFontSize}"
+                                                     Watermark="26"
+                                                     HorizontalAlignment="Left"
+                                                     Width="120" />
+                                            <Slider Minimum="14"
+                                                     Maximum="60"
+                                                     Value="{Binding OverlayFontSize}"
+                                                     TickFrequency="2"
+                                                     IsSnapToTickEnabled="True" />
+                                        </StackPanel>
+                                    </suki:GlassCard>
 
-                            <StackPanel Spacing="6">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="Opacity"
-                                               Foreground="#8BA3C7" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding OverlayOpacity, StringFormat={}{0:0.00}}"
-                                               Foreground="#3B82F6"
-                                               FontWeight="SemiBold" />
-                                </Grid>
-                                <Slider Minimum="0.35"
-                                        Maximum="1.00"
-                                        Value="{Binding OverlayOpacity}"
-                                        TickFrequency="0.05" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="12">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Line Spacing"
+                                                               FontSize="15"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#F0F4FF" />
+                                                    <TextBlock Classes="muted" FontSize="13"
+                                                               Text="Controls spacing between overlay lines." />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding OverlayLineHeight, StringFormat={}{0:0.00}}"
+                                                           FontSize="22"
+                                                           FontWeight="Bold"
+                                                           Foreground="#3B82F6"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                            <suki:GlassCard Background="#081221"
+                                                            CornerRadius="10"
+                                                            Padding="14">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="Original line preview"
+                                                               Foreground="#F0F4FF"
+                                                               FontSize="16"
+                                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
+                                                    <TextBlock Text="Translated line preview"
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="14"
+                                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
+                                                               IsVisible="{Binding OverlayShowTranslation}" />
+                                                    <TextBlock Text="Original line preview"
+                                                               Foreground="#F0F4FF"
+                                                               FontSize="16"
+                                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}" />
+                                                    <TextBlock Text="Translated line preview"
+                                                               Foreground="#8BA3C7"
+                                                               FontSize="14"
+                                                               LineHeight="{Binding OverlayLineHeightPreviewPixels}"
+                                                               IsVisible="{Binding OverlayShowTranslation}" />
+                                                </StackPanel>
+                                            </suki:GlassCard>
+                                            <suki:GlassCard Background="#081221"
+                                                            CornerRadius="999"
+                                                            Padding="4">
+                                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                                                    <Button Classes="action-button primary-action"
+                                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Compact"
+                                                            Content="Compact" />
+                                                    <Button Classes="action-button secondary-action"
+                                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Compact"
+                                                            Content="Compact" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="action-button primary-action"
+                                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Default"
+                                                            Content="Default" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="action-button secondary-action"
+                                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Default"
+                                                            Content="Default" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="action-button secondary-action"
+                                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Default"
+                                                            Content="Default" />
+                                                    <Button Grid.Column="2"
+                                                            Classes="action-button primary-action"
+                                                            IsVisible="{Binding IsRelaxedOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Relaxed"
+                                                            Content="Relaxed" />
+                                                    <Button Grid.Column="2"
+                                                            Classes="action-button secondary-action"
+                                                            IsVisible="{Binding IsCompactOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Relaxed"
+                                                            Content="Relaxed" />
+                                                    <Button Grid.Column="2"
+                                                            Classes="action-button secondary-action"
+                                                            IsVisible="{Binding IsDefaultOverlayLineHeightPreset}"
+                                                            Command="{Binding SetOverlayLineHeightPresetCommand}"
+                                                            CommandParameter="Relaxed"
+                                                            Content="Relaxed" />
+                                                </Grid>
+                                            </suki:GlassCard>
+                                            <TextBox Text="{Binding OverlayLineHeight}"
+                                                     Watermark="1.35"
+                                                     HorizontalAlignment="Left"
+                                                     Width="120" />
+                                            <Slider Minimum="0.90"
+                                                    Maximum="2.20"
+                                                    Value="{Binding OverlayLineHeight}"
+                                                    TickFrequency="0.05" />
+                                        </StackPanel>
+                                    </suki:GlassCard>
 
-                    <Border Classes="surface-card" Padding="20"
-                            IsVisible="{Binding IsOverlaySettingsTabActive}">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Tips"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="#F0F4FF" />
-                            <TextBlock Classes="muted"
-                                       Text="Resize overlay directly on screen. Drag to reposition. Use Light theme for dark videos and Dark theme for bright videos."
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Show Translation"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <TextBlock Classes="muted" FontSize="13"
+                                                       Text="Show translated lines inside the overlay." />
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1"
+                                                  IsChecked="{Binding OverlayShowTranslation}"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
 
+                                    <suki:GlassCard Background="#0D1F38"
+                                                    CornerRadius="10"
+                                                    Padding="14">
+                                        <StackPanel Spacing="16">
+                                            <TextBlock Text="Overlay Style"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#F0F4FF" />
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                                <TextBlock Text="Theme"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#8BA3C7" />
+                                                <ComboBox Grid.Column="1"
+                                                          SelectedItem="{Binding OverlayTheme}">
+                                                    <x:String>Dark</x:String>
+                                                    <x:String>Light</x:String>
+                                                </ComboBox>
+                                            </Grid>
+                                            <StackPanel Spacing="6">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="Opacity"
+                                                               Foreground="#8BA3C7" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding OverlayOpacity, StringFormat={}{0:0.00}}"
+                                                               Foreground="#3B82F6"
+                                                               FontWeight="SemiBold" />
+                                                </Grid>
+                                                <Slider Minimum="0.35"
+                                                        Maximum="1.00"
+                                                        Value="{Binding OverlayOpacity}"
+                                                        TickFrequency="0.05" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </suki:GlassCard>
+
+                                    <TextBlock Classes="muted"
+                                               Text="Resize overlay directly on screen. Drag to reposition. Use Light theme for dark videos and Dark theme for bright videos."
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                    </suki:GlassCard>
                 </StackPanel>
             </ScrollViewer>
 
-        </Grid>
+            </Grid>
+        </suki:BusyArea>
     </Grid>
 </suki:SukiWindow>

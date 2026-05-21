@@ -1,9 +1,5 @@
-<Styles xmlns="https://github.com/avaloniaui">
-
-    <!-- ── Window shells ─────────────────────────────────────────────── -->
-    <Style Selector="Window.debug-shell">
-        <Setter Property="Foreground" Value="#F0F4FF" />
-    </Style>
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:suki="https://github.com/kikipoulet/SukiUI">
 
     <!-- ── Sidebar nav items ──────────────────────────────────────────── -->
     <Style Selector="Button.nav-item">
@@ -29,28 +25,20 @@
 
     <!-- ── Surface cards ─────────────────────────────────────────────── -->
     <!-- Primary card: dark navy with a subtle blue border -->
-    <Style Selector="Border.surface-card">
+    <Style Selector="suki|GlassCard.surface-card">
         <Setter Property="Background" Value="#0F172A" />
         <Setter Property="BorderBrush" Value="#1E3A5F" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="16" />
-        <Setter Property="BoxShadow" Value="0 8 24 0 #44000000" />
     </Style>
 
     <!-- Secondary stat card: slightly lighter navy -->
-    <Style Selector="Border.stat-card">
+    <Style Selector="suki|GlassCard.stat-card">
         <Setter Property="Background" Value="#162032" />
         <Setter Property="BorderBrush" Value="#1E3A5F" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Padding" Value="16" />
-    </Style>
-
-    <!-- ── Typography ────────────────────────────────────────────────── -->
-    <Style Selector="TextBlock.section-title">
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="#F0F4FF" />
     </Style>
 
     <!-- Subdued label — readable on dark but not competing with values -->
@@ -116,58 +104,4 @@
         <Setter Property="FontSize" Value="13" />
     </Style>
 
-    <!-- ── Badge pill ─────────────────────────────────────────────────── -->
-    <Style Selector="Border.badge-pill">
-        <Setter Property="Background" Value="#0F1F36" />
-        <Setter Property="BorderBrush" Value="#1E3A5F" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="999" />
-    </Style>
-
-    <!-- ── Overlay window ─────────────────────────────────────────────── -->
-    <Style Selector="Window.overlay-shell">
-        <Setter Property="TransparencyBackgroundFallback" Value="#01000000" />
-        <Setter Property="Background" Value="Transparent" />
-    </Style>
-
-    <Style Selector="Border.overlay-card">
-        <Setter Property="Background" Value="#CC0A1628" />
-        <Setter Property="BorderBrush" Value="#3B82F6" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="18" />
-        <Setter Property="Padding" Value="22,16" />
-        <Setter Property="BoxShadow" Value="0 16 48 0 #88000000" />
-    </Style>
-
-    <Style Selector="TextBlock.overlay-drag-hint">
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="Medium" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="TextBlock.overlay-kicker">
-        <Setter Property="Foreground" Value="#93C5FD" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="11" />
-    </Style>
-
-    <Style Selector="TextBlock.overlay-original">
-        <Setter Property="Foreground" Value="#F0F4FF" />
-        <Setter Property="FontSize" Value="26" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="TextAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="TextBlock.overlay-translated">
-        <Setter Property="Foreground" Value="#BAE6FD" />
-        <Setter Property="FontSize" Value="22" />
-        <Setter Property="TextAlignment" Value="Center" />
-    </Style>
-
-    <Style Selector="TextBlock.overlay-partial">
-        <Setter Property="Foreground" Value="#60A5FA" />
-        <Setter Property="FontSize" Value="18" />
-        <Setter Property="FontStyle" Value="Italic" />
-        <Setter Property="TextAlignment" Value="Center" />
-    </Style>
 </Styles>
