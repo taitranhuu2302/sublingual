@@ -9,12 +9,14 @@ from app.schemas import (
     BatchTranslateRequest,
     BatchTranslateResponse,
     BatchTranslationItem,
+    ErrorResponse,
     HealthResponse,
     ModelsResponse,
     RealtimeTranslateRequest,
     RealtimeTranslateResponse,
     TranslateRequest,
     TranslateResponse,
+    ValidationErrorResponse,
 )
 from app.translator.model_manager import TranslationModelManager
 from app.utils.logger import configure_logging
@@ -29,6 +31,16 @@ from app.utils.text import (
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger("translate-service")
+
+BAD_REQUEST_RESPONSE = {
+    "model": ErrorResponse,
+    "description": "Bad request or requested translation model is not available.",
+}
+
+UNPROCESSABLE_ENTITY_RESPONSE = {
+    "model": ValidationErrorResponse,
+    "description": "Validation error in request payload.",
+}
 
 
 class RealtimeSessionCache:
@@ -101,7 +113,26 @@ realtime_session_cache = RealtimeSessionCache(
 app = FastAPI(
     title="Translate Service",
     version="0.1.0",
-    description="Standalone translation API for the existing Vosk subtitle pipeline.",
+    description=(
+        "Standalone self-hosted translation API for a Vosk-based subtitle pipeline. "
+        "This service uses MarianTokenizer for tokenization and CTranslate2 for inference."
+    ),
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=[
+        {
+            "name": "system",
+            "description": "Health and model discovery endpoints.",
+        },
+        {
+            "name": "translation",
+            "description": "Single and batch translation endpoints.",
+        },
+        {
+            "name": "realtime",
+            "description": "Realtime translation endpoint for Vosk partial/final text.",
+        },
+    ],
 )
 
 
@@ -125,7 +156,14 @@ def _prepare_realtime_text(text: str) -> str:
     return truncate_text(normalize_text(text), settings.max_text_chars)
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    tags=["system"],
+    summary="Health check",
+    description="Returns service health, runtime device, compute type, and currently loaded model pairs.",
+    responses={422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
 def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
@@ -135,7 +173,14 @@ def health() -> HealthResponse:
     )
 
 
-@app.get("/models", response_model=ModelsResponse)
+@app.get(
+    "/models",
+    response_model=ModelsResponse,
+    tags=["system"],
+    summary="List available models",
+    description="Lists language-pair model folders discovered under the configured CT2 model directory.",
+    responses={422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
 def list_models() -> ModelsResponse:
     return ModelsResponse(
         available_pairs=model_manager.list_available_pairs(),
@@ -145,7 +190,14 @@ def list_models() -> ModelsResponse:
     )
 
 
-@app.post("/translate", response_model=TranslateResponse)
+@app.post(
+    "/translate",
+    response_model=TranslateResponse,
+    tags=["translation"],
+    summary="Translate a single text",
+    description="Translates one text segment using the requested source and target language pair.",
+    responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
 def translate(request: TranslateRequest) -> TranslateResponse:
     started = time.perf_counter()
     source_text = _prepare_text(request.text)
@@ -171,7 +223,14 @@ def translate(request: TranslateRequest) -> TranslateResponse:
     )
 
 
-@app.post("/translate/batch", response_model=BatchTranslateResponse)
+@app.post(
+    "/translate/batch",
+    response_model=BatchTranslateResponse,
+    tags=["translation"],
+    summary="Translate a batch of texts",
+    description="Translates multiple text segments in one request to improve throughput.",
+    responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
 def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
     started = time.perf_counter()
     source_texts = _prepare_texts(request.texts)
@@ -201,7 +260,17 @@ def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
     )
 
 
-@app.post("/translate/realtime", response_model=RealtimeTranslateResponse)
+@app.post(
+    "/translate/realtime",
+    response_model=RealtimeTranslateResponse,
+    tags=["realtime"],
+    summary="Translate realtime Vosk text",
+    description=(
+        "Handles partial and final text from Vosk. Partial text may be skipped when it is too short, "
+        "too similar to the previous request, or does not look like a good boundary."
+    ),
+    responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
 def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateResponse:
     realtime_session_cache.cleanup_expired()
     source_text = _prepare_realtime_text(request.text)
