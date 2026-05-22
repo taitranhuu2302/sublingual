@@ -70,7 +70,9 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<VoskInputVerifier>();
         services.AddSingleton(new HttpClient());
         services.AddSingleton<SpeechToTextModelCatalog>();
+        services.AddSingleton<SpeechToTextModelSourceCatalog>();
         services.AddSingleton<SpeechToTextModelImporter>();
+        services.AddSingleton<SpeechToTextDefaultModelInstaller>();
         services.AddSingleton<CaptureSessionStorage>();
         services.AddSingleton<RealtimeTranslationScheduler>();
         services.AddSingleton<VoskTranscriptionService>();

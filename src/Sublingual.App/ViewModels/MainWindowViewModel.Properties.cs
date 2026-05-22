@@ -57,8 +57,10 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private string renameSessionFolderValidationError = string.Empty;
     [ObservableProperty] private bool isDeleteSessionFolderDialogOpen;
     [ObservableProperty] private bool isMoveSessionsDialogOpen;
+    [ObservableProperty] private bool isInstallSpeechModelsDialogOpen;
     [ObservableProperty] private SessionFolderOptionViewModel? moveTargetSessionFolder;
     [ObservableProperty] private string speechToTextStatus;
+    [ObservableProperty] private string installDefaultSpeechModelLabel = "Install Default Model";
     [ObservableProperty] private string selectedSpeechToTextChunkPreset = SpeechToTextChunkPresets.Balanced;
     [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
     [ObservableProperty] private string selectedSourceLanguage = "en";
@@ -99,6 +101,7 @@ public sealed partial class MainWindowViewModel
     public ObservableCollection<SavedTranscriptEntryViewModel> SelectedSessionTranscriptEntries { get; }
     public ObservableCollection<AudioLevelBarViewModel> AudioLevelBars { get; }
     public ObservableCollection<SessionFolderOptionViewModel> SessionFolders { get; }
+    public ObservableCollection<SpeechToTextInstallableModelViewModel> InstallableSpeechModels { get; }
     public IReadOnlyList<string> SpeechToTextChunkPresetOptions { get; } =
     [
         SpeechToTextChunkPresets.Fast,
@@ -157,4 +160,9 @@ public sealed partial class MainWindowViewModel
     public bool IsCompactOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Compact", StringComparison.OrdinalIgnoreCase);
     public bool IsDefaultOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Default", StringComparison.OrdinalIgnoreCase);
     public bool IsRelaxedOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Relaxed", StringComparison.OrdinalIgnoreCase);
+    public bool CanInstallDefaultSpeechModel => TryGetDefaultSpeechModelSource() is { } source
+        && !string.IsNullOrWhiteSpace(source.ModelName)
+        && !SpeechToTextModels.Any(model => string.Equals(model.Name, source.ModelName, StringComparison.OrdinalIgnoreCase));
+    public bool HasInstallableSpeechModels => InstallableSpeechModels.Count > 0;
+    public bool NoInstallableSpeechModels => !HasInstallableSpeechModels;
 }

@@ -1,0 +1,16 @@
+{
+  "defaultModels": [
+    {
+      "language": "en",
+      "modelName": "default-en",
+      "displayName": "English Small",
+      "zipUrl": ""
+    },
+    {
+      "language": "vi",
+      "modelName": "default-vi",
+      "displayName": "Vietnamese Small",
+      "zipUrl": ""
+    }
+  ]
+}

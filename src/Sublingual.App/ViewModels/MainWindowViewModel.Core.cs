@@ -16,6 +16,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioCaptureDebugSession _session;
     private readonly SpeechToTextModelCatalog _modelCatalog;
+    private readonly SpeechToTextModelSourceCatalog _modelSourceCatalog;
+    private readonly SpeechToTextDefaultModelInstaller _defaultModelInstaller;
     private readonly SpeechToTextModelImporter _modelImporter;
     private readonly CaptureSessionStorage _sessionStorage;
     private readonly AppSettingsStore _settingsStore;
@@ -43,6 +45,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(
         AudioCaptureDebugSession session,
         SpeechToTextModelCatalog modelCatalog,
+        SpeechToTextModelSourceCatalog modelSourceCatalog,
+        SpeechToTextDefaultModelInstaller defaultModelInstaller,
         SpeechToTextModelImporter modelImporter,
         CaptureSessionStorage sessionStorage,
         AppSettingsStore settingsStore,
@@ -52,6 +56,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _session = session;
         _modelCatalog = modelCatalog;
+        _modelSourceCatalog = modelSourceCatalog;
+        _defaultModelInstaller = defaultModelInstaller;
         _modelImporter = modelImporter;
         _sessionStorage = sessionStorage;
         _settingsStore = settingsStore;
@@ -75,6 +81,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SelectedSessionTranscriptEntries = [];
         AudioLevelBars = [];
         SessionFolders = [];
+        InstallableSpeechModels = [];
         for (var i = 0; i < WaveformSampleCapacity; i++)
         {
             AudioLevelBars.Add(new AudioLevelBarViewModel());
@@ -118,6 +125,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         : this(
             CreateDesignTimeSession(),
             CreateDesignTimeModelCatalog(),
+            new SpeechToTextModelSourceCatalog(),
+            new SpeechToTextDefaultModelInstaller(new HttpClient(), new SpeechToTextModelImporter(CreateDesignTimeModelCatalog())),
             new SpeechToTextModelImporter(CreateDesignTimeModelCatalog()),
             new CaptureSessionStorage(new AppSettingsStore()),
             new AppSettingsStore(),

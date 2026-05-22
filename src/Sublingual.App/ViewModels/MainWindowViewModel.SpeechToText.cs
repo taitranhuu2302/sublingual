@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.Domain.Transcription;
 using Sublingual.Infrastructure.Audio.Processing;
@@ -9,6 +10,33 @@ namespace Sublingual.App.ViewModels;
 
 public sealed partial class MainWindowViewModel
 {
+    [RelayCommand]
+    private async Task InstallDefaultSpeechModelAsync()
+    {
+        var source = TryGetDefaultSpeechModelSource();
+        if (source is null)
+        {
+            StatusMessage = $"No default model source is configured for language `{SelectedSourceLanguage}`.";
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            SpeechToTextStatus = $"Downloading {source.DisplayName}...";
+            var importedPath = await _defaultModelInstaller.InstallAsync(source);
+            LoadSpeechToTextModels();
+
+            SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(model =>
+                string.Equals(model.Name, source.ModelName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(model.Path, importedPath, StringComparison.OrdinalIgnoreCase));
+
+            SpeechToTextStatus = SelectedSpeechToTextModel is null
+                ? $"Installed {source.ModelName}, but it could not be selected."
+                : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+            StatusMessage = $"Installed default speech-to-text model {source.ModelName}.";
+        });
+    }
+
     [RelayCommand]
     private async Task ImportSpeechToTextModelAsync()
     {
@@ -68,6 +96,53 @@ public sealed partial class MainWindowViewModel
         Process.Start(psi);
     }
 
+    [RelayCommand]
+    private void OpenInstallSpeechModelsDialog()
+    {
+        LoadInstallableSpeechModels();
+        IsInstallSpeechModelsDialogOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseInstallSpeechModelsDialog()
+    {
+        IsInstallSpeechModelsDialogOpen = false;
+    }
+
+    [RelayCommand]
+    private async Task InstallSpeechModelAsync(SpeechToTextInstallableModelViewModel? model)
+    {
+        if (model is null)
+        {
+            return;
+        }
+
+        var source = _modelSourceCatalog.GetDefaultModels().FirstOrDefault(entry =>
+            string.Equals(entry.ModelName, model.ModelName, StringComparison.OrdinalIgnoreCase));
+        if (source is null)
+        {
+            StatusMessage = $"No download source is configured for {model.ModelName}.";
+            return;
+        }
+
+        await RunBusyOperationAsync(async () =>
+        {
+            SpeechToTextStatus = $"Downloading {source.DisplayName}...";
+            var importedPath = await _defaultModelInstaller.InstallAsync(source);
+            LoadSpeechToTextModels();
+            LoadInstallableSpeechModels();
+
+            SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(item =>
+                string.Equals(item.Name, source.ModelName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.Path, importedPath, StringComparison.OrdinalIgnoreCase));
+
+            SpeechToTextStatus = SelectedSpeechToTextModel is null
+                ? $"Installed {source.ModelName}, but it could not be selected."
+                : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+            StatusMessage = $"Installed speech-to-text model {source.ModelName}.";
+        });
+    }
+
     private void LoadSpeechToTextModels()
     {
         SpeechToTextModels.Clear();
@@ -85,11 +160,36 @@ public sealed partial class MainWindowViewModel
 
         if (SelectedSpeechToTextModel is not null)
         {
+            RefreshDefaultSpeechModelState();
             UpdateSpeechToTextStatus();
             return;
         }
 
+        RefreshDefaultSpeechModelState();
         SpeechToTextStatus = "No local speech model found.";
+    }
+
+    private void LoadInstallableSpeechModels()
+    {
+        var installedModelNames = SpeechToTextModels
+            .Select(model => model.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        InstallableSpeechModels.Clear();
+
+        foreach (var model in _modelSourceCatalog.GetDefaultModels())
+        {
+            InstallableSpeechModels.Add(new SpeechToTextInstallableModelViewModel
+            {
+                Language = model.Language,
+                ModelName = model.ModelName,
+                DisplayName = string.IsNullOrWhiteSpace(model.DisplayName) ? model.ModelName : model.DisplayName,
+                ZipUrl = model.ZipUrl,
+                IsInstalled = installedModelNames.Contains(model.ModelName),
+            });
+        }
+
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(HasInstallableSpeechModels)));
     }
 
     private void LoadSpeechToTextSettings()
@@ -183,6 +283,20 @@ public sealed partial class MainWindowViewModel
         return string.IsNullOrWhiteSpace(warning)
             ? $"Selected model: {modelName}"
             : $"Selected model: {modelName} | Warning: {warning}";
+    }
+
+    private SpeechToTextDefaultModelSource? TryGetDefaultSpeechModelSource()
+    {
+        return _modelSourceCatalog.GetDefaultModel(SelectedSourceLanguage);
+    }
+
+    private void RefreshDefaultSpeechModelState()
+    {
+        var source = TryGetDefaultSpeechModelSource();
+        InstallDefaultSpeechModelLabel = source is null
+            ? "Install Default Model"
+            : $"Install {source.ModelName}";
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(CanInstallDefaultSpeechModel)));
     }
 
     private static string GetSourceLanguageModelWarning(string? modelName, string sourceLanguage)

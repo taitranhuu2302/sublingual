@@ -9,6 +9,16 @@ public static class ScreenCaptureKitNative
     private static IntPtr _libraryHandle;
     private static bool _resolverConfigured;
 
+    static ScreenCaptureKitNative()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        TryConfigureDefaultLibraryPath();
+    }
+
     public static void ConfigureLibraryPath(string libraryPath)
     {
         if (string.IsNullOrWhiteSpace(libraryPath))
@@ -49,6 +59,44 @@ public static class ScreenCaptureKitNative
         return pointer == IntPtr.Zero
             ? "Unknown native ScreenCaptureKit error."
             : Marshal.PtrToStringAnsi(pointer) ?? "Unknown native ScreenCaptureKit error.";
+    }
+
+    private static void TryConfigureDefaultLibraryPath()
+    {
+        foreach (var candidate in GetCandidateLibraryPaths())
+        {
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            ConfigureLibraryPath(candidate);
+            return;
+        }
+    }
+
+    private static IEnumerable<string> GetCandidateLibraryPaths()
+    {
+        var baseDirectory = AppContext.BaseDirectory;
+
+        yield return Path.Combine(baseDirectory, "libScreenCaptureKitBridge.dylib");
+        yield return Path.Combine(baseDirectory, "runtimes", "osx", "native", "libScreenCaptureKitBridge.dylib");
+        yield return Path.Combine(baseDirectory, "..", "Resources", "native", "libScreenCaptureKitBridge.dylib");
+
+        var current = new DirectoryInfo(baseDirectory);
+        while (current is not null)
+        {
+            yield return Path.Combine(
+                current.FullName,
+                "native",
+                "macos",
+                "ScreenCaptureKitBridge",
+                "build",
+                "libScreenCaptureKitBridge.dylib"
+            );
+
+            current = current.Parent;
+        }
     }
 
     private static IntPtr ResolveLibrary(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)

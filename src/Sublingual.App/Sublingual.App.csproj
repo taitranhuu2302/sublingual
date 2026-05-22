@@ -11,9 +11,13 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
+    <None Include="Config\speech-to-text-model-sources.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
     <None Include="..\..\native\macos\ScreenCaptureKitBridge\build\libScreenCaptureKitBridge.dylib" Link="runtimes\osx\native\libScreenCaptureKitBridge.dylib">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

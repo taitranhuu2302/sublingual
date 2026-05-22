@@ -4,7 +4,7 @@ namespace Sublingual.App.Services;
 
 public sealed class SpeechToTextModelImporter(SpeechToTextModelCatalog modelCatalog)
 {
-    public string ImportFromDirectory(string sourceDirectoryPath)
+    public string ImportFromDirectory(string sourceDirectoryPath, string? modelNameOverride = null)
     {
         if (string.IsNullOrWhiteSpace(sourceDirectoryPath))
         {
@@ -23,7 +23,7 @@ public sealed class SpeechToTextModelImporter(SpeechToTextModelCatalog modelCata
                 "Selected folder does not look like a Vosk model. Expected files such as mfcc.conf, final.mdl, or a conf/ directory.");
         }
 
-        var modelName = SanitizeModelName(sourceDirectory.Name);
+        var modelName = SanitizeModelName(string.IsNullOrWhiteSpace(modelNameOverride) ? sourceDirectory.Name : modelNameOverride);
         if (string.IsNullOrWhiteSpace(modelName))
         {
             throw new InvalidOperationException("Could not derive a valid model name from the selected folder.");
@@ -41,7 +41,7 @@ public sealed class SpeechToTextModelImporter(SpeechToTextModelCatalog modelCata
         return destinationDirectory;
     }
 
-    public string ImportFromZip(string zipFilePath)
+    public string ImportFromZip(string zipFilePath, string? modelNameOverride = null)
     {
         if (string.IsNullOrWhiteSpace(zipFilePath))
         {
@@ -62,7 +62,7 @@ public sealed class SpeechToTextModelImporter(SpeechToTextModelCatalog modelCata
             var extractedModelDirectory = FindModelDirectory(extractionRoot)
                 ?? throw new InvalidOperationException("The zip file does not contain a recognizable Vosk model directory.");
 
-            return ImportFromDirectory(extractedModelDirectory);
+            return ImportFromDirectory(extractedModelDirectory, modelNameOverride);
         }
         finally
         {
