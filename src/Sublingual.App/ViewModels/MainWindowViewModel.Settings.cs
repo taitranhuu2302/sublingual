@@ -178,6 +178,10 @@ public sealed partial class MainWindowViewModel
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSpeechSettingsTabActive)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsTranslationSettingsTabActive)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlaySettingsTabActive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsGeneralSettingsTabInactive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsSpeechSettingsTabInactive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsTranslationSettingsTabInactive)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsOverlaySettingsTabInactive)));
         }
 
         if (e.PropertyName == nameof(SelectedTranslationFactory))

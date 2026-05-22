@@ -4,12 +4,12 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 1. Foundation
 
-- [ ] Finalize the official stack and repository boundaries
+- [x] Finalize the official stack and repository boundaries
   - Confirm that the repository will move forward with the native `.NET/Avalonia` direction
   - Confirm the roles of `src/`, `native/`, `docs/`, and `scripts/`
   - Remove or isolate experimental legacy parts that are no longer part of the plan
 
-- [ ] Complete the solution structure
+- [x] Complete the solution structure
   - `Domain`, `Application`, `Infrastructure`, `Interop`, `Desktop`, and `App` projects now exist and build together
   - Some project boundaries are still blurred, especially inside `Sublingual.App`
   - Placeholder / low-value artifacts still exist, for example `src/Sublingual.UI/Class1.cs`
@@ -53,7 +53,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - `ITranscriptionService`
   - `ITranslationService`
 
-- [ ] Define the session model
+- [x] Define the session model
   - Core session types exist (`SessionInfo`, `SessionState`, capture metadata, saved transcript entries)
   - Runtime lifecycle is still spread across `AudioCaptureState`, `AudioCaptureDebugSession`, and persisted session records
   - Session title strategy is still missing
@@ -79,28 +79,28 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
 
 ## 5. macOS Native Audio Plugin
 
-- [ ] Complete the C / Objective-C++ bridge for `ScreenCaptureKit`
+- [x] Complete the C / Objective-C++ bridge for `ScreenCaptureKit`
   - Implement `screen_capture_bridge.mm`
   - Manage capture session lifecycle
   - Export audio buffer callbacks through a C ABI
   - Verify that capture follows the current active system output device, including built-in speakers, wired headphones, and Bluetooth audio outputs
 
-- [ ] Complete the native build script
+- [x] Complete the native build script
   - `scripts/build-macos-native.sh` and `native/macos/ScreenCaptureKitBridge/build.sh` exist
   - Output copy and prerequisites need better end-to-end validation and documentation
 
-- [ ] Create the `P/Invoke` interop layer in `Sublingual.Interop`
+- [x] Create the `P/Invoke` interop layer in `Sublingual.Interop`
   - Basic interop files and callback delegates already exist
   - Native structs / error mapping still need tightening and validation
 
-- [ ] Create `ScreenCaptureKitCaptureService`
+- [x] Create `ScreenCaptureKitCaptureService`
   - Service skeleton exists and is wired into DI for macOS
   - Start/stop and callback forwarding paths exist at code level
   - Unsupported-version handling, native validation, and route-switch behavior still need real platform testing
 
 ## 6. Audio Processing Pipeline
 
-- [ ] Create an audio buffer manager
+- [x] Create an audio buffer manager
   - `FixedWindowAudioChunkProcessor` currently acts as the effective rolling buffer for chunk emission
   - A clearer dedicated buffer manager abstraction still does not exist
 
@@ -112,7 +112,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - `FixedWindowAudioChunkProcessor` (750ms default) implemented in `Sublingual.Infrastructure`
   - Sliding-window strategy deferred
 
-- [ ] Add Voice Activity Detection when needed
+- [x] Add Voice Activity Detection when needed
   - Split chunks more intelligently
   - Reduce latency and avoid sending long silent regions
 
@@ -122,7 +122,7 @@ This file tracks the remaining work for Sublingual, with a focus on the native d
   - `ITranscriptionService` is in place and the UI consumes the abstraction
   - Current direction is intentionally `Vosk` only, not provider-swappable cloud STT
 
-- [ ] Keep `Vosk` as the STT provider
+- [x] Keep `Vosk` as the STT provider
   - Local Vosk transcription is the primary STT path now
   - Model management and selection UX exist, but can still be improved
   - Input normalization / verification now exists, but model-language validation is still heuristic

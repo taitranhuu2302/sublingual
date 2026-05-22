@@ -216,3 +216,4 @@ __pycache__/
 *.pyc
 
 translate-service/models/ct2/*
+translate-service/.env

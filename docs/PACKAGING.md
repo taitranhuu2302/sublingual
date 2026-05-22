@@ -6,7 +6,7 @@ This repository currently ships minimal packaging flows for macOS and Windows th
 
 Current packaging support:
 
-- macOS only
+- macOS
 - Windows
 - native `ScreenCaptureKit` bridge build included for macOS
 - self-contained .NET runtime included
@@ -60,10 +60,10 @@ bash ./scripts/package-macos.sh osx-arm64
 bash ./scripts/package-macos.sh osx-x64
 ```
 
-## Package For Windows
+## Package For Windows On Windows
 
-```bash
-bash ./scripts/package-windows.sh
+```powershell
+pwsh ./scripts/package-windows.ps1
 ```
 
 Default runtime:
@@ -72,9 +72,17 @@ Default runtime:
 
 You can also publish for another Windows runtime identifier:
 
+```powershell
+pwsh ./scripts/package-windows.ps1 win-x64
+pwsh ./scripts/package-windows.ps1 win-arm64
+```
+
+## Cross-Publish For Windows From Bash
+
+If you are packaging a Windows zip from a Unix-like shell, keep using the existing bash script:
+
 ```bash
-bash ./scripts/package-windows.sh win-x64
-bash ./scripts/package-windows.sh win-arm64
+bash ./scripts/package-windows.sh
 ```
 
 ## What The Script Does
@@ -102,7 +110,7 @@ ditto -c -k --sequesterRsrc --keepParent "artifacts/macos/osx-arm64/publish" "ar
 
 ```bash
 dotnet publish "src/Sublingual.App/Sublingual.App.csproj" -c Release -r win-x64 --self-contained true -o "artifacts/windows/win-x64/publish"
-ditto -c -k --sequesterRsrc --keepParent "artifacts/windows/win-x64/publish" "artifacts/windows/win-x64/sublingual-win-x64.zip"
+pwsh -Command "Compress-Archive -LiteralPath 'artifacts/windows/win-x64/publish' -DestinationPath 'artifacts/windows/win-x64/sublingual-win-x64.zip'"
 ```
 
 ## Run The Published App Locally
@@ -120,4 +128,5 @@ From the publish folder:
 - If Gatekeeper blocks execution on another machine, you will need a later signing/notarization step.
 - If you want a double-clickable `.app`, add a dedicated macOS app-bundle packaging step after this publish flow is stable.
 - The Windows flow currently produces a zipped publish output, not an installer.
-- Cross-publishing a Windows build from macOS is supported by the script, but final runtime validation should still be done on a Windows machine.
+- `scripts/package-windows.ps1` is the native Windows packaging entry point; `scripts/package-windows.sh` remains available for cross-publishing from bash environments.
+- Cross-publishing a Windows build from macOS is supported by the bash script, but final runtime validation should still be done on a Windows machine.

@@ -3,9 +3,15 @@ namespace Sublingual.App.Models;
 public sealed class AppSettings
 {
     public StorageSettings Storage { get; set; } = new();
+    public UiSettings Ui { get; set; } = new();
     public OverlaySettings Overlay { get; set; } = new();
     public SpeechToTextSettings SpeechToText { get; set; } = new();
     public TranslationSettings Translation { get; set; } = new();
+}
+
+public sealed class UiSettings
+{
+    public bool HasSeenTrayExitHint { get; set; }
 }
 
 public sealed class StorageSettings

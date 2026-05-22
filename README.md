@@ -94,35 +94,6 @@ The overlay must remain readable, topmost, and non-intrusive across both Windows
 
 Short chunks reduce delay but can hurt recognition quality. Longer chunks improve context but increase lag. The expected approach is to use fixed chunk windows plus optional VAD-based splitting.
 
-## Development Milestones
-
-### Phase 1
-
-- setup Avalonia project
-- create transparent overlay UI
-- bind mock subtitle data
-
-### Phase 2
-
-- implement Windows loopback capture with `NAudio`
-- validate saved audio output
-
-### Phase 3
-
-- implement macOS native capture wrapper with `ScreenCaptureKit`
-- connect it to .NET via `P/Invoke`
-
-### Phase 4
-
-- keep STT on `Vosk`
-- integrate real translation providers through the factory
-- connect audio buffer to the network pipeline
-
-### Phase 5
-
-- finalize subtitle styling and overlay controls
-- package production builds for Windows and macOS
-
 ## Development Setup
 
 ### Prerequisites

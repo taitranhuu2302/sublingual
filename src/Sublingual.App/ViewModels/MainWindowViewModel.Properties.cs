@@ -120,6 +120,10 @@ public sealed partial class MainWindowViewModel
     public bool IsSpeechSettingsTabActive => string.Equals(ActiveSettingsTab, "speech", StringComparison.OrdinalIgnoreCase);
     public bool IsTranslationSettingsTabActive => string.Equals(ActiveSettingsTab, "translation", StringComparison.OrdinalIgnoreCase);
     public bool IsOverlaySettingsTabActive => string.Equals(ActiveSettingsTab, "overlay", StringComparison.OrdinalIgnoreCase);
+    public bool IsGeneralSettingsTabInactive => !IsGeneralSettingsTabActive;
+    public bool IsSpeechSettingsTabInactive => !IsSpeechSettingsTabActive;
+    public bool IsTranslationSettingsTabInactive => !IsTranslationSettingsTabActive;
+    public bool IsOverlaySettingsTabInactive => !IsOverlaySettingsTabActive;
     public bool IsFallbackTranslationFactory => string.Equals(SelectedTranslationFactory, TranslationFactories.FallbackChain, StringComparison.OrdinalIgnoreCase);
     public bool IsRealtimeTranslationEnabled => !string.Equals(SelectedSourceLanguage, SelectedTargetLanguage, StringComparison.OrdinalIgnoreCase);
     public bool CanTestTranslation => !IsTestingTranslation && !string.IsNullOrWhiteSpace(TranslationTestSourceText);

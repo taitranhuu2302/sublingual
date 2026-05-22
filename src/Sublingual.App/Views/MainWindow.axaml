@@ -274,7 +274,7 @@
                                     IsVisible="{Binding IsSessionsListPageActive}">
                         <Grid>
                             <StackPanel Spacing="12">
-                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                                     <StackPanel Grid.Column="1" Spacing="2">
                                         <TextBlock Text="Sessions"
                                                    FontSize="15"
@@ -283,26 +283,19 @@
                                     </StackPanel>
                                     <Button Grid.Column="2"
                                             Classes="action-button secondary-action"
-                                            Command="{Binding OpenCreateSessionDialogCommand}"
-                                            VerticalAlignment="Top">
-                                        <ToolTip.Tip>Create session folder</ToolTip.Tip>
-                                        <i:Icon Value="fa-solid fa-folder-plus" FontSize="14" />
-                                    </Button>
-                                    <Button Grid.Column="3"
-                                            Classes="action-button secondary-action"
                                             Command="{Binding RefreshSavedSessionsCommand}"
                                             VerticalAlignment="Top">
                                         <ToolTip.Tip>Reload sessions</ToolTip.Tip>
                                         <i:Icon Value="fa-solid fa-rotate-right" FontSize="14" />
                                     </Button>
-                                    <Button Grid.Column="4"
+                                    <Button Grid.Column="3"
                                             Classes="action-button secondary-action"
                                             Command="{Binding ToggleSelectAllSessionsCommand}"
                                             VerticalAlignment="Top">
                                         <ToolTip.Tip>Select or clear current page</ToolTip.Tip>
                                         <i:Icon Value="fa-solid fa-list-check" FontSize="14" />
                                     </Button>
-                                    <Button Grid.Column="5"
+                                    <Button Grid.Column="4"
                                             Classes="action-button neutral-action"
                                             Command="{Binding ClearSavedSessionsCommand}"
                                             VerticalAlignment="Top">
@@ -311,20 +304,11 @@
                                     </Button>
                                 </Grid>
 
-                                <Grid ColumnDefinitions="*,Auto"
-                                      MinHeight="34">
+                                <Grid MinHeight="34">
                                     <TextBlock Text="Selected sessions ready"
                                                Foreground="#8BA3C7"
                                                VerticalAlignment="Center"
                                                Opacity="{Binding HasSelectedSessions, Converter={StaticResource StringEquals}, ConverterParameter=True}" />
-                                    <Button Grid.Column="1"
-                                            Classes="action-button neutral-action"
-                                            Command="{Binding DeleteSelectedSessionsCommand}"
-                                            VerticalAlignment="Top"
-                                            IsEnabled="{Binding HasSelectedSessions}">
-                                        <ToolTip.Tip>Delete selected</ToolTip.Tip>
-                                        <i:Icon Value="fa-solid fa-trash" FontSize="14" />
-                                    </Button>
                                 </Grid>
 
                                 <TextBox Watermark="Search sessions"
@@ -355,31 +339,26 @@
                                                       DisplayMemberBinding="{Binding DisplayName}"
                                                       PlaceholderText="Select folder"
                                                       HorizontalAlignment="Stretch" />
-                                            <Button Grid.Column="1"
-                                                    Classes="action-button neutral-action"
-                                                    Command="{Binding OpenCreateSessionDialogCommand}"
-                                                    Content="New" />
-                                            <Button Grid.Column="2"
-                                                    Classes="action-button neutral-action"
-                                                    Command="{Binding OpenMoveSelectedSessionsDialogCommand}"
-                                                    Content="Move"
-                                                    IsEnabled="{Binding HasSelectedSessions}" />
-                                            <Button Grid.Column="3"
-                                                    Classes="action-button neutral-action"
-                                                    Command="{Binding OpenRenameSessionFolderDialogCommand}"
-                                                    Content="Rename" />
+                                             <Button Grid.Column="1"
+                                                     Classes="action-button neutral-action"
+                                                     Command="{Binding OpenCreateSessionDialogCommand}"
+                                                     Content="New" />
+                                             <Button Grid.Column="2"
+                                                     Classes="action-button neutral-action"
+                                                     Command="{Binding OpenMoveSelectedSessionsDialogCommand}"
+                                                     Content="Move Selected"
+                                                     IsEnabled="{Binding HasSelectedSessions}" />
+                                             <Button Grid.Column="3"
+                                                     Classes="action-button neutral-action"
+                                                     Command="{Binding OpenRenameSessionFolderDialogCommand}"
+                                                     Content="Rename" />
                                         </Grid>
-                                        <Grid ColumnDefinitions="Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="Auto,Auto"
                                               ColumnSpacing="10">
                                             <Button Classes="action-button neutral-action"
                                                     Command="{Binding OpenDeleteSessionFolderDialogCommand}"
                                                     Content="Delete Folder" />
                                             <Button Grid.Column="1"
-                                                    Classes="action-button neutral-action"
-                                                    Command="{Binding OpenMoveSelectedSessionsDialogCommand}"
-                                                    Content="Move Selected"
-                                                    IsEnabled="{Binding HasSelectedSessions}" />
-                                            <Button Grid.Column="2"
                                                     Classes="action-button neutral-action"
                                                     Command="{Binding DeleteSelectedSessionsCommand}"
                                                     Content="Delete Selected"
@@ -657,17 +636,7 @@
                                     CommandParameter="general"
                                     Content="General" />
                             <Button Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="general"
-                                    Content="General" />
-                            <Button Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="general"
-                                    Content="General" />
-                            <Button Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    IsVisible="{Binding IsGeneralSettingsTabInactive}"
                                     Command="{Binding SelectSettingsTabCommand}"
                                     CommandParameter="general"
                                     Content="General" />
@@ -679,19 +648,7 @@
                                     Content="Speech" />
                             <Button Grid.Column="1"
                                     Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="speech"
-                                    Content="Speech" />
-                            <Button Grid.Column="1"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="speech"
-                                    Content="Speech" />
-                            <Button Grid.Column="1"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    IsVisible="{Binding IsSpeechSettingsTabInactive}"
                                     Command="{Binding SelectSettingsTabCommand}"
                                     CommandParameter="speech"
                                     Content="Speech" />
@@ -704,19 +661,7 @@
                                     Content="Translation" />
                             <Button Grid.Column="2"
                                     Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="translation"
-                                    Content="Translation" />
-                            <Button Grid.Column="2"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="translation"
-                                    Content="Translation" />
-                            <Button Grid.Column="2"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsOverlaySettingsTabActive}"
+                                    IsVisible="{Binding IsTranslationSettingsTabInactive}"
                                     Command="{Binding SelectSettingsTabCommand}"
                                     CommandParameter="translation"
                                     Content="Translation" />
@@ -729,19 +674,7 @@
                                     Content="Overlay" />
                             <Button Grid.Column="3"
                                     Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsGeneralSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="overlay"
-                                    Content="Overlay" />
-                            <Button Grid.Column="3"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsSpeechSettingsTabActive}"
-                                    Command="{Binding SelectSettingsTabCommand}"
-                                    CommandParameter="overlay"
-                                    Content="Overlay" />
-                            <Button Grid.Column="3"
-                                    Classes="action-button secondary-action"
-                                    IsVisible="{Binding IsTranslationSettingsTabActive}"
+                                    IsVisible="{Binding IsOverlaySettingsTabInactive}"
                                     Command="{Binding SelectSettingsTabCommand}"
                                     CommandParameter="overlay"
                                     Content="Overlay" />
