@@ -18,7 +18,7 @@
 
     <avalonia:TrayIcon.Icons>
         <avalonia:TrayIcons>
-            <avalonia:TrayIcon Icon="/Assets/avalonia-logo.ico"
+            <avalonia:TrayIcon Icon="/Assets/logo.ico"
                                ToolTipText="Sublingual"
                                IsVisible="True">
                 <avalonia:TrayIcon.Menu>

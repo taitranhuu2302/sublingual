@@ -44,6 +44,16 @@ Examples:
 - `clang++`
 - `ScreenCaptureKit` available in the local SDK
 
+## Icon Assets
+
+This repository currently uses these icon sources:
+
+- `assets/logo.png` for Avalonia window and tray icon at runtime
+- `assets/logo.ico` for Windows application icon embedding
+- `assets/logo.icns` for macOS `.app` bundle icon
+
+When updating branding, keep these three files in sync.
+
 ## Package For Current Mac
 
 ```bash
@@ -137,6 +147,7 @@ macOS app script:
 3. creates `Sublingual.app/Contents/MacOS` from publish output
 4. writes `Contents/Info.plist`
 5. copies `libScreenCaptureKitBridge.dylib` into `Contents/Resources/native/`
+6. copies `assets/logo.icns` into `Contents/Resources/logo.icns`
 
 macOS signing script:
 
@@ -148,7 +159,8 @@ Windows script:
 
 1. runs `dotnet publish` for `src/Sublingual.App/Sublingual.App.csproj`
 2. outputs a self-contained Release publish folder
-3. zips the publish folder for distribution
+3. uses `assets/logo.ico` as the application icon
+4. zips the publish folder for distribution
 
 ## Manual Equivalent
 
@@ -189,6 +201,9 @@ open "artifacts/macos/osx-arm64/Sublingual.app"
 
 - The native library `libScreenCaptureKitBridge.dylib` is copied into publish output through the existing project file configuration.
 - The app bundle script also copies `libScreenCaptureKitBridge.dylib` into `Sublingual.app/Contents/Resources/native/` so the macOS app can resolve it when launched outside the repo root.
+- `assets/logo.png` is used for the Avalonia runtime window and tray icon.
+- `assets/logo.ico` is referenced by `ApplicationIcon` for Windows builds.
+- `assets/logo.icns` is copied into the macOS app bundle and referenced by `CFBundleIconFile`.
 - macOS publish disables tiered compilation through runtime configuration because the self-contained `net10.0` package has shown `libclrjit` startup crashes on macOS 26 during background JIT compilation.
 - If Gatekeeper blocks execution on another machine, you will need a later signing/notarization step.
 - `packaging/macos/Info.plist.template` is used to generate the app bundle metadata.

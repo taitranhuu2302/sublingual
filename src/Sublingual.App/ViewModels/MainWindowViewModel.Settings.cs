@@ -108,7 +108,6 @@ public sealed partial class MainWindowViewModel
             settings.SpeechToText.SelectedModel = SelectedSpeechToTextModel.Name;
             _settingsStore.Save(settings);
             _ = PreloadSelectedSpeechToTextModelAsync(SelectedSpeechToTextModel.Name);
-            RefreshDefaultSpeechModelState();
         }
 
         if (e.PropertyName == nameof(SelectedSpeechToTextChunkPreset))
@@ -142,7 +141,6 @@ public sealed partial class MainWindowViewModel
 
         if (e.PropertyName == nameof(SelectedSourceLanguage))
         {
-            RefreshDefaultSpeechModelState();
             UpdateSpeechToTextStatus();
         }
 
@@ -159,6 +157,19 @@ public sealed partial class MainWindowViewModel
         if (e.PropertyName == nameof(IsInstallSpeechModelsDialogOpen) && IsInstallSpeechModelsDialogOpen)
         {
             LoadInstallableSpeechModels();
+            SpeechModelDownloadStatus = string.Empty;
+            SpeechModelDownloadPercent = 0;
+            SpeechModelDownloadErrorMessage = string.Empty;
+        }
+
+        if (e.PropertyName == nameof(SpeechModelDownloadStatus))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSpeechModelDownloadStatus)));
+        }
+
+        if (e.PropertyName == nameof(SpeechModelDownloadErrorMessage))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasSpeechModelDownloadError)));
         }
 
         if (e.PropertyName == nameof(ActiveSessionsPage))

@@ -11,33 +11,6 @@ namespace Sublingual.App.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     [RelayCommand]
-    private async Task InstallDefaultSpeechModelAsync()
-    {
-        var source = TryGetDefaultSpeechModelSource();
-        if (source is null)
-        {
-            StatusMessage = $"No default model source is configured for language `{SelectedSourceLanguage}`.";
-            return;
-        }
-
-        await RunBusyOperationAsync(async () =>
-        {
-            SpeechToTextStatus = $"Downloading {source.DisplayName}...";
-            var importedPath = await _defaultModelInstaller.InstallAsync(source);
-            LoadSpeechToTextModels();
-
-            SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(model =>
-                string.Equals(model.Name, source.ModelName, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(model.Path, importedPath, StringComparison.OrdinalIgnoreCase));
-
-            SpeechToTextStatus = SelectedSpeechToTextModel is null
-                ? $"Installed {source.ModelName}, but it could not be selected."
-                : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
-            StatusMessage = $"Installed default speech-to-text model {source.ModelName}.";
-        });
-    }
-
-    [RelayCommand]
     private async Task ImportSpeechToTextModelAsync()
     {
         if (PickSpeechToTextModelDirectoryAsync is null)
@@ -127,19 +100,57 @@ public sealed partial class MainWindowViewModel
 
         await RunBusyOperationAsync(async () =>
         {
+            SetSpeechModelDownloadState(model.ModelName, isDownloading: true);
+            SetSpeechModelError(model.ModelName, string.Empty);
+            SpeechModelDownloadPercent = 0;
+            SpeechModelDownloadStatus = $"Downloading {source.DisplayName}... 0%";
+            SpeechModelDownloadErrorMessage = string.Empty;
             SpeechToTextStatus = $"Downloading {source.DisplayName}...";
-            var importedPath = await _defaultModelInstaller.InstallAsync(source);
-            LoadSpeechToTextModels();
-            LoadInstallableSpeechModels();
 
-            SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(item =>
-                string.Equals(item.Name, source.ModelName, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(item.Path, importedPath, StringComparison.OrdinalIgnoreCase));
+            try
+            {
+                var progress = new Progress<int>(percent =>
+                {
+                    SpeechModelDownloadPercent = percent;
+                    SpeechModelDownloadStatus = $"Downloading {source.DisplayName}... {percent}%";
+                });
 
-            SpeechToTextStatus = SelectedSpeechToTextModel is null
-                ? $"Installed {source.ModelName}, but it could not be selected."
-                : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
-            StatusMessage = $"Installed speech-to-text model {source.ModelName}.";
+                var importedPath = await _defaultModelInstaller.InstallAsync(source, progress);
+                LoadSpeechToTextModels();
+                LoadInstallableSpeechModels();
+
+                SelectedSpeechToTextModel = SpeechToTextModels.FirstOrDefault(item =>
+                    string.Equals(item.Name, source.ModelName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.Path, importedPath, StringComparison.OrdinalIgnoreCase));
+
+                SpeechToTextStatus = SelectedSpeechToTextModel is null
+                    ? $"Installed {source.ModelName}, but it could not be selected."
+                    : BuildSpeechToTextStatus(SelectedSpeechToTextModel.Name);
+                StatusMessage = $"Installed speech-to-text model {source.ModelName}.";
+                SpeechModelDownloadPercent = 100;
+                SpeechModelDownloadStatus = $"Installed {source.ModelName}.";
+                SpeechModelDownloadErrorMessage = string.Empty;
+
+                await Task.Delay(1500);
+
+                if (string.Equals(SpeechModelDownloadStatus, $"Installed {source.ModelName}.", StringComparison.Ordinal))
+                {
+                    SpeechModelDownloadPercent = 0;
+                    SpeechModelDownloadStatus = string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                SpeechModelDownloadStatus = $"Failed to install {source.ModelName}.";
+                SpeechModelDownloadErrorMessage = ex.Message;
+                SpeechToTextStatus = $"Install failed for {source.ModelName}: {ex.Message}";
+                StatusMessage = $"Install failed for {source.ModelName}.";
+                SetSpeechModelError(source.ModelName, ex.Message);
+            }
+            finally
+            {
+                SetSpeechModelDownloadState(source.ModelName, isDownloading: false);
+            }
         });
     }
 
@@ -160,12 +171,10 @@ public sealed partial class MainWindowViewModel
 
         if (SelectedSpeechToTextModel is not null)
         {
-            RefreshDefaultSpeechModelState();
             UpdateSpeechToTextStatus();
             return;
         }
 
-        RefreshDefaultSpeechModelState();
         SpeechToTextStatus = "No local speech model found.";
     }
 
@@ -175,10 +184,17 @@ public sealed partial class MainWindowViewModel
             .Select(model => model.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var currentStates = InstallableSpeechModels.ToDictionary(
+            model => model.ModelName,
+            model => (model.IsDownloading, model.ErrorMessage),
+            StringComparer.OrdinalIgnoreCase);
+
         InstallableSpeechModels.Clear();
 
         foreach (var model in _modelSourceCatalog.GetDefaultModels())
         {
+            currentStates.TryGetValue(model.ModelName, out var state);
+
             InstallableSpeechModels.Add(new SpeechToTextInstallableModelViewModel
             {
                 Language = model.Language,
@@ -186,10 +202,38 @@ public sealed partial class MainWindowViewModel
                 DisplayName = string.IsNullOrWhiteSpace(model.DisplayName) ? model.ModelName : model.DisplayName,
                 ZipUrl = model.ZipUrl,
                 IsInstalled = installedModelNames.Contains(model.ModelName),
+                IsDownloading = state.IsDownloading,
+                ErrorMessage = state.ErrorMessage ?? string.Empty,
             });
         }
 
         OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(HasInstallableSpeechModels)));
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(NoInstallableSpeechModels)));
+    }
+
+    private void SetSpeechModelDownloadState(string modelName, bool isDownloading)
+    {
+        foreach (var item in InstallableSpeechModels)
+        {
+            item.IsDownloading = isDownloading && string.Equals(item.ModelName, modelName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(InstallableSpeechModels)));
+    }
+
+    private void SetSpeechModelError(string modelName, string errorMessage)
+    {
+        foreach (var item in InstallableSpeechModels)
+        {
+            if (!string.Equals(item.ModelName, modelName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            item.ErrorMessage = errorMessage;
+        }
+
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(InstallableSpeechModels)));
     }
 
     private void LoadSpeechToTextSettings()
@@ -283,20 +327,6 @@ public sealed partial class MainWindowViewModel
         return string.IsNullOrWhiteSpace(warning)
             ? $"Selected model: {modelName}"
             : $"Selected model: {modelName} | Warning: {warning}";
-    }
-
-    private SpeechToTextDefaultModelSource? TryGetDefaultSpeechModelSource()
-    {
-        return _modelSourceCatalog.GetDefaultModel(SelectedSourceLanguage);
-    }
-
-    private void RefreshDefaultSpeechModelState()
-    {
-        var source = TryGetDefaultSpeechModelSource();
-        InstallDefaultSpeechModelLabel = source is null
-            ? "Install Default Model"
-            : $"Install {source.ModelName}";
-        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(CanInstallDefaultSpeechModel)));
     }
 
     private static string GetSourceLanguageModelWarning(string? modelName, string sourceLanguage)

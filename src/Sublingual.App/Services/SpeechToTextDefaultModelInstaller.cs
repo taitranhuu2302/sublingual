@@ -4,7 +4,10 @@ namespace Sublingual.App.Services;
 
 public sealed class SpeechToTextDefaultModelInstaller(HttpClient httpClient, SpeechToTextModelImporter modelImporter)
 {
-    public async Task<string> InstallAsync(SpeechToTextDefaultModelSource source, CancellationToken cancellationToken = default)
+    public async Task<string> InstallAsync(
+        SpeechToTextDefaultModelSource source,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (source is null)
         {
@@ -32,14 +35,21 @@ public sealed class SpeechToTextDefaultModelInstaller(HttpClient httpClient, Spe
 
         try
         {
-            using var response = await httpClient.GetAsync(zipUri, cancellationToken);
+            using var response = await httpClient.GetAsync(
+                zipUri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
             response.EnsureSuccessStatusCode();
+
+            var totalBytes = response.Content.Headers.ContentLength;
 
             await using (var stream = await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (var fileStream = File.Create(zipPath))
             {
-                await stream.CopyToAsync(fileStream, cancellationToken);
+                await CopyToAsync(stream, fileStream, totalBytes, progress, cancellationToken);
             }
+
+            progress?.Report(100);
 
             return modelImporter.ImportFromZip(zipPath, source.ModelName);
         }
@@ -49,6 +59,44 @@ public sealed class SpeechToTextDefaultModelInstaller(HttpClient httpClient, Spe
             {
                 Directory.Delete(tempRoot, recursive: true);
             }
+        }
+    }
+
+    private static async Task CopyToAsync(
+        Stream source,
+        Stream destination,
+        long? totalBytes,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[81_920];
+        long totalRead = 0;
+        var lastReported = -1;
+
+        while (true)
+        {
+            var bytesRead = await source.ReadAsync(buffer, cancellationToken);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+            totalRead += bytesRead;
+
+            if (totalBytes is not > 0)
+            {
+                continue;
+            }
+
+            var percent = (int)Math.Clamp((totalRead * 100L) / totalBytes.Value, 0, 100);
+            if (percent == lastReported)
+            {
+                continue;
+            }
+
+            lastReported = percent;
+            progress?.Report(percent);
         }
     }
 }

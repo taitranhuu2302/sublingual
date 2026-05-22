@@ -27,6 +27,7 @@ APP_RESOURCES_DIR="$APP_CONTENTS_DIR/Resources"
 PLIST_TEMPLATE="$ROOT_DIR/packaging/macos/Info.plist.template"
 PLIST_PATH="$APP_CONTENTS_DIR/Info.plist"
 ENTITLEMENTS_PATH="$ROOT_DIR/packaging/macos/entitlements.plist"
+ICNS_SOURCE_PATH="$ROOT_DIR/assets/logo.icns"
 
 rm -rf "$ARTIFACTS_DIR"
 mkdir -p "$PUBLISH_DIR" "$APP_MACOS_DIR" "$APP_RESOURCES_DIR"
@@ -44,6 +45,10 @@ cp -R "$PUBLISH_DIR"/. "$APP_MACOS_DIR/"
 if [[ -f "$ROOT_DIR/native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib" ]]; then
   mkdir -p "$APP_RESOURCES_DIR/native"
   cp "$ROOT_DIR/native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib" "$APP_RESOURCES_DIR/native/libScreenCaptureKitBridge.dylib"
+fi
+
+if [[ -f "$ICNS_SOURCE_PATH" ]]; then
+  cp "$ICNS_SOURCE_PATH" "$APP_RESOURCES_DIR/logo.icns"
 fi
 
 sed \

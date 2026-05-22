@@ -12,7 +12,7 @@
                  d:DesignHeight="680"
                  x:Class="Sublingual.App.Views.MainWindow"
                  x:DataType="vm:MainWindowViewModel"
-                 Icon="/Assets/avalonia-logo.ico"
+                 Icon="/Assets/logo.ico"
                  Title="Sublingual"
                  Width="960"
                  Height="680"
@@ -757,10 +757,6 @@
                                                   Content="Install Vosk Models" />
                                       </Grid>
                                        <StackPanel Orientation="Horizontal" Spacing="10">
-                                           <Button Classes="action-button primary-action"
-                                                   Command="{Binding InstallDefaultSpeechModelCommand}"
-                                                  Content="{Binding InstallDefaultSpeechModelLabel}"
-                                                  IsVisible="{Binding CanInstallDefaultSpeechModel}" />
                                           <Button Classes="action-button neutral-action"
                                                   Command="{Binding ImportSpeechToTextModelCommand}"
                                                  Content="Import Folder" />
@@ -1263,7 +1259,7 @@
         <!-- Move selected sessions dialog -->
         <Border Grid.ColumnSpan="2"
                 IsVisible="{Binding IsInstallSpeechModelsDialogOpen}"
-                Background="#F0101828"
+                Background="#FF0B1220"
                 ZIndex="100"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch">
@@ -1272,6 +1268,7 @@
                   Width="720"
                   MaxWidth="720">
                 <suki:GlassCard Padding="18"
+                                Background="#FF111B2E"
                                 Classes="surface-card">
                     <StackPanel Spacing="12">
                         <TextBlock Text="Install Speech Models"
@@ -1282,6 +1279,38 @@
                                    Foreground="#8BA3C7"
                                    FontSize="12"
                                    TextWrapping="Wrap" />
+                        <suki:GlassCard Background="#0D1F38"
+                                        CornerRadius="10"
+                                        Padding="12"
+                                        IsVisible="{Binding HasSpeechModelDownloadStatus}">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                <suki:CircleProgressBar Width="26"
+                                                        Height="26"
+                                                        IsIndeterminate="True"
+                                                        IsVisible="{Binding IsBusy}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding SpeechModelDownloadStatus}"
+                                           Foreground="#F0F4FF"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                </Grid>
+                                <ProgressBar Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding SpeechModelDownloadPercent}"
+                                             Height="8" />
+                            </StackPanel>
+                        </suki:GlassCard>
+                        <suki:GlassCard Background="#301214"
+                                        CornerRadius="10"
+                                        Padding="12"
+                                        IsVisible="{Binding HasSpeechModelDownloadError}">
+                            <TextBlock Text="{Binding SpeechModelDownloadErrorMessage}"
+                                       Foreground="#FCA5A5"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </suki:GlassCard>
                         <ItemsControl ItemsSource="{Binding InstallableSpeechModels}"
                                       IsVisible="{Binding HasInstallableSpeechModels}">
                             <ItemsControl.ItemTemplate>
@@ -1302,6 +1331,11 @@
                                                 <TextBlock Text="{Binding Language, StringFormat=Language: {0}}"
                                                            Foreground="#64748B"
                                                            FontSize="11" />
+                                                <TextBlock Text="{Binding ErrorMessage}"
+                                                           Foreground="#FCA5A5"
+                                                           FontSize="11"
+                                                           TextWrapping="Wrap"
+                                                           IsVisible="{Binding HasError}" />
                                             </StackPanel>
                                             <Button Grid.Column="1"
                                                     Classes="action-button primary-action"

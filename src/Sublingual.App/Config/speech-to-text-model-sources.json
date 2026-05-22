@@ -4,13 +4,19 @@
       "language": "en",
       "modelName": "default-en",
       "displayName": "English Small",
-      "zipUrl": ""
+      "zipUrl": "https://github.com/taitranhuu2302/sublingual/releases/download/vosk-models/vosk-model-small-en-us-0.15.zip"
     },
     {
       "language": "vi",
       "modelName": "default-vi",
       "displayName": "Vietnamese Small",
-      "zipUrl": ""
+      "zipUrl": "https://github.com/taitranhuu2302/sublingual/releases/download/vosk-models/vosk-model-small-vn-0.4.zip"
+    },
+    {
+      "language": "zh",
+      "modelName": "default-zh",
+      "displayName": "Chinese Small",
+      "zipUrl": "https://github.com/taitranhuu2302/sublingual/releases/download/vosk-models/vosk-model-small-cn-0.22.zip"
     }
   ]
 }

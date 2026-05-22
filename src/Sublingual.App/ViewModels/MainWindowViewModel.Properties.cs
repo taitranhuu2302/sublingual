@@ -60,7 +60,9 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private bool isInstallSpeechModelsDialogOpen;
     [ObservableProperty] private SessionFolderOptionViewModel? moveTargetSessionFolder;
     [ObservableProperty] private string speechToTextStatus;
-    [ObservableProperty] private string installDefaultSpeechModelLabel = "Install Default Model";
+    [ObservableProperty] private string speechModelDownloadStatus = string.Empty;
+    [ObservableProperty] private int speechModelDownloadPercent;
+    [ObservableProperty] private string speechModelDownloadErrorMessage = string.Empty;
     [ObservableProperty] private string selectedSpeechToTextChunkPreset = SpeechToTextChunkPresets.Balanced;
     [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
     [ObservableProperty] private string selectedSourceLanguage = "en";
@@ -160,9 +162,8 @@ public sealed partial class MainWindowViewModel
     public bool IsCompactOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Compact", StringComparison.OrdinalIgnoreCase);
     public bool IsDefaultOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Default", StringComparison.OrdinalIgnoreCase);
     public bool IsRelaxedOverlayLineHeightPreset => string.Equals(OverlayLineHeightPreset, "Relaxed", StringComparison.OrdinalIgnoreCase);
-    public bool CanInstallDefaultSpeechModel => TryGetDefaultSpeechModelSource() is { } source
-        && !string.IsNullOrWhiteSpace(source.ModelName)
-        && !SpeechToTextModels.Any(model => string.Equals(model.Name, source.ModelName, StringComparison.OrdinalIgnoreCase));
     public bool HasInstallableSpeechModels => InstallableSpeechModels.Count > 0;
     public bool NoInstallableSpeechModels => !HasInstallableSpeechModels;
+    public bool HasSpeechModelDownloadStatus => !string.IsNullOrWhiteSpace(SpeechModelDownloadStatus);
+    public bool HasSpeechModelDownloadError => !string.IsNullOrWhiteSpace(SpeechModelDownloadErrorMessage);
 }
