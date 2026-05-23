@@ -133,6 +133,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             speechToTextRuntimeOptions: CreateSpeechToTextRuntimeOptions(new AppSettingsStore()),
             translationService: new ConfigurableTranslationService(
                 [
+                    new TranslateServiceLocalTranslationProvider(new HttpClient()),
                     new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
                     new LibreTranslateTranslationProvider(new HttpClient()),
                 ],

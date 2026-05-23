@@ -1,12 +1,20 @@
 using Microsoft.Extensions.DependencyInjection;
+using Sublingual.App.Models;
 using Sublingual.App.Services.Translation;
 using Sublingual.App.ViewModels;
+using Sublingual.App.ViewModels.SpeakingPractice;
 using Sublingual.App.Views;
+using Sublingual.Application.SpeakingPractice;
 using Sublingual.Domain.Audio;
+using Sublingual.Domain.SpeakingPractice;
 using Sublingual.Domain.Transcription;
+using Sublingual.Infrastructure.AI.Gemini;
+using Sublingual.Infrastructure.AI.Groq;
+using Sublingual.Infrastructure.Audio;
 using Sublingual.Infrastructure.Audio.Processing;
 using Sublingual.Infrastructure.Audio.Windows;
 using Sublingual.Infrastructure.Audio.macOS;
+using Sublingual.Infrastructure.TTS;
 
 namespace Sublingual.App.Services;
 
@@ -25,9 +33,11 @@ public sealed class AppBootstrapper : IDisposable
 
     public MainWindow CreateMainWindow()
     {
+        var vm = _serviceProvider.GetRequiredService<MainWindowViewModel>();
+        vm.SpeakingPractice = _serviceProvider.GetRequiredService<PracticeSessionViewModel>();
         return new MainWindow
         {
-            DataContext = _serviceProvider.GetRequiredService<MainWindowViewModel>(),
+            DataContext = vm,
         };
     }
 
@@ -77,6 +87,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<RealtimeTranslationScheduler>();
         services.AddSingleton<VoskTranscriptionService>();
         services.AddSingleton<ITranscriptionService>(provider => provider.GetRequiredService<VoskTranscriptionService>());
+        services.AddSingleton<ITranslationProvider, TranslateServiceLocalTranslationProvider>();
         services.AddSingleton<ITranslationProvider, GoogleTranslateFreeApiTranslationProvider>();
         services.AddSingleton<ITranslationProvider, LibreTranslateTranslationProvider>();
         services.AddSingleton<ITranslationExecutionService, ConfigurableTranslationService>();
@@ -91,6 +102,41 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<AudioCaptureDebugSession>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<OverlayWindowViewModel>();
+
+        // Speaking Practice
+        services.AddSingleton<GroqSpeakingTutorService>(provider =>
+        {
+            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
+            var http = new HttpClient();
+            var svc = new GroqSpeakingTutorService(http);
+            if (!string.IsNullOrWhiteSpace(settings.GroqApiKey))
+            {
+                svc.ConfigureApiKey(settings.GroqApiKey);
+            }
+            return svc;
+        });
+        services.AddSingleton<GeminiSpeakingTutorService>(provider =>
+        {
+            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
+            var svc = new GeminiSpeakingTutorService(new HttpClient());
+            svc.Configure(settings.GeminiApiKey, settings.GeminiModel);
+            return svc;
+        });
+        services.AddSingleton<IAiTutorService>(provider =>
+        {
+            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
+            return settings.AiProvider == SpeakingPracticeProviders.Gemini
+                ? provider.GetRequiredService<GeminiSpeakingTutorService>()
+                : provider.GetRequiredService<GroqSpeakingTutorService>();
+        });
+        services.AddSingleton<ITtsService, LocalSystemTtsService>();
+        services.AddSingleton<IMicrophoneTranscriptionService>(provider =>
+            new MicrophoneTranscriptionService(
+                CreateMicrophoneCaptureService(),
+                provider.GetRequiredService<ITranscriptionService>(),
+                provider.GetRequiredService<AudioFormatNormalizer>()));
+        services.AddSingleton<SpeakingSessionManager>();
+        services.AddSingleton<PracticeSessionViewModel>();
     }
 
     private static IAudioCaptureService CreateAudioCaptureService()
@@ -103,6 +149,21 @@ public sealed class AppBootstrapper : IDisposable
         if (OperatingSystem.IsMacOS())
         {
             return new ScreenCaptureKitCaptureService();
+        }
+
+        return DesignTimeAudioCaptureService.Instance;
+    }
+
+    private static IAudioCaptureService CreateMicrophoneCaptureService()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new WasapiMicrophoneCaptureService();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new CoreAudioMicrophoneCaptureService();
         }
 
         return DesignTimeAudioCaptureService.Instance;

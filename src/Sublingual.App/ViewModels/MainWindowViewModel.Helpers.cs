@@ -80,6 +80,7 @@ public sealed partial class MainWindowViewModel
             new Sublingual.Application.Audio.TranscribeAudioChunkUseCase(new MockTranscriptionService()),
             new ConfigurableTranslationService(
                 [
+                    new TranslateServiceLocalTranslationProvider(new HttpClient()),
                     new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
                     new LibreTranslateTranslationProvider(new HttpClient()),
                 ],
@@ -92,6 +93,7 @@ public sealed partial class MainWindowViewModel
             new RealtimeTranslationScheduler(
                 new ConfigurableTranslationService(
                     [
+                        new TranslateServiceLocalTranslationProvider(new HttpClient()),
                         new GoogleTranslateFreeApiTranslationProvider(new HttpClient()),
                         new LibreTranslateTranslationProvider(new HttpClient()),
                     ],

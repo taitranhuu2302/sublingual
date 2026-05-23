@@ -115,11 +115,14 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
             var result = await TranslateAsync(
                 request.SessionGeneration,
+                request.SessionId,
                 request.SegmentId,
+                request.SequenceId,
                 TranscriptTranslationTarget.Draft,
                 request.SourceText,
                 request.SourceLanguage,
                 request.TargetLanguage,
+                request.IsFinal,
                 cancellationToken);
             if (result is not null)
             {
@@ -138,11 +141,14 @@ public sealed class RealtimeTranslationScheduler : IDisposable
             {
                 var result = await TranslateAsync(
                     request.SessionGeneration,
+                    request.SessionId,
                     request.SegmentId,
+                    request.SequenceId,
                     TranscriptTranslationTarget.StableSegment,
                     request.SourceText,
                     request.SourceLanguage,
                     request.TargetLanguage,
+                    request.IsFinal,
                     _disposeCts.Token);
                 if (result is not null)
                 {
@@ -154,11 +160,14 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
     private async Task<RealtimeTranslationCompleted?> TranslateAsync(
         long sessionGeneration,
+        string sessionId,
         string segmentId,
+        long sequenceId,
         TranscriptTranslationTarget target,
         string sourceText,
         string sourceLanguage,
         string targetLanguage,
+        bool isFinal,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(sourceText))
@@ -170,7 +179,9 @@ public sealed class RealtimeTranslationScheduler : IDisposable
         {
             return new RealtimeTranslationCompleted(
                 sessionGeneration,
+                sessionId,
                 segmentId,
+                sequenceId,
                 target,
                 sourceText,
                 string.Empty,
@@ -182,11 +193,14 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
         var translation = await _translationService.TranslateWithDiagnosticsAsync(
             new TranslationRequest(sourceText, sourceLanguage, targetLanguage),
+            new RealtimeTranslationContext(sessionId, segmentId, sequenceId, target, isFinal),
             cancellationToken);
 
         return new RealtimeTranslationCompleted(
             sessionGeneration,
+            sessionId,
             segmentId,
+            sequenceId,
             target,
             sourceText,
             translation.Result.TranslatedText,
@@ -199,23 +213,31 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
 public sealed record DraftTranslationRequest(
     long SessionGeneration,
+    string SessionId,
     string SegmentId,
+    long SequenceId,
     string SourceText,
     string SourceLanguage,
-    string TargetLanguage
+    string TargetLanguage,
+    bool IsFinal
 );
 
 public sealed record StableTranslationRequest(
     long SessionGeneration,
+    string SessionId,
     string SegmentId,
+    long SequenceId,
     string SourceText,
     string SourceLanguage,
-    string TargetLanguage
+    string TargetLanguage,
+    bool IsFinal
 );
 
 public sealed record RealtimeTranslationCompleted(
     long SessionGeneration,
+    string SessionId,
     string SegmentId,
+    long SequenceId,
     TranscriptTranslationTarget Target,
     string SourceText,
     string TranslatedText,

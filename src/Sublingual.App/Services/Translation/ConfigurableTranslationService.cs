@@ -27,17 +27,46 @@ public sealed class ConfigurableTranslationService(
         }
     }
 
+    public async Task ResetRealtimeProviderSessionAsync(
+        TranslationSettings settings,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return;
+        }
+
+        foreach (var provider in ResolveProviders(settings))
+        {
+            if (provider is IRealtimeTranslationProvider realtimeProvider)
+            {
+                try
+                {
+                    await realtimeProvider.ResetSessionAsync(settings, sessionId, cancellationToken);
+                }
+                catch
+                {
+                    return;
+                }
+
+                return;
+            }
+        }
+    }
+
     public async Task<TranslationResult> TranslateAsync(
         TranslationRequest request,
         CancellationToken cancellationToken = default
     )
     {
-        var execution = await TranslateWithDiagnosticsAsync(request, cancellationToken);
+        var execution = await TranslateWithDiagnosticsAsync(request, null, cancellationToken);
         return execution.Result;
     }
 
     public async Task<TranslationExecutionResult> TranslateWithDiagnosticsAsync(
         TranslationRequest request,
+        RealtimeTranslationContext? realtimeContext = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -68,17 +97,34 @@ public sealed class ConfigurableTranslationService(
         {
             try
             {
-                var result = await provider.TranslateAsync(request, settings, cancellationToken);
+                var providerResponse = provider is IRealtimeTranslationProvider realtimeProvider
+                    ? await realtimeProvider.TranslateWithMetadataAsync(request, settings, realtimeContext, cancellationToken)
+                    : null;
+                var result = providerResponse?.Result
+                    ?? await provider.TranslateAsync(request, settings, realtimeContext, cancellationToken);
+                var diagnostics = providerResponse?.Diagnostics ?? Array.Empty<string>();
+                var isProviderCacheHit = providerResponse?.IsCacheHit ?? false;
+
                 if (result is not null && !string.IsNullOrWhiteSpace(result.TranslatedText))
                 {
                     var execution = new TranslationExecutionResult(
                         result,
                         provider.Name,
-                        [.. attemptLog, $"{provider.Name}: success"],
-                        false
+                        diagnostics.Count == 0 ? [.. attemptLog, $"{provider.Name}: success"] : [.. attemptLog, .. diagnostics],
+                        isProviderCacheHit
                     );
                     Cache(request, execution);
                     return execution;
+                }
+
+                if (result is not null && realtimeContext?.Target == TranscriptTranslationTarget.Draft)
+                {
+                    return new TranslationExecutionResult(
+                        result,
+                        provider.Name,
+                        diagnostics.Count == 0 ? [.. attemptLog, $"{provider.Name}: draft response"] : [.. attemptLog, .. diagnostics],
+                        isProviderCacheHit
+                    );
                 }
 
                 attemptLog.Add($"{provider.Name}: empty result");

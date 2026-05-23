@@ -3,16 +3,18 @@ using Sublingual.Domain.Transcription;
 
 namespace Sublingual.App.Services.Translation;
 
-public interface ITranslationProvider
+public interface IRealtimeTranslationProvider : ITranslationProvider
 {
-    string Name { get; }
-
-    bool IsEnabled(TranslationSettings settings);
-
-    Task<TranslationResult?> TranslateAsync(
+    Task<ProviderTranslationResponse?> TranslateWithMetadataAsync(
         TranslationRequest request,
         TranslationSettings settings,
         RealtimeTranslationContext? realtimeContext = null,
+        CancellationToken cancellationToken = default
+    );
+
+    Task ResetSessionAsync(
+        TranslationSettings settings,
+        string sessionId,
         CancellationToken cancellationToken = default
     );
 }

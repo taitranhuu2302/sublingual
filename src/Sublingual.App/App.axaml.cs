@@ -111,6 +111,7 @@ public partial class App : Avalonia.Application
             }
 
             desktop.MainWindow = mainWindow;
+            desktop.ShutdownRequested += OnDesktopShutdownRequested;
             desktop.Exit += OnDesktopExit;
 
             if (ShouldRunDebugCapture())
@@ -148,8 +149,19 @@ public partial class App : Avalonia.Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
         {
+            lifetime.ShutdownRequested -= OnDesktopShutdownRequested;
             lifetime.Exit -= OnDesktopExit;
         }
+    }
+
+    private void OnDesktopShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        _isExitRequested = true;
     }
 
     private void ConfigureTrayIcon()

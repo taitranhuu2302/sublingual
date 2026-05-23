@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
+using Sublingual.App.ViewModels.SpeakingPractice;
 using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
 using Sublingual.Infrastructure.Audio.Processing;
@@ -67,8 +68,11 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private string selectedTranslationFactory = TranslationFactories.FallbackChain;
     [ObservableProperty] private string selectedSourceLanguage = "en";
     [ObservableProperty] private string selectedTargetLanguage = "vi";
-    [ObservableProperty] private string translationPrimaryProvider = TranslationProviders.GoogleTranslateFreeApi;
-    [ObservableProperty] private string translationSecondaryProvider = TranslationProviders.LibreTranslate;
+    [ObservableProperty] private string translationPrimaryProvider = TranslationProviders.TranslateServiceLocal;
+    [ObservableProperty] private string translationSecondaryProvider = TranslationProviders.GoogleTranslateFreeApi;
+    [ObservableProperty] private bool translateServiceLocalEnabled = true;
+    [ObservableProperty] private string translateServiceLocalBaseUrl = "http://127.0.0.1:3333";
+    [ObservableProperty] private bool translateServiceLocalUseRealtimeEndpointForFinals = true;
     [ObservableProperty] private bool googleTranslateFreeApiEnabled = true;
     [ObservableProperty] private string googleTranslateFreeApiEndpoint = "https://translate.googleapis.com/translate_a/single";
     [ObservableProperty] private bool libreTranslateEnabled = true;
@@ -76,6 +80,8 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private string libreTranslateApiKey = string.Empty;
     [ObservableProperty] private bool translatePartials;
     [ObservableProperty] private string translationStatus = string.Empty;
+    [ObservableProperty] private string translationRuntimeStatus = "No translation activity yet.";
+    [ObservableProperty] private string translationRuntimeDiagnostics = "Waiting for transcript updates.";
     [ObservableProperty] private string translationTestSourceText = "Hello, how are you today?";
     [ObservableProperty] private string translationTestSourceLanguage = "en";
     [ObservableProperty] private string translationTestTargetLanguage = "vi";
@@ -121,6 +127,10 @@ public sealed partial class MainWindowViewModel
     public bool IsCaptureTabActive => string.Equals(ActiveTab, "capture", StringComparison.OrdinalIgnoreCase);
     public bool IsSessionsTabActive => string.Equals(ActiveTab, "sessions", StringComparison.OrdinalIgnoreCase);
     public bool IsSettingsTabActive => string.Equals(ActiveTab, "settings", StringComparison.OrdinalIgnoreCase);
+    public bool IsSpeakingTabActive => string.Equals(ActiveTab, "speaking", StringComparison.OrdinalIgnoreCase);
+
+    // Injected speaking practice VM, bound via ContentControl in MainWindow
+    public PracticeSessionViewModel? SpeakingPractice { get; internal set; }
     public bool IsGeneralSettingsTabActive => string.Equals(ActiveSettingsTab, "general", StringComparison.OrdinalIgnoreCase);
     public bool IsSpeechSettingsTabActive => string.Equals(ActiveSettingsTab, "speech", StringComparison.OrdinalIgnoreCase);
     public bool IsTranslationSettingsTabActive => string.Equals(ActiveSettingsTab, "translation", StringComparison.OrdinalIgnoreCase);
@@ -134,6 +144,7 @@ public sealed partial class MainWindowViewModel
     public bool CanTestTranslation => !IsTestingTranslation && !string.IsNullOrWhiteSpace(TranslationTestSourceText);
     public bool HasTranslationTestResult => !string.IsNullOrWhiteSpace(TranslationTestResult);
     public bool HasTranslationTestError => !string.IsNullOrWhiteSpace(TranslationTestError);
+    public bool HasTranslationRuntimeDiagnostics => !string.IsNullOrWhiteSpace(TranslationRuntimeDiagnostics);
     public bool HasSavedSessions => _allSavedSessions.Count > 0;
     public bool NoSavedSessions => !HasSavedSessions;
     public bool NoSearchResults => HasSavedSessions && SavedSessions.Count == 0;

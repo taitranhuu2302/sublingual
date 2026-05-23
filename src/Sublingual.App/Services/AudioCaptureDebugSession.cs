@@ -33,6 +33,7 @@ public class AudioCaptureDebugSession : IDisposable
     private int _stableSegmentIndex;
     private string _currentDraftSegmentId = CreateDraftSegmentId();
     private string _currentDraftSourceText = string.Empty;
+    private string _translationSessionId = Guid.NewGuid().ToString("N");
     private readonly Lock _translationStateLock = new();
     private readonly Dictionary<string, string> _pendingStableTranslations = new(StringComparer.Ordinal);
     private bool _disposed;
@@ -96,6 +97,7 @@ public class AudioCaptureDebugSession : IDisposable
         _currentSourceLanguage = NormalizeLanguage(translationSettings.SourceLanguage, "en");
         _currentTargetLanguage = NormalizeLanguage(translationSettings.TargetLanguage, "vi");
         _translatePartials = translationSettings.TranslatePartials;
+        await ResetRealtimeProviderSessionIfNeededAsync(translationSettings, _translationSessionId, cancellationToken);
         _capturedDurationSeconds = 0;
         _currentSessionCreatedAt = DateTimeOffset.UtcNow;
         _sessionGeneration += 1;
@@ -103,6 +105,7 @@ public class AudioCaptureDebugSession : IDisposable
         _stableSegmentIndex = 0;
         _currentDraftSegmentId = CreateDraftSegmentId();
         _currentDraftSourceText = string.Empty;
+        _translationSessionId = Guid.NewGuid().ToString("N");
         lock (_translationStateLock)
         {
             _pendingStableTranslations.Clear();
@@ -127,6 +130,8 @@ public class AudioCaptureDebugSession : IDisposable
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        var translationSettings = _settingsStore.Load().Translation;
+        var sessionIdToReset = _translationSessionId;
         await _stopCaptureUseCase.ExecuteAsync(cancellationToken);
         _voskTranscriptionService?.ResetSession();
         _translationService.ClearCache();
@@ -156,6 +161,7 @@ public class AudioCaptureDebugSession : IDisposable
 
         DisposeVerifier();
         _currentOutputPath = null;
+        await ResetRealtimeProviderSessionIfNeededAsync(translationSettings, sessionIdToReset, cancellationToken);
     }
 
     public void Dispose()
@@ -299,10 +305,13 @@ public class AudioCaptureDebugSession : IDisposable
 
             _translationScheduler.EnqueueStable(new StableTranslationRequest(
                 _sessionGeneration,
+                _translationSessionId,
                 segmentId,
+                NextRealtimeTranscriptSequenceId(),
                 finalText,
                 _currentSourceLanguage,
-                _currentTargetLanguage));
+                _currentTargetLanguage,
+                true));
             lock (_translationStateLock)
             {
                 _pendingStableTranslations[segmentId] = finalText;
@@ -328,10 +337,13 @@ public class AudioCaptureDebugSession : IDisposable
 
         _translationScheduler.EnqueueDraft(new DraftTranslationRequest(
             _sessionGeneration,
+            _translationSessionId,
             _currentDraftSegmentId,
+            NextRealtimeTranscriptSequenceId(),
             partialText,
             _currentSourceLanguage,
-            _currentTargetLanguage));
+            _currentTargetLanguage,
+            false));
     }
 
     private void OnTranslationCompleted(object? sender, RealtimeTranslationCompleted completed)
@@ -492,5 +504,18 @@ public class AudioCaptureDebugSession : IDisposable
                 : string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
                     ? "en"
                     : fallback;
+    }
+
+    private async Task ResetRealtimeProviderSessionIfNeededAsync(
+        Models.TranslationSettings settings,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        if (_translationService is not ConfigurableTranslationService configurableTranslationService)
+        {
+            return;
+        }
+
+        await configurableTranslationService.ResetRealtimeProviderSessionAsync(settings, sessionId, cancellationToken);
     }
 }

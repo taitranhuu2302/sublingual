@@ -31,12 +31,25 @@ public sealed partial class MainWindowViewModel
                 ? "vi"
                 : TranslationTestTargetLanguage.Trim();
 
-            var result = await _translationService.TranslateAsync(
-                new TranslationRequest(TranslationTestSourceText.Trim(), sourceLanguage, targetLanguage)
-            );
-
-            TranslationTestResult = result.TranslatedText;
-            TranslationTestError = string.Empty;
+            var request = new TranslationRequest(TranslationTestSourceText.Trim(), sourceLanguage, targetLanguage);
+            if (_translationService is ITranslationExecutionService translationExecutionService)
+            {
+                var execution = await translationExecutionService.TranslateWithDiagnosticsAsync(request);
+                TranslationTestResult = execution.Result.TranslatedText;
+                TranslationRuntimeStatus = $"test | {execution.ProviderName}{(execution.IsCacheHit ? " | cache" : string.Empty)}";
+                TranslationRuntimeDiagnostics = execution.AttemptLog.Count == 0
+                    ? "No diagnostics available."
+                    : string.Join(" | ", execution.AttemptLog);
+                TranslationTestError = string.Equals(execution.ProviderName, "FallbackOriginalText", StringComparison.Ordinal)
+                    ? TranslationRuntimeDiagnostics
+                    : string.Empty;
+            }
+            else
+            {
+                var result = await _translationService.TranslateAsync(request);
+                TranslationTestResult = result.TranslatedText;
+                TranslationTestError = string.Empty;
+            }
         }
         catch (Exception ex)
         {
@@ -73,16 +86,20 @@ public sealed partial class MainWindowViewModel
 
         TranslationPrimaryProvider = NormalizeTranslationProvider(
             providerOrder.ElementAtOrDefault(0),
-            TranslationProviders.GoogleTranslateFreeApi
+            TranslationProviders.TranslateServiceLocal
         );
 
         TranslationSecondaryProvider = NormalizeTranslationProvider(
             providerOrder.FirstOrDefault(provider =>
                 !string.Equals(provider, TranslationPrimaryProvider, StringComparison.OrdinalIgnoreCase)),
-            string.Equals(TranslationPrimaryProvider, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
-                ? TranslationProviders.LibreTranslate
-                : TranslationProviders.GoogleTranslateFreeApi
+            string.Equals(TranslationPrimaryProvider, TranslationProviders.TranslateServiceLocal, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.GoogleTranslateFreeApi
+                : TranslationProviders.TranslateServiceLocal
         );
+
+        TranslateServiceLocalEnabled = settings.TranslateServiceLocal.Enabled;
+        TranslateServiceLocalBaseUrl = TranslateServiceLocalTranslationProvider.NormalizeBaseUrl(settings.TranslateServiceLocal.BaseUrl);
+        TranslateServiceLocalUseRealtimeEndpointForFinals = settings.TranslateServiceLocal.UseRealtimeEndpointForFinals;
 
         GoogleTranslateFreeApiEnabled = settings.GoogleTranslateFreeApi.Enabled;
         GoogleTranslateFreeApiEndpoint = string.IsNullOrWhiteSpace(settings.GoogleTranslateFreeApi.Endpoint)
@@ -97,6 +114,8 @@ public sealed partial class MainWindowViewModel
         TranslatePartials = settings.TranslatePartials;
 
         TranslationStatus = BuildTranslationStatus();
+        TranslationRuntimeStatus = "No translation activity yet.";
+        TranslationRuntimeDiagnostics = "Waiting for transcript updates.";
         UpdateSpeechToTextStatus();
     }
 
@@ -105,6 +124,9 @@ public sealed partial class MainWindowViewModel
         var settings = _settingsStore.Load();
         settings.Translation.Factory = NormalizeTranslationFactory(SelectedTranslationFactory);
         settings.Translation.ProviderOrder = BuildTranslationProviderOrder();
+        settings.Translation.TranslateServiceLocal.Enabled = TranslateServiceLocalEnabled;
+        settings.Translation.TranslateServiceLocal.BaseUrl = TranslateServiceLocalTranslationProvider.NormalizeBaseUrl(TranslateServiceLocalBaseUrl);
+        settings.Translation.TranslateServiceLocal.UseRealtimeEndpointForFinals = TranslateServiceLocalUseRealtimeEndpointForFinals;
         settings.Translation.GoogleTranslateFreeApi.Enabled = GoogleTranslateFreeApiEnabled;
         settings.Translation.GoogleTranslateFreeApi.Endpoint = GoogleTranslateFreeApiEndpoint.Trim();
         settings.Translation.LibreTranslate.Enabled = LibreTranslateEnabled;
@@ -121,7 +143,7 @@ public sealed partial class MainWindowViewModel
         var providers = new List<string>();
         foreach (var provider in new[] { TranslationPrimaryProvider, TranslationSecondaryProvider })
         {
-            var normalized = NormalizeTranslationProvider(provider, TranslationProviders.GoogleTranslateFreeApi);
+            var normalized = NormalizeTranslationProvider(provider, TranslationProviders.TranslateServiceLocal);
             if (!providers.Contains(normalized, StringComparer.OrdinalIgnoreCase))
             {
                 providers.Add(normalized);
@@ -136,16 +158,18 @@ public sealed partial class MainWindowViewModel
         var factory = NormalizeTranslationFactory(SelectedTranslationFactory);
         if (string.Equals(factory, TranslationFactories.FallbackChain, StringComparison.OrdinalIgnoreCase))
         {
-            return $"Fallback chain: {string.Join(" -> ", BuildTranslationProviderOrder())} | {(TranslatePartials ? "partials on" : "final-only")}";
+            return $"Fallback chain: {string.Join(" -> ", BuildTranslationProviderOrder())} | {(TranslatePartials ? "partials on" : "final-only")} | local realtime {(TranslateServiceLocalEnabled ? "enabled" : "disabled")}";
         }
 
-        return $"Active provider: {factory} | {(TranslatePartials ? "partials on" : "final-only")}";
+        return $"Active provider: {factory} | {(TranslatePartials ? "partials on" : "final-only")} | local realtime {(TranslateServiceLocalEnabled ? "enabled" : "disabled")}";
     }
 
     private static string NormalizeTranslationFactory(string? factory)
     {
         return string.Equals(factory, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
             ? TranslationProviders.GoogleTranslateFreeApi
+            : string.Equals(factory, TranslationProviders.TranslateServiceLocal, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.TranslateServiceLocal
             : string.Equals(factory, TranslationProviders.LibreTranslate, StringComparison.OrdinalIgnoreCase)
                 ? TranslationProviders.LibreTranslate
                 : TranslationFactories.FallbackChain;
@@ -155,6 +179,8 @@ public sealed partial class MainWindowViewModel
     {
         return string.Equals(provider, TranslationProviders.LibreTranslate, StringComparison.OrdinalIgnoreCase)
             ? TranslationProviders.LibreTranslate
+            : string.Equals(provider, TranslationProviders.TranslateServiceLocal, StringComparison.OrdinalIgnoreCase)
+                ? TranslationProviders.TranslateServiceLocal
             : string.Equals(provider, TranslationProviders.GoogleTranslateFreeApi, StringComparison.OrdinalIgnoreCase)
                 ? TranslationProviders.GoogleTranslateFreeApi
                 : fallback;

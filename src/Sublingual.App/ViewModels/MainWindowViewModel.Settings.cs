@@ -210,6 +210,9 @@ public sealed partial class MainWindowViewModel
 
         if (e.PropertyName is nameof(TranslationPrimaryProvider)
             or nameof(TranslationSecondaryProvider)
+            or nameof(TranslateServiceLocalEnabled)
+            or nameof(TranslateServiceLocalBaseUrl)
+            or nameof(TranslateServiceLocalUseRealtimeEndpointForFinals)
             or nameof(GoogleTranslateFreeApiEnabled)
             or nameof(GoogleTranslateFreeApiEndpoint)
             or nameof(LibreTranslateEnabled)
@@ -230,6 +233,11 @@ public sealed partial class MainWindowViewModel
         if (e.PropertyName == nameof(TranslationTestResult))
         {
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationTestResult)));
+        }
+
+        if (e.PropertyName == nameof(TranslationRuntimeDiagnostics))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(HasTranslationRuntimeDiagnostics)));
         }
 
         if (e.PropertyName == nameof(TranslationTestError))

@@ -6,6 +6,7 @@ public interface ITranslationExecutionService : ITranslationService
 {
     Task<TranslationExecutionResult> TranslateWithDiagnosticsAsync(
         TranslationRequest request,
+        RealtimeTranslationContext? realtimeContext = null,
         CancellationToken cancellationToken = default
     );
 

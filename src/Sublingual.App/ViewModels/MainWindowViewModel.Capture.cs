@@ -29,6 +29,8 @@ public sealed partial class MainWindowViewModel
             PartialTranslatedTranscript = string.Empty;
             FinalTranslatedTranscript = string.Empty;
             TranscriptStatus = string.Empty;
+            TranslationRuntimeStatus = "Starting capture...";
+            TranslationRuntimeDiagnostics = "Waiting for transcript updates.";
             OutputFilePath = _outputPath;
 
             await _session.StartAsync(
@@ -62,6 +64,7 @@ public sealed partial class MainWindowViewModel
             AudioLevel = 0;
             AudioLevelText = "Silence";
             StatusMessage = $"Capture stopped. Saved {ChunkCount} chunks to {FormatSessionFolderLabel(NormalizeSessionFolderId(SessionFolderId))}.";
+            TranslationRuntimeStatus = "Capture stopped.";
         });
     }
 
@@ -156,7 +159,12 @@ public sealed partial class MainWindowViewModel
             if (!string.IsNullOrWhiteSpace(update.FinalTranslatedText))
                 FinalTranslatedTranscript = update.FinalTranslatedText;
             if (!string.IsNullOrWhiteSpace(update.FinalText) || !string.IsNullOrWhiteSpace(update.PartialText))
-                TranscriptStatus = $"Updated {update.UpdatedAt:HH:mm:ss} | {update.TranslationProvider}{(update.TranslationCacheHit ? " | cache" : string.Empty)}";
+                TranscriptStatus = BuildTranscriptStatus(update);
+
+            TranslationRuntimeStatus = BuildTranslationRuntimeStatus(update);
+            TranslationRuntimeDiagnostics = string.IsNullOrWhiteSpace(update.TranslationDiagnostics)
+                ? "No diagnostics available."
+                : update.TranslationDiagnostics;
 
             if (SelectedSavedSession is not null
                 && string.Equals(SelectedSavedSession.AudioPath, _outputPath, StringComparison.OrdinalIgnoreCase))
@@ -164,5 +172,27 @@ public sealed partial class MainWindowViewModel
                 LoadSelectedSessionTranscript();
             }
         });
+    }
+
+    private static string BuildTranscriptStatus(TranscriptPreviewUpdate update)
+    {
+        return $"Updated {update.UpdatedAt:HH:mm:ss} | {update.TranslationProvider}{(update.TranslationCacheHit ? " | cache" : string.Empty)}";
+    }
+
+    private static string BuildTranslationRuntimeStatus(TranscriptPreviewUpdate update)
+    {
+        var mode = !string.IsNullOrWhiteSpace(update.FinalText)
+            ? "final"
+            : !string.IsNullOrWhiteSpace(update.PartialText)
+                ? "partial"
+                : "idle";
+        var outcome = string.IsNullOrWhiteSpace(update.TranslationDiagnostics)
+            ? "no diagnostics"
+            : update.TranslationDiagnostics.Contains("skipped", StringComparison.OrdinalIgnoreCase)
+                ? "skipped"
+                : update.TranslationDiagnostics.Contains("success", StringComparison.OrdinalIgnoreCase)
+                    ? "translated"
+                    : "updated";
+        return $"{mode} | {update.TranslationProvider} | {outcome}{(update.TranslationCacheHit ? " | cache" : string.Empty)}";
     }
 }

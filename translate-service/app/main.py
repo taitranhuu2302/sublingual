@@ -12,6 +12,8 @@ from app.schemas import (
     ErrorResponse,
     HealthResponse,
     ModelsResponse,
+    RealtimeSessionResetRequest,
+    RealtimeSessionResetResponse,
     RealtimeTranslateRequest,
     RealtimeTranslateResponse,
     TranslateRequest,
@@ -50,25 +52,31 @@ class RealtimeSessionCache:
         self.sessions: dict[str, dict[str, object]] = {}
         self._lock = Lock()
 
-    def should_translate(self, session_id: str, text: str, is_final: bool) -> bool:
+    def should_translate(self, session_id: str, text: str, is_final: bool, force: bool = False) -> tuple[bool, str | None]:
         normalized = normalize_text(text)
         if is_final:
-            return bool(normalized)
+            return (bool(normalized), None if normalized else "empty_normalized_text")
+
+        if force and normalized:
+            return True, None
+
+        if not normalized:
+            return False, "empty_normalized_text"
 
         if len(normalized) < self.min_realtime_chars:
-            return False
+            return False, "too_short"
 
         if not is_good_realtime_boundary(text):
-            return False
+            return False, "weak_boundary"
 
         with self._lock:
             session = self.sessions.get(session_id)
             previous = str(session.get("last_text", "")) if session else ""
 
         if is_too_similar(previous, normalized, min_delta_chars=self.min_realtime_chars):
-            return False
+            return False, "too_similar"
 
-        return True
+        return True, None
 
     def update(self, session_id: str, text: str, translated_text: str) -> None:
         now = time.monotonic()
@@ -86,6 +94,10 @@ class RealtimeSessionCache:
                 return None
 
             return dict(session)
+
+    def reset(self, session_id: str) -> bool:
+        with self._lock:
+            return self.sessions.pop(session_id, None) is not None
 
     def cleanup_expired(self) -> None:
         now = time.monotonic()
@@ -293,17 +305,29 @@ def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
 def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateResponse:
     realtime_session_cache.cleanup_expired()
     source_text = _prepare_realtime_text(request.text)
+    model = model_manager.get_pair(request.source_lang, request.target_lang)
 
-    if not realtime_session_cache.should_translate(
+    should_translate, skip_reason = realtime_session_cache.should_translate(
         request.session_id,
         source_text,
         request.is_final,
-    ):
+        request.force,
+    )
+    if not should_translate:
         return RealtimeTranslateResponse(
             translated_text="",
             should_display=False,
             is_final=request.is_final,
             latency_ms=0,
+            model=model,
+            session_id=request.session_id,
+            segment_id=request.segment_id,
+            sequence_id=request.sequence_id,
+            kind=request.kind,
+            was_skipped=True,
+            skip_reason=skip_reason,
+            normalized_text=source_text,
+            cache_hit=False,
         )
 
     started = time.perf_counter()
@@ -321,7 +345,7 @@ def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateRe
 
     logger.info(
         "translate_realtime pair=%s latency_ms=%.2f final=%s chars=%d display=%s",
-        model_manager.get_pair(request.source_lang, request.target_lang),
+        model,
         latency_ms,
         request.is_final,
         len(source_text),
@@ -333,4 +357,26 @@ def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateRe
         should_display=should_display,
         is_final=request.is_final,
         latency_ms=latency_ms,
+        model=model,
+        session_id=request.session_id,
+        segment_id=request.segment_id,
+        sequence_id=request.sequence_id,
+        kind=request.kind,
+        was_skipped=False,
+        skip_reason="duplicate_translation" if not request.is_final and not should_display else None,
+        normalized_text=source_text,
+        cache_hit=False,
     )
+
+
+@app.post(
+    "/translate/realtime/reset",
+    response_model=RealtimeSessionResetResponse,
+    tags=["realtime"],
+    summary="Reset realtime session state",
+    description="Clears cached realtime state for the given session id.",
+    responses={422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
+def reset_realtime_session(request: RealtimeSessionResetRequest) -> RealtimeSessionResetResponse:
+    cleared = realtime_session_cache.reset(request.session_id)
+    return RealtimeSessionResetResponse(session_id=request.session_id, cleared=cleared)

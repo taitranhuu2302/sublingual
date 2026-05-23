@@ -14,6 +14,7 @@ public sealed class GoogleTranslateFreeApiTranslationProvider(HttpClient httpCli
     public async Task<TranslationResult?> TranslateAsync(
         TranslationRequest request,
         TranslationSettings settings,
+        RealtimeTranslationContext? realtimeContext = null,
         CancellationToken cancellationToken = default
     )
     {

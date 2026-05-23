@@ -70,15 +70,24 @@
                         <ToolTip.Tip>Capture</ToolTip.Tip>
                         <TextBlock Text="Record" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="capture"
-                            IsVisible="{Binding IsSessionsTabActive}">
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="capture"
+                             IsVisible="{Binding IsSessionsTabActive}">
                         <ToolTip.Tip>Capture</ToolTip.Tip>
                         <TextBlock Text="Record" VerticalAlignment="Center" />
-                    </Button>
+                     </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="capture"
+                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
+                        <ToolTip.Tip>Capture</ToolTip.Tip>
+                        <TextBlock Text="Record" VerticalAlignment="Center" />
+                     </Button>
 
                     <Button Classes="nav-item nav-item-active"
                             HorizontalAlignment="Stretch"
@@ -98,12 +107,21 @@
                         <ToolTip.Tip>Sessions</ToolTip.Tip>
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="sessions"
-                            IsVisible="{Binding IsSettingsTabActive}">
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="sessions"
+                             IsVisible="{Binding IsSettingsTabActive}">
+                        <ToolTip.Tip>Sessions</ToolTip.Tip>
+                        <TextBlock Text="Sessions" VerticalAlignment="Center" />
+                      </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="sessions"
+                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
                         <ToolTip.Tip>Sessions</ToolTip.Tip>
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
                      </Button>
@@ -126,16 +144,63 @@
                         <ToolTip.Tip>Settings</ToolTip.Tip>
                         <TextBlock Text="Settings" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="settings"
-                            IsVisible="{Binding IsSessionsTabActive}">
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="settings"
+                             IsVisible="{Binding IsSessionsTabActive}">
                         <ToolTip.Tip>Settings</ToolTip.Tip>
                         <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </Button>
-                </StackPanel>
+                      </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="settings"
+                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                     </Button>
+
+                     <!-- Speaking Practice nav -->
+                      <Button Classes="nav-item nav-item-active"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectTabCommand}"
+                              CommandParameter="speaking"
+                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
+                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
+                          <TextBlock Text="Practice" VerticalAlignment="Center" />
+                      </Button>
+                      <Button Classes="nav-item"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectTabCommand}"
+                              CommandParameter="speaking"
+                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
+                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
+                          <TextBlock Text="Practice" VerticalAlignment="Center" />
+                      </Button>
+                      <Button Classes="nav-item"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectTabCommand}"
+                              CommandParameter="speaking"
+                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=sessions}">
+                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
+                          <TextBlock Text="Practice" VerticalAlignment="Center" />
+                      </Button>
+                      <Button Classes="nav-item"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectTabCommand}"
+                              CommandParameter="speaking"
+                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
+                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
+                          <TextBlock Text="Practice" VerticalAlignment="Center" />
+                      </Button>
+                 </StackPanel>
 
                 <!-- Status at bottom -->
                 <StackPanel Grid.Row="2" Margin="18,0" Spacing="8">
@@ -156,6 +221,10 @@
                        BusyText="{Binding StatusMessage}">
             <Grid>
 
+            <!-- TAB: Speaking Practice -->
+            <ContentControl
+                IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}"
+                Content="{Binding SpeakingPractice}" />
             <!-- TAB: Capture -->
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
@@ -793,12 +862,13 @@
                                         <TextBlock Text="Factory"
                                                    VerticalAlignment="Center"
                                                    Foreground="#8BA3C7" />
-                                        <ComboBox Grid.Column="1"
-                                                  SelectedItem="{Binding SelectedTranslationFactory}">
-                                            <x:String>FallbackChain</x:String>
-                                            <x:String>GoogleTranslateFreeApi</x:String>
-                                            <x:String>LibreTranslate</x:String>
-                                        </ComboBox>
+                                         <ComboBox Grid.Column="1"
+                                                   SelectedItem="{Binding SelectedTranslationFactory}">
+                                             <x:String>FallbackChain</x:String>
+                                             <x:String>TranslateServiceLocal</x:String>
+                                             <x:String>GoogleTranslateFreeApi</x:String>
+                                             <x:String>LibreTranslate</x:String>
+                                         </ComboBox>
                                     </Grid>
 
                                     <suki:GlassCard Background="#0D1F38"
@@ -862,31 +932,74 @@
                                                 <TextBlock Text="Primary"
                                                            VerticalAlignment="Center"
                                                            Foreground="#8BA3C7" />
-                                                <ComboBox Grid.Column="1"
-                                                          SelectedItem="{Binding TranslationPrimaryProvider}">
-                                                    <x:String>GoogleTranslateFreeApi</x:String>
-                                                    <x:String>LibreTranslate</x:String>
-                                                </ComboBox>
+                                                 <ComboBox Grid.Column="1"
+                                                           SelectedItem="{Binding TranslationPrimaryProvider}">
+                                                     <x:String>TranslateServiceLocal</x:String>
+                                                     <x:String>GoogleTranslateFreeApi</x:String>
+                                                     <x:String>LibreTranslate</x:String>
+                                                 </ComboBox>
                                                 <TextBlock Grid.Column="2"
                                                            Text="Secondary"
                                                            VerticalAlignment="Center"
                                                            Foreground="#8BA3C7" />
-                                                <ComboBox Grid.Column="3"
-                                                          SelectedItem="{Binding TranslationSecondaryProvider}">
-                                                    <x:String>GoogleTranslateFreeApi</x:String>
-                                                    <x:String>LibreTranslate</x:String>
-                                                </ComboBox>
+                                                 <ComboBox Grid.Column="3"
+                                                           SelectedItem="{Binding TranslationSecondaryProvider}">
+                                                     <x:String>TranslateServiceLocal</x:String>
+                                                     <x:String>GoogleTranslateFreeApi</x:String>
+                                                     <x:String>LibreTranslate</x:String>
+                                                 </ComboBox>
                                             </Grid>
                                         </StackPanel>
                                     </suki:GlassCard>
 
-                                    <suki:GlassCard Background="#0D1F38"
-                                                    CornerRadius="10"
-                                                    Padding="14">
-                                        <StackPanel Spacing="12">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                                                <StackPanel Spacing="2">
-                                                    <TextBlock Text="GoogleTranslateFreeApi"
+                                     <suki:GlassCard Background="#0D1F38"
+                                                     CornerRadius="10"
+                                                     Padding="14">
+                                         <StackPanel Spacing="12">
+                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                 <StackPanel Spacing="2">
+                                                     <TextBlock Text="TranslateServiceLocal"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="#F0F4FF" />
+                                                     <TextBlock Text="Local Marian/CTranslate2 service optimized for partial and final subtitle updates."
+                                                                Foreground="#8BA3C7"
+                                                                FontSize="12"
+                                                                TextWrapping="Wrap" />
+                                                 </StackPanel>
+                                                 <CheckBox Grid.Column="1"
+                                                           IsChecked="{Binding TranslateServiceLocalEnabled}"
+                                                           VerticalAlignment="Center" />
+                                             </Grid>
+                                             <TextBlock Text="Base URL"
+                                                        Foreground="#8BA3C7"
+                                                        FontSize="12" />
+                                             <TextBox Text="{Binding TranslateServiceLocalBaseUrl}"
+                                                      Watermark="http://127.0.0.1:3333"
+                                                      HorizontalAlignment="Stretch" />
+                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                 <StackPanel Spacing="2">
+                                                     <TextBlock Text="Use Realtime Endpoint For Finals"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="#F0F4FF" />
+                                                     <TextBlock Text="Keep final translations on the realtime endpoint so draft and final session state stays coherent."
+                                                                Foreground="#8BA3C7"
+                                                                FontSize="12"
+                                                                TextWrapping="Wrap" />
+                                                 </StackPanel>
+                                                 <CheckBox Grid.Column="1"
+                                                           IsChecked="{Binding TranslateServiceLocalUseRealtimeEndpointForFinals}"
+                                                           VerticalAlignment="Center" />
+                                             </Grid>
+                                         </StackPanel>
+                                     </suki:GlassCard>
+
+                                     <suki:GlassCard Background="#0D1F38"
+                                                     CornerRadius="10"
+                                                     Padding="14">
+                                         <StackPanel Spacing="12">
+                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                                 <StackPanel Spacing="2">
+                                                     <TextBlock Text="GoogleTranslateFreeApi"
                                                                FontWeight="SemiBold"
                                                                Foreground="#F0F4FF" />
                                                     <TextBlock Text="Free Google endpoint. Useful as the first lightweight fallback."
@@ -940,14 +1053,35 @@
                                         </StackPanel>
                                     </suki:GlassCard>
 
-                                    <TextBlock Text="{Binding TranslationStatus}"
-                                               Foreground="#8BA3C7"
-                                               FontSize="12"
-                                               TextWrapping="Wrap" />
+                                     <TextBlock Text="{Binding TranslationStatus}"
+                                                Foreground="#8BA3C7"
+                                                FontSize="12"
+                                                TextWrapping="Wrap" />
 
-                                    <suki:GlassCard Background="#081221"
-                                                    BorderBrush="#1E3A5F"
-                                                    BorderThickness="1"
+                                     <suki:GlassCard Background="#081221"
+                                                     BorderBrush="#1E3A5F"
+                                                     BorderThickness="1"
+                                                     CornerRadius="8"
+                                                     Padding="12">
+                                         <StackPanel Spacing="8">
+                                             <TextBlock Text="Realtime Runtime"
+                                                        Foreground="#F0F4FF"
+                                                        FontWeight="SemiBold" />
+                                             <TextBlock Text="{Binding TranslationRuntimeStatus}"
+                                                        Foreground="#93C5FD"
+                                                        FontSize="12"
+                                                        TextWrapping="Wrap" />
+                                             <SelectableTextBlock Text="{Binding TranslationRuntimeDiagnostics}"
+                                                                  Foreground="#8BA3C7"
+                                                                  FontSize="12"
+                                                                  TextWrapping="Wrap"
+                                                                  IsVisible="{Binding HasTranslationRuntimeDiagnostics}" />
+                                         </StackPanel>
+                                     </suki:GlassCard>
+
+                                     <suki:GlassCard Background="#081221"
+                                                     BorderBrush="#1E3A5F"
+                                                     BorderThickness="1"
                                                     CornerRadius="8"
                                                     Padding="12"
                                                     IsVisible="{Binding HasTranslationTestResult}">

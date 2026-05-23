@@ -14,6 +14,7 @@ public sealed class LibreTranslateTranslationProvider(HttpClient httpClient) : I
     public async Task<TranslationResult?> TranslateAsync(
         TranslationRequest request,
         TranslationSettings settings,
+        RealtimeTranslationContext? realtimeContext = null,
         CancellationToken cancellationToken = default
     )
     {
