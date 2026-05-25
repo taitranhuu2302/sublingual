@@ -10,7 +10,7 @@ namespace Sublingual.Infrastructure.AI.Groq;
 public sealed class GroqSpeakingTutorService : IAiTutorService
 {
     private readonly HttpClient _http;
-    private string _model = "llama-3.3-70b-versatile";
+    private string _model = "qwen/qwen3-32b";
     private const int RetryHistoryTokenBudget = 1200;
 
     private static readonly JsonSerializerOptions JsonOptions = new()

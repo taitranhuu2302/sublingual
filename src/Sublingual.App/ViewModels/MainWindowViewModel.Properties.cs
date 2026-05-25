@@ -80,7 +80,7 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private string libreTranslateApiKey = string.Empty;
     [ObservableProperty] private string speakingPracticeAiProvider = SpeakingPracticeProviders.Groq;
     [ObservableProperty] private string speakingPracticeGroqApiKey = string.Empty;
-    [ObservableProperty] private string speakingPracticeGroqModel = "llama-3.3-70b-versatile";
+    [ObservableProperty] private string speakingPracticeGroqModel = "qwen/qwen3-32b";
     [ObservableProperty] private string speakingPracticeGeminiApiKey = string.Empty;
     [ObservableProperty] private string speakingPracticeGeminiModel = "gemini-2.5-flash";
     [ObservableProperty] private bool translatePartials;

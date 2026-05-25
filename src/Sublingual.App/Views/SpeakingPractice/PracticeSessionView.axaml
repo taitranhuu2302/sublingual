@@ -166,6 +166,17 @@
                                        FontSize="16"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding ActiveAiRuntimeLabel, StringFormat=AI: {0}}"
+                                       FontSize="11"
+                                       Opacity="0.58" />
+                            <TextBlock Text="Configured"
+                                       FontSize="10.5"
+                                       Foreground="#86EFAC"
+                                       IsVisible="{Binding IsAiConfigured}" />
+                            <TextBlock Text="Not configured"
+                                       FontSize="10.5"
+                                       Foreground="#FCA5A5"
+                                       IsVisible="{Binding !IsAiConfigured}" />
                             <TextBlock Text="{Binding RoomInstructions}"
                                        FontSize="11.5"
                                        Opacity="0.66"
@@ -294,6 +305,9 @@
                                             Command="{Binding $parent[UserControl].DataContext.ChooseSuggestionCommand}"
                                             CommandParameter="{Binding}"
                                             IsEnabled="{Binding $parent[UserControl].DataContext.CanChooseSuggestion}">
+                                        <ToolTip.Tip>
+                                            <TextBlock Text="{Binding $parent[UserControl].DataContext.AiActionHint}" />
+                                        </ToolTip.Tip>
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{Binding Label}"
                                                        FontSize="11"
@@ -320,14 +334,24 @@
                         <Button Grid.Column="1" Classes="practice-icon-button Accent"
                                 Command="{Binding SendTypedMessageCommand}"
                                 IsEnabled="{Binding CanSendTypedMessage}">
-                            <ToolTip.Tip>Send message</ToolTip.Tip>
+                            <ToolTip.Tip>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding AiActionHint}" IsVisible="{Binding !IsAiConfigured}" />
+                                    <TextBlock Text="Send message" IsVisible="{Binding IsAiConfigured}" />
+                                </StackPanel>
+                            </ToolTip.Tip>
                             <i:Icon Value="fa-solid fa-paper-plane" FontSize="13" />
                         </Button>
                         <Button Grid.Column="2" Classes="practice-icon-button"
                                 Command="{Binding StartSpeakingCommand}"
                                 IsVisible="{Binding !IsRecording}"
                                 IsEnabled="{Binding CanStartSpeaking}">
-                            <ToolTip.Tip>Start speaking</ToolTip.Tip>
+                            <ToolTip.Tip>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding AiActionHint}" IsVisible="{Binding !IsAiConfigured}" />
+                                    <TextBlock Text="Start speaking" IsVisible="{Binding IsAiConfigured}" />
+                                </StackPanel>
+                            </ToolTip.Tip>
                             <i:Icon Value="fa-solid fa-microphone" FontSize="14" />
                         </Button>
                         <Button Grid.Column="2" Classes="practice-icon-button Accent"

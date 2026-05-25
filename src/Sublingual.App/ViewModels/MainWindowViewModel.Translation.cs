@@ -114,7 +114,7 @@ public sealed partial class MainWindowViewModel
         SpeakingPracticeAiProvider = appSettings.SpeakingPractice.AiProvider;
         SpeakingPracticeGroqApiKey = appSettings.SpeakingPractice.GroqApiKey ?? string.Empty;
         SpeakingPracticeGroqModel = string.IsNullOrWhiteSpace(appSettings.SpeakingPractice.GroqModel)
-            ? "llama-3.3-70b-versatile"
+            ? "qwen/qwen3-32b"
             : appSettings.SpeakingPractice.GroqModel;
         SpeakingPracticeGeminiApiKey = appSettings.SpeakingPractice.GeminiApiKey ?? string.Empty;
         SpeakingPracticeGeminiModel = string.IsNullOrWhiteSpace(appSettings.SpeakingPractice.GeminiModel)
@@ -146,7 +146,7 @@ public sealed partial class MainWindowViewModel
             : SpeakingPracticeProviders.Groq;
         settings.SpeakingPractice.GroqApiKey = SpeakingPracticeGroqApiKey.Trim();
         settings.SpeakingPractice.GroqModel = string.IsNullOrWhiteSpace(SpeakingPracticeGroqModel)
-            ? "llama-3.3-70b-versatile"
+            ? "qwen/qwen3-32b"
             : SpeakingPracticeGroqModel.Trim();
         settings.SpeakingPractice.GeminiApiKey = SpeakingPracticeGeminiApiKey.Trim();
         settings.SpeakingPractice.GeminiModel = string.IsNullOrWhiteSpace(SpeakingPracticeGeminiModel)

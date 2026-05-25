@@ -67,13 +67,17 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public bool HasCreateRoomValidationError => !string.IsNullOrWhiteSpace(NewRoomValidationError);
     public bool CanSaveRoomEdits => !IsRoomActionBusy && HasSelectedRoom && string.IsNullOrWhiteSpace(EditRoomValidationError);
     public bool HasEditRoomValidationError => !string.IsNullOrWhiteSpace(EditRoomValidationError);
-    public bool CanSendTypedMessage => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording && !string.IsNullOrWhiteSpace(TypedMessage);
-    public bool CanChooseSuggestion => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
-    public bool CanStartSpeaking => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
+    public bool CanSendTypedMessage => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording && !string.IsNullOrWhiteSpace(TypedMessage);
+    public bool CanChooseSuggestion => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
+    public bool CanStartSpeaking => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
     public bool CanStopSpeaking => IsRecording;
     public bool HasRecordingTranscriptPreview => !string.IsNullOrWhiteSpace(RecordingTranscriptPreview);
     public bool HasStatusText => !string.IsNullOrWhiteSpace(StatusText);
     public bool ShowOpenSettingsForAi => !IsAiConfigured && HasSelectedRoom;
+    public string AiActionHint => IsAiConfigured ? "" : "Configure AI provider key/model in Settings.";
+    public string ActiveAiProviderLabel { get; private set; } = "Groq";
+    public string ActiveAiModelLabel { get; private set; } = "qwen/qwen3-32b";
+    public string ActiveAiRuntimeLabel => $"{ActiveAiProviderLabel} • {ActiveAiModelLabel}";
 
     public PracticeSessionViewModel(
         SpeakingSessionManager sessionManager,
@@ -607,6 +611,13 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     partial void OnIsAiConfiguredChanged(bool value)
     {
         OnPropertyChanged(nameof(ShowOpenSettingsForAi));
+        OnPropertyChanged(nameof(AiActionHint));
+        OnPropertyChanged(nameof(CanSendTypedMessage));
+        OnPropertyChanged(nameof(CanChooseSuggestion));
+        OnPropertyChanged(nameof(CanStartSpeaking));
+        SendTypedMessageCommand.NotifyCanExecuteChanged();
+        ChooseSuggestionCommand.NotifyCanExecuteChanged();
+        StartSpeakingCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedRoomChanged(SpeakingPracticeRoomItemViewModel? value)
@@ -724,6 +735,12 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         if (SelectedRoom is null)
         {
             return;
+        }
+
+        RefreshAiConfigurationStatus();
+        if (IsAiConfigured)
+        {
+            StatusText = $"Sending via {ActiveAiRuntimeLabel}...";
         }
 
         var beforeIds = _sessionManager.History.Select(message => message.Id).ToHashSet(StringComparer.Ordinal);
@@ -860,6 +877,16 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     private void RefreshAiConfigurationStatus()
     {
         var settings = _settingsStore.Load().SpeakingPractice;
+        ActiveAiProviderLabel = string.Equals(settings.AiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
+            ? SpeakingPracticeProviders.Gemini
+            : SpeakingPracticeProviders.Groq;
+        ActiveAiModelLabel = string.Equals(ActiveAiProviderLabel, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
+            ? (string.IsNullOrWhiteSpace(settings.GeminiModel) ? "(missing)" : settings.GeminiModel)
+            : (string.IsNullOrWhiteSpace(settings.GroqModel) ? "(missing)" : settings.GroqModel);
+        OnPropertyChanged(nameof(ActiveAiProviderLabel));
+        OnPropertyChanged(nameof(ActiveAiModelLabel));
+        OnPropertyChanged(nameof(ActiveAiRuntimeLabel));
+
         if (string.Equals(settings.AiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(settings.GeminiApiKey))

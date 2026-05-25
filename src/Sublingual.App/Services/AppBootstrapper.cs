@@ -126,13 +126,7 @@ public sealed class AppBootstrapper : IDisposable
             svc.Configure(settings.GeminiApiKey, settings.GeminiModel);
             return svc;
         });
-        services.AddSingleton<IAiTutorService>(provider =>
-        {
-            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
-            return settings.AiProvider == SpeakingPracticeProviders.Gemini
-                ? provider.GetRequiredService<GeminiSpeakingTutorService>()
-                : provider.GetRequiredService<GroqSpeakingTutorService>();
-        });
+        services.AddSingleton<IAiTutorService, SpeakingPracticeDynamicAiTutorService>();
         services.AddSingleton<ITtsService, LocalSystemTtsService>();
         services.AddSingleton<IMicrophoneTranscriptionService>(provider =>
             new MicrophoneTranscriptionService(

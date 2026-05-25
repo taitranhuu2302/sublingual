@@ -14,7 +14,7 @@ public sealed class SpeakingPracticeSettings
 {
     public string AiProvider { get; set; } = SpeakingPracticeProviders.Groq;
     public string GroqApiKey { get; set; } = string.Empty;
-    public string GroqModel { get; set; } = "llama-3.3-70b-versatile";
+    public string GroqModel { get; set; } = "qwen/qwen3-32b";
     public string GeminiApiKey { get; set; } = string.Empty;
     public string GeminiModel { get; set; } = "gemini-2.5-flash";
     public string LanguageLevel { get; set; } = "Intermediate";

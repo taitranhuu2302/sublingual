@@ -1089,7 +1089,7 @@
                                                         Foreground="#8BA3C7"
                                                         FontSize="12" />
                                              <TextBox Text="{Binding SpeakingPracticeGroqModel}"
-                                                      Watermark="llama-3.3-70b-versatile"
+                                                      Watermark="qwen/qwen3-32b"
                                                       HorizontalAlignment="Stretch" />
 
                                              <TextBlock Text="Gemini API Key"
