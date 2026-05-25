@@ -79,16 +79,20 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public string ActiveAiModelLabel { get; private set; } = "qwen/qwen3-32b";
     public string ActiveAiRuntimeLabel => $"{ActiveAiProviderLabel} • {ActiveAiModelLabel}";
 
+    private readonly IAiTutorService _aiTutor;
+
     public PracticeSessionViewModel(
         SpeakingSessionManager sessionManager,
         AppSettingsStore settingsStore,
         SpeakingPracticeRoomStore roomStore,
-        IMicrophoneTranscriptionService micTranscription)
+        IMicrophoneTranscriptionService micTranscription,
+        IAiTutorService aiTutor)
     {
         _sessionManager = sessionManager;
         _settingsStore = settingsStore;
         _roomStore = roomStore;
         _micTranscription = micTranscription;
+        _aiTutor = aiTutor;
 
         _sessionManager.StateChanged += OnSessionStateChanged;
         _sessionManager.MessageAdded += OnMessageAdded;
@@ -104,7 +108,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
             new DesignTimeTts()),
         new AppSettingsStore(),
         new SpeakingPracticeRoomStore(),
-        new DesignTimeMicTranscription())
+        new DesignTimeMicTranscription(),
+        new DesignTimeAiTutor())
     {
     }
 
@@ -423,6 +428,58 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         finally
         {
             IsRoomActionBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleSuggestions(PracticeMessageViewModel? messageViewModel)
+    {
+        if (messageViewModel is null)
+        {
+            return;
+        }
+        messageViewModel.ShowSuggestions = !messageViewModel.ShowSuggestions;
+    }
+
+    [RelayCommand]
+    private async Task ToggleCorrectionAsync(PracticeMessageViewModel? messageViewModel)
+    {
+        if (messageViewModel is null || !messageViewModel.IsUser)
+        {
+            return;
+        }
+
+        if (messageViewModel.ShowCorrection)
+        {
+            messageViewModel.ShowCorrection = false;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(messageViewModel.DirectCorrection))
+        {
+            messageViewModel.ShowCorrection = true;
+            return;
+        }
+
+        if (!EnsureAiConfigurationReady())
+        {
+            return;
+        }
+
+        messageViewModel.IsCorrectionLoading = true;
+        try
+        {
+            var correction = await _aiTutor.GetDirectCorrectionAsync(messageViewModel.Text);
+            messageViewModel.DirectCorrection = correction;
+            messageViewModel.ShowCorrection = true;
+        }
+        catch (System.Exception ex)
+        {
+            StatusText = $"Correction failed: {ex.Message}";
+        }
+        finally
+        {
+            messageViewModel.IsCorrectionLoading = false;
         }
     }
 
@@ -840,7 +897,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
                 Enum.TryParse<MessageSender>(messageRecord.Sender, true, out var sender) ? sender : MessageSender.User,
                 messageRecord.Text,
                 messageRecord.EnhancementAdvice,
-                messageRecord.Timestamp);
+                messageRecord.Timestamp,
+                messageRecord.Suggestions?.Select(s => new SuggestionOption(s.Label, s.Text)).ToList());
             if (messageRecord.IsSpoken)
             {
                 _spokenMessageIds.Add(message.Id);
@@ -989,6 +1047,11 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
             IReadOnlyList<PracticeMessage> history,
             CancellationToken cancellationToken = default)
             => Task.FromResult<TutorResponse?>(null);
+
+        public Task<string> GetDirectCorrectionAsync(
+            string sentence,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(sentence);
     }
 
     private sealed class DesignTimeTts : ITtsService
@@ -1046,7 +1109,7 @@ public sealed partial class SpeakingPracticeRoomItemViewModel : ObservableObject
     }
 }
 
-public sealed class PracticeMessageViewModel
+public sealed partial class PracticeMessageViewModel : ObservableObject
 {
     public string Id { get; }
     public bool IsUser { get; }
@@ -1056,6 +1119,13 @@ public sealed class PracticeMessageViewModel
     public bool HasEnhancement => !string.IsNullOrWhiteSpace(EnhancementAdvice);
     public DateTimeOffset Timestamp { get; }
     public bool IsSpoken { get; }
+    public System.Collections.Generic.IReadOnlyList<SuggestionOption> Suggestions { get; }
+    public bool HasSuggestions => Suggestions.Count > 0;
+
+    [ObservableProperty] private bool _showSuggestions;
+    [ObservableProperty] private string? _directCorrection;
+    [ObservableProperty] private bool _showCorrection;
+    [ObservableProperty] private bool _isCorrectionLoading;
 
     public PracticeMessageViewModel(PracticeMessage message, bool isSpoken)
     {
@@ -1065,5 +1135,6 @@ public sealed class PracticeMessageViewModel
         EnhancementAdvice = message.EnhancementAdvice;
         Timestamp = message.Timestamp;
         IsSpoken = isSpoken;
+        Suggestions = message.Suggestions ?? [];
     }
 }

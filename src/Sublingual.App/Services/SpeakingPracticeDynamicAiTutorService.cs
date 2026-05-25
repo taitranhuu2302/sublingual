@@ -42,4 +42,24 @@ public sealed class SpeakingPracticeDynamicAiTutorService : IAiTutorService
         _groq.ConfigureModel(settings.GroqModel);
         return _groq.GetResponseAsync(instructions, languageLevel, history, cancellationToken);
     }
+
+    public Task<string> GetDirectCorrectionAsync(
+        string sentence,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = _settingsStore.Load().SpeakingPractice;
+        var provider = string.Equals(settings.AiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
+            ? SpeakingPracticeProviders.Gemini
+            : SpeakingPracticeProviders.Groq;
+
+        if (string.Equals(provider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase))
+        {
+            _gemini.Configure(settings.GeminiApiKey, settings.GeminiModel);
+            return _gemini.GetDirectCorrectionAsync(sentence, cancellationToken);
+        }
+
+        _groq.ConfigureApiKey(settings.GroqApiKey);
+        _groq.ConfigureModel(settings.GroqModel);
+        return _groq.GetDirectCorrectionAsync(sentence, cancellationToken);
+    }
 }

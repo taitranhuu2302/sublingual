@@ -152,7 +152,7 @@
         </Grid>
 
         <Grid IsVisible="{Binding IsDetailPageActive}">
-            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
                 <suki:GlassCard Grid.Row="0" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
                         <Button Classes="practice-icon-button"
@@ -253,6 +253,38 @@
                                                     </Grid>
                                                 </suki:GlassCard>
 
+                                                <!-- Action button row under user message -->
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,2,0,0">
+                                                    <Button Classes="practice-icon-button"
+                                                            Padding="4"
+                                                            Width="28"
+                                                            Height="28"
+                                                            Command="{Binding $parent[UserControl].DataContext.ToggleCorrectionCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <ToolTip.Tip>Get dynamic correction (no context)</ToolTip.Tip>
+                                                        <Panel>
+                                                            <i:Icon Value="fa-solid fa-wand-magic-sparkles" FontSize="11" IsVisible="{Binding !IsCorrectionLoading}" />
+                                                            <suki:Loading IsVisible="{Binding IsCorrectionLoading}" Width="12" Height="12" />
+                                                        </Panel>
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <!-- Direct Correction Display -->
+                                                <suki:GlassCard IsVisible="{Binding ShowCorrection}"
+                                                                Padding="12,8">
+                                                    <suki:GlassCard.Styles>
+                                                        <Style Selector="suki|GlassCard">
+                                                            <Setter Property="Background" Value="#115E59" /> <!-- Dark teal for correction -->
+                                                        </Style>
+                                                    </suki:GlassCard.Styles>
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="Corrected:" FontSize="10.5" Opacity="0.6" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding DirectCorrection}"
+                                                                   FontSize="13"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </suki:GlassCard>
+
                                                 <suki:GlassCard IsVisible="{Binding HasEnhancement}"
                                                                 Padding="12,8">
                                                     <suki:GlassCard.Styles>
@@ -267,19 +299,70 @@
                                                 </suki:GlassCard>
                                             </StackPanel>
 
-                                            <suki:GlassCard IsVisible="{Binding !IsUser}"
-                                                            HorizontalAlignment="Left"
-                                                            MaxWidth="620"
-                                                            Padding="14,10">
-                                                <suki:GlassCard.Styles>
-                                                    <Style Selector="suki|GlassCard">
-                                                        <Setter Property="Background" Value="#0E2E22" />
-                                                    </Style>
-                                                </suki:GlassCard.Styles>
-                                                <TextBlock Text="{Binding Text}"
-                                                           TextWrapping="Wrap"
-                                                           FontSize="14" />
-                                            </suki:GlassCard>
+                                            <StackPanel IsVisible="{Binding !IsUser}"
+                                                        HorizontalAlignment="Left"
+                                                        MaxWidth="620"
+                                                        Spacing="4">
+                                                <suki:GlassCard Padding="14,10">
+                                                    <suki:GlassCard.Styles>
+                                                        <Style Selector="suki|GlassCard">
+                                                            <Setter Property="Background" Value="#0E2E22" />
+                                                        </Style>
+                                                    </suki:GlassCard.Styles>
+                                                    <TextBlock Text="{Binding Text}"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="14" />
+                                                </suki:GlassCard>
+
+                                                <!-- Action button row under AI message -->
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="6" Margin="0,2,0,0" IsVisible="{Binding HasSuggestions}">
+                                                    <Button Classes="practice-icon-button"
+                                                            Padding="4"
+                                                            Width="28"
+                                                            Height="28"
+                                                            Command="{Binding $parent[UserControl].DataContext.ToggleSuggestionsCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <ToolTip.Tip>Show suggestions</ToolTip.Tip>
+                                                        <i:Icon Value="fa-solid fa-lightbulb" FontSize="11" />
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <!-- Suggestions display -->
+                                                <suki:GlassCard IsVisible="{Binding ShowSuggestions}"
+                                                                Padding="12,8">
+                                                    <suki:GlassCard.Styles>
+                                                        <Style Selector="suki|GlassCard">
+                                                            <Setter Property="Background" Value="#1E293B" />
+                                                        </Style>
+                                                    </suki:GlassCard.Styles>
+                                                    <StackPanel Spacing="6">
+                                                        <TextBlock Text="Suggestions" FontSize="10.5" Opacity="0.6" FontWeight="SemiBold" />
+                                                        <ItemsControl ItemsSource="{Binding Suggestions}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <WrapPanel Orientation="Horizontal" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Margin="0,0,6,6"
+                                                                            Command="{Binding $parent[UserControl].DataContext.ChooseSuggestionCommand}"
+                                                                            CommandParameter="{Binding}"
+                                                                            IsEnabled="{Binding $parent[UserControl].DataContext.CanChooseSuggestion}">
+                                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                            <TextBlock Text="{Binding Label}"
+                                                                                       FontSize="10"
+                                                                                       Opacity="0.6" />
+                                                                            <TextBlock Text="{Binding Text}"
+                                                                                       FontSize="12" />
+                                                                        </StackPanel>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </suki:GlassCard>
+                                            </StackPanel>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -287,42 +370,7 @@
                         </ScrollViewer>
                     </suki:GlassCard>
                 </suki:BusyArea>
-
                 <suki:GlassCard Grid.Row="3" Padding="16,12">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Quick Suggestions"
-                                   FontSize="12"
-                                   Opacity="0.55" />
-                        <ItemsControl ItemsSource="{Binding Suggestions}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Margin="0,0,8,8"
-                                            Command="{Binding $parent[UserControl].DataContext.ChooseSuggestionCommand}"
-                                            CommandParameter="{Binding}"
-                                            IsEnabled="{Binding $parent[UserControl].DataContext.CanChooseSuggestion}">
-                                        <ToolTip.Tip>
-                                            <TextBlock Text="{Binding $parent[UserControl].DataContext.AiActionHint}" />
-                                        </ToolTip.Tip>
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="{Binding Label}"
-                                                       FontSize="11"
-                                                       Opacity="0.6" />
-                                            <TextBlock Text="{Binding Text}"
-                                                       FontSize="13" />
-                                        </StackPanel>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </suki:GlassCard>
-
-                <suki:GlassCard Grid.Row="4" Padding="16,12">
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                         <TextBox x:Name="TypedMessageTextBox"
                                  Text="{Binding TypedMessage}"

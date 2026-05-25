@@ -12,4 +12,12 @@ public interface IAiTutorService
         IReadOnlyList<PracticeMessage> history,
         CancellationToken cancellationToken = default
     );
+
+    /// <summary>
+    /// Evaluates the sentence and returns ONLY the corrected version, with no context/explanations.
+    /// </summary>
+    Task<string> GetDirectCorrectionAsync(
+        string sentence,
+        CancellationToken cancellationToken = default
+    );
 }

@@ -52,6 +52,18 @@ public sealed class CoreAudioMicrophoneCaptureService : IAudioCaptureService, ID
         public uint mReserved;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct AudioQueueBuffer
+    {
+        public uint mAudioDataBytesCapacity;
+        public IntPtr mAudioData;
+        public uint mAudioDataByteSize;
+        public IntPtr mUserData;
+        public uint mPacketDescriptionCapacity;
+        public IntPtr mPacketDescriptions;
+        public uint mPacketDescriptionCount;
+    }
+
     [DllImport(AudioToolbox, CallingConvention = CallingConvention.Cdecl)]
     private static extern int AudioQueueNewInput(
         ref AudioStreamBasicDescription inFormat,
@@ -216,13 +228,10 @@ public sealed class CoreAudioMicrophoneCaptureService : IAudioCaptureService, ID
             return;
         }
 
-        // AudioQueueBuffer layout:
-        //  offset 0: uint32 mAudioDataBytesCapacity
-        //  offset 4: void*  mAudioData
-        //  offset 4+ptr: uint32 mAudioDataByteSize
-        var bytesCapacity = Marshal.ReadInt32(inBuffer, 0);
-        var audioDataPtr = Marshal.ReadIntPtr(inBuffer, 4);
-        var bytesRecorded = Marshal.ReadInt32(inBuffer, 4 + IntPtr.Size);
+        var buffer = Marshal.PtrToStructure<AudioQueueBuffer>(inBuffer);
+        var bytesCapacity = buffer.mAudioDataBytesCapacity;
+        var audioDataPtr = buffer.mAudioData;
+        var bytesRecorded = (int)buffer.mAudioDataByteSize;
 
         if (bytesRecorded > 0 && audioDataPtr != IntPtr.Zero)
         {

@@ -44,6 +44,34 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         }
     }
 
+    public async Task<string> GetDirectCorrectionAsync(
+        string sentence,
+        CancellationToken cancellationToken = default)
+    {
+        var systemPrompt = "Correct the following sentence to make it natural and grammatically correct in English. Output ONLY the corrected sentence itself. Do not include any explanations, preambles, comments, context evaluations, or markdown formatting. If the sentence is already perfect, return the original sentence.";
+        var requestBody = new
+        {
+            model = _model,
+            temperature = 0.3,
+            max_tokens = 256,
+            messages = new object[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = sentence }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var root = JsonNode.Parse(responseJson);
+        var result = root?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+        return result?.Trim() ?? sentence;
+    }
+
     public void ConfigureApiKey(string apiKey)
     {
         _http.DefaultRequestHeaders.Authorization =
@@ -151,6 +179,27 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
                || statusCode == System.Net.HttpStatusCode.BadRequest;
     }
 
+    private static string CleanJsonString(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        
+        // Strip any <think>...</think> or <thinking>...</thinking> tags and their contents
+        input = System.Text.RegularExpressions.Regex.Replace(
+            input, 
+            @"<(?:think|thinking)\b[^>]*>.*?</(?:think|thinking)>", 
+            string.Empty, 
+            System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        
+        var start = input.IndexOf('{');
+        var end = input.LastIndexOf('}');
+        if (start >= 0 && end > start)
+        {
+            return input.Substring(start, end - start + 1);
+        }
+        return input;
+    }
+
     private static TutorResponse? ParseTutorResponse(string rawJson)
     {
         try
@@ -162,7 +211,8 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
                 return null;
             }
 
-            var parsed = JsonSerializer.Deserialize<TutorResponseDto>(content, JsonOptions);
+            var cleaned = CleanJsonString(content);
+            var parsed = JsonSerializer.Deserialize<TutorResponseDto>(cleaned, JsonOptions);
             if (parsed is null)
             {
                 return null;

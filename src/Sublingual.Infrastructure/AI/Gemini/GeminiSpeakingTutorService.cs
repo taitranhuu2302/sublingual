@@ -51,6 +51,34 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
         }
     }
 
+    public async Task<string> GetDirectCorrectionAsync(
+        string sentence,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var systemInstruction = "Correct the following sentence to make it natural and grammatically correct in English. Output ONLY the corrected sentence itself. Do not include any explanations, preambles, comments, context evaluations, or markdown formatting. If the sentence is already perfect, return the original sentence.";
+        var requestBody = new
+        {
+            system_instruction = new { parts = new[] { new { text = systemInstruction } } },
+            contents = new[] { new { role = "user", parts = new[] { new { text = sentence } } } },
+            generation_config = new
+            {
+                temperature = 0.3,
+                max_output_tokens = 256,
+            },
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var root = JsonNode.Parse(responseJson);
+        var result = root?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.GetValue<string>();
+        return result?.Trim() ?? sentence;
+    }
+
     private static object[] BuildContents(IReadOnlyList<PracticeMessage> history, int? historyTokenBudget)
     {
         var contents = new List<object>();
@@ -142,6 +170,27 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
                || statusCode == System.Net.HttpStatusCode.BadRequest;
     }
 
+    private static string CleanJsonString(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        
+        // Strip any <think>...</think> or <thinking>...</thinking> tags and their contents
+        input = System.Text.RegularExpressions.Regex.Replace(
+            input, 
+            @"<(?:think|thinking)\b[^>]*>.*?</(?:think|thinking)>", 
+            string.Empty, 
+            System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        
+        var start = input.IndexOf('{');
+        var end = input.LastIndexOf('}');
+        if (start >= 0 && end > start)
+        {
+            return input.Substring(start, end - start + 1);
+        }
+        return input;
+    }
+
     private static TutorResponse? ParseTutorResponse(string rawJson)
     {
         try
@@ -153,7 +202,8 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
                 return null;
             }
 
-            var parsed = JsonSerializer.Deserialize<TutorResponseDto>(content, JsonOptions);
+            var cleaned = CleanJsonString(content);
+            var parsed = JsonSerializer.Deserialize<TutorResponseDto>(cleaned, JsonOptions);
             if (parsed is null)
             {
                 return null;

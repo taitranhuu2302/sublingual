@@ -5,7 +5,8 @@ public sealed record PracticeMessage(
     MessageSender Sender,
     string Text,
     string? EnhancementAdvice,
-    DateTimeOffset Timestamp
+    DateTimeOffset Timestamp,
+    System.Collections.Generic.IReadOnlyList<SuggestionOption>? Suggestions = null
 );
 
 public enum MessageSender

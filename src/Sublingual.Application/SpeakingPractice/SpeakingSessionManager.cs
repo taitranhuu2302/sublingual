@@ -140,7 +140,8 @@ public sealed class SpeakingSessionManager : IDisposable
             Sender: MessageSender.Ai,
             Text: tutorResponse.TutorReply,
             EnhancementAdvice: null,
-            Timestamp: DateTimeOffset.Now
+            Timestamp: DateTimeOffset.Now,
+            Suggestions: tutorResponse.Suggestions
         );
         AddMessage(aiMessage);
 

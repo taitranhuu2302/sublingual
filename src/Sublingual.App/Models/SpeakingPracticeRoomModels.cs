@@ -18,6 +18,13 @@ public sealed class SpeakingPracticeMessageRecord
     public string? EnhancementAdvice { get; set; }
     public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
     public bool IsSpoken { get; set; }
+    public List<SpeakingPracticeSuggestionOptionRecord>? Suggestions { get; set; }
+}
+
+public sealed class SpeakingPracticeSuggestionOptionRecord
+{
+    public string Label { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
 }
 
 public sealed class SpeakingPracticeRoomsDocument

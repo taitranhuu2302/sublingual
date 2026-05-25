@@ -143,6 +143,11 @@ public sealed class SpeakingPracticeRoomStore
                     EnhancementAdvice = message.EnhancementAdvice,
                     Timestamp = message.Timestamp,
                     IsSpoken = isSpokenMessage?.Invoke(message) ?? false,
+                    Suggestions = message.Suggestions?.Select(s => new SpeakingPracticeSuggestionOptionRecord
+                    {
+                        Label = s.Label,
+                        Text = s.Text
+                    }).ToList(),
                 })
                 .ToList();
 
@@ -187,7 +192,8 @@ public sealed class SpeakingPracticeRoomStore
                 ParseSender(message.Sender),
                 message.Text,
                 message.EnhancementAdvice,
-                message.Timestamp))
+                message.Timestamp,
+                message.Suggestions?.Select(s => new SuggestionOption(s.Label, s.Text)).ToList()))
             .ToList();
     }
 
