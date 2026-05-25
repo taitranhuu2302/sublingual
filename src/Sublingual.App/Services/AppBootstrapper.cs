@@ -104,6 +104,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<OverlayWindowViewModel>();
 
         // Speaking Practice
+        services.AddSingleton<SpeakingPracticeRoomStore>();
         services.AddSingleton<GroqSpeakingTutorService>(provider =>
         {
             var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
@@ -113,6 +114,7 @@ public sealed class AppBootstrapper : IDisposable
             {
                 svc.ConfigureApiKey(settings.GroqApiKey);
             }
+            svc.ConfigureModel(settings.GroqModel);
             return svc;
         });
         services.AddSingleton<GeminiSpeakingTutorService>(provider =>
@@ -135,7 +137,10 @@ public sealed class AppBootstrapper : IDisposable
                 CreateMicrophoneCaptureService(),
                 provider.GetRequiredService<ITranscriptionService>(),
                 provider.GetRequiredService<AudioFormatNormalizer>()));
-        services.AddSingleton<SpeakingSessionManager>();
+        services.AddSingleton(provider =>
+            new SpeakingSessionManager(
+                provider.GetRequiredService<IAiTutorService>(),
+                provider.GetRequiredService<ITtsService>()));
         services.AddSingleton<PracticeSessionViewModel>();
     }
 

@@ -5,8 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignWidth="860"
-             d:DesignHeight="680"
+             d:DesignWidth="980"
+             d:DesignHeight="720"
              x:Class="Sublingual.App.Views.SpeakingPractice.PracticeSessionView"
              x:DataType="vm:PracticeSessionViewModel">
 
@@ -14,160 +14,450 @@
         <vm:PracticeSessionViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16">
+    <Grid RowDefinitions="*,Auto" Margin="16">
 
-        <!-- ─── Header ──────────────────────────────────────────────── -->
-        <suki:GlassCard Grid.Row="0" Margin="0,0,0,12" Padding="20,14">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Spacing="6">
-                    <TextBlock Text="🎙 AI Speaking Practice"
-                               FontSize="20" FontWeight="SemiBold"
-                               Opacity="0.92"/>
-                    <TextBlock Text="{Binding StatusText}"
-                               FontSize="13" Opacity="0.6"/>
-                </StackPanel>
+        <Grid IsVisible="{Binding IsListPageActive}">
+            <StackPanel Spacing="14">
+                <suki:GlassCard Padding="20,16">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" Spacing="6">
+                            <TextBlock Text="AI Practice Rooms"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Opacity="0.94" />
+                            <TextBlock Text="Create a room with instructions, then open it to chat or speak with AI."
+                                       FontSize="13"
+                                       Opacity="0.62"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Classes="Accent"
+                                Command="{Binding OpenCreateRoomDialogCommand}"
+                                Content="New Room"
+                                IsEnabled="{Binding !IsRoomActionBusy}"
+                                VerticalAlignment="Center" />
+                        <Button Grid.Column="2"
+                                Command="{Binding DeleteSelectedRoomsCommand}"
+                                Content="Delete Selected"
+                                IsEnabled="{Binding HasSelectedRooms}"
+                                VerticalAlignment="Center" />
+                    </Grid>
+                </suki:GlassCard>
 
-                <!-- Topic input + Start/Stop -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                            VerticalAlignment="Center">
-                    <TextBox Text="{Binding Topic}"
-                             Watermark="Enter topic, e.g. Ordering Coffee"
-                             Width="280" VerticalContentAlignment="Center"
-                             IsEnabled="{Binding !IsSessionActive}"/>
-                    <Button Content="Start"
-                            Command="{Binding StartSessionCommand}"
-                            IsEnabled="{Binding !IsSessionActive}"
-                            Classes="Accent"/>
-                    <Button Content="Stop"
-                            Command="{Binding StopSessionCommand}"
-                            IsEnabled="{Binding IsSessionActive}"/>
-                </StackPanel>
-            </Grid>
-        </suki:GlassCard>
+                <TextBox Text="{Binding RoomSearchText}"
+                         Watermark="Search rooms by title or instructions" />
 
-        <!-- ─── Chat Area wrapped in BusyArea ───────────────────────── -->
-        <suki:BusyArea Grid.Row="1"
-                       IsBusy="{Binding IsThinking}"
-                       BusyText="Tutor is thinking..."
-                       Margin="0,0,0,12">
-            <suki:GlassCard Padding="4">
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Messages}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="8,6">
-                                    <!-- USER bubble → right-aligned -->
-                                    <StackPanel IsVisible="{Binding IsUser}"
-                                                HorizontalAlignment="Right"
-                                                MaxWidth="520" Spacing="4">
+                <suki:GlassCard Padding="16" IsVisible="{Binding !HasAnyRooms}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="No practice rooms yet."
+                                   FontSize="16"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Create one with custom instructions such as a topic, vocabulary list, or advice style. Leave it empty to get a warm daily conversation room."
+                                   FontSize="13"
+                                   Opacity="0.68"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </suki:GlassCard>
 
-                                        <suki:GlassCard Padding="14,10">
-                                            <suki:GlassCard.Styles>
-                                                <Style Selector="suki|GlassCard">
-                                                    <Setter Property="Background"
-                                                            Value="#1A3A6B"/>
-                                                </Style>
-                                            </suki:GlassCard.Styles>
-                                            <TextBlock Text="{Binding Text}"
-                                                       TextWrapping="Wrap"
-                                                       FontSize="14"/>
-                                        </suki:GlassCard>
+                <suki:GlassCard Padding="16" IsVisible="{Binding NoSearchResults}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="No rooms match your search."
+                                   FontSize="16"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Try a different keyword from the room title or instructions."
+                                   FontSize="13"
+                                   Opacity="0.68"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </suki:GlassCard>
 
-                                        <!-- Enhancement Tip (amber card, only when present) -->
-                                        <suki:GlassCard IsVisible="{Binding HasEnhancement}"
-                                                        Padding="12,8">
-                                            <suki:GlassCard.Styles>
-                                                <Style Selector="suki|GlassCard">
-                                                    <Setter Property="Background"
-                                                            Value="#2A1D00"/>
-                                                </Style>
-                                            </suki:GlassCard.Styles>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="💡" FontSize="14"
-                                                           VerticalAlignment="Top"/>
-                                                <TextBlock Text="{Binding EnhancementAdvice}"
-                                                           FontSize="12.5"
-                                                           TextWrapping="Wrap"
-                                                           Opacity="0.88"/>
-                                            </StackPanel>
-                                        </suki:GlassCard>
+                <ItemsControl ItemsSource="{Binding Rooms}" IsVisible="{Binding HasRooms}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SpeakingPracticeRoomItemViewModel">
+                            <suki:GlassCard Margin="0,0,0,12" Padding="16,14">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
+                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                              VerticalAlignment="Top"
+                                              Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding InstructionsPreview}"
+                                                   FontSize="12.5"
+                                                   Opacity="0.68"
+                                                   MaxLines="2"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding LastMessagePreview}"
+                                                   FontSize="12"
+                                                   Opacity="0.58"
+                                                   MaxLines="1"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding HasLastMessagePreview}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <TextBlock Text="{Binding CreatedAtText, StringFormat=Created {0}}"
+                                                       FontSize="11"
+                                                       Opacity="0.5" />
+                                            <TextBlock Text="{Binding UpdatedAtText, StringFormat=Updated {0}}"
+                                                       FontSize="11"
+                                                       Opacity="0.5" />
+                                            <TextBlock Text="{Binding MessageCount, StringFormat={}{0} message(s)}"
+                                                       FontSize="11"
+                                                       Opacity="0.5" />
+                                        </StackPanel>
                                     </StackPanel>
-
-                                    <!-- AI bubble → left-aligned -->
-                                    <suki:GlassCard IsVisible="{Binding !IsUser}"
-                                                    HorizontalAlignment="Left"
-                                                    MaxWidth="520"
-                                                    Padding="14,10">
-                                        <suki:GlassCard.Styles>
-                                            <Style Selector="suki|GlassCard">
-                                                <Setter Property="Background"
-                                                        Value="#0E2E22"/>
-                                            </Style>
-                                        </suki:GlassCard.Styles>
-                                        <TextBlock Text="{Binding Text}"
-                                                   TextWrapping="Wrap"
-                                                   FontSize="14"/>
-                                    </suki:GlassCard>
+                                    <Button Grid.Column="2"
+                                            Command="{Binding $parent[UserControl].DataContext.OpenRoomCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Open"
+                                            Classes="Accent"
+                                            IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
+                                            VerticalAlignment="Center" />
+                                    <Button Grid.Column="3"
+                                            Command="{Binding $parent[UserControl].DataContext.DuplicateRoomCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Duplicate"
+                                            IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
+                                            VerticalAlignment="Center" />
+                                    <Button Grid.Column="4"
+                                            Command="{Binding $parent[UserControl].DataContext.OpenDeleteRoomDialogCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Delete"
+                                            IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
+                                            VerticalAlignment="Center" />
                                 </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </suki:GlassCard>
-        </suki:BusyArea>
-
-        <!-- ─── Suggestion Chips ─────────────────────────────────────── -->
-        <suki:GlassCard Grid.Row="2" Padding="16,10" Margin="0,0,0,10"
-                        IsVisible="{Binding IsSessionActive}">
-            <StackPanel Spacing="6">
-                <TextBlock Text="💬 Stuck? Try saying:"
-                           FontSize="12" Opacity="0.55" Margin="0,0,0,4"/>
-                <WrapPanel Orientation="Horizontal">
-                    <ItemsControl ItemsSource="{Binding Suggestions}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Button Margin="0,0,8,8"
-                                        Command="{Binding $parent[UserControl].DataContext.ChooseSuggestionCommand}"
-                                        CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{Binding Label}"
-                                                   FontSize="11" Opacity="0.6"/>
-                                        <TextBlock Text="{Binding Text}"
-                                                   FontSize="13"/>
-                                    </StackPanel>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </WrapPanel>
+                            </suki:GlassCard>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
-        </suki:GlassCard>
+        </Grid>
 
-        <!-- ─── Status Footer ─────────────────────────────────────────── -->
-        <suki:GlassCard Grid.Row="3" Padding="14,8">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
-                            VerticalAlignment="Center">
-                    <suki:Loading IsVisible="{Binding IsThinking}"
-                                  Width="18" Height="18"/>
-                    <TextBlock Text="{Binding StatusText}"
-                               FontSize="12.5" Opacity="0.7"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+        <Grid IsVisible="{Binding IsDetailPageActive}">
+            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
+                <suki:GlassCard Grid.Row="0" Padding="18,14">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
+                        <Button Content="Back"
+                                Command="{Binding BackToRoomListCommand}"
+                                VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding RoomTitle}"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding RoomInstructions}"
+                                       FontSize="12.5"
+                                       Opacity="0.66"
+                                       TextWrapping="Wrap"
+                                       MaxLines="3" />
+                        </StackPanel>
+                        <Button Grid.Column="2"
+                                Content="Duplicate"
+                                Command="{Binding DuplicateCurrentRoomCommand}"
+                                IsEnabled="{Binding !IsRoomActionBusy}"
+                                VerticalAlignment="Center" />
+                        <Button Grid.Column="3"
+                                Content="Edit Room"
+                                Command="{Binding OpenEditRoomDialogCommand}"
+                                IsEnabled="{Binding !IsRoomActionBusy}"
+                                VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4"
+                                   Text="{Binding StatusText}"
+                                   FontSize="12"
+                                   Opacity="0.58"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Right" />
+                    </Grid>
+                </suki:GlassCard>
 
-                <TextBlock Grid.Column="1"
-                           Text="🔊 AI Speaking"
-                           IsVisible="{Binding IsSpeaking}"
-                           FontSize="12" Opacity="0.6"
-                           VerticalAlignment="Center"/>
+                <suki:GlassCard Grid.Row="1" Padding="14,10"
+                                IsVisible="{Binding HasRecordingTranscriptPreview}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Recording Preview"
+                                   FontSize="11"
+                                   Opacity="0.54" />
+                        <TextBlock Text="{Binding RecordingTranscriptPreview}"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="13.5" />
+                    </StackPanel>
+                </suki:GlassCard>
+
+                <suki:BusyArea Grid.Row="2"
+                               IsBusy="{Binding IsThinking}"
+                               BusyText="Tutor is thinking...">
+                    <suki:GlassCard Padding="6">
+                        <ScrollViewer x:Name="MessagesScrollViewer"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Messages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PracticeMessageViewModel">
+                                        <Grid Margin="8,6">
+                                            <StackPanel IsVisible="{Binding IsUser}"
+                                                        HorizontalAlignment="Right"
+                                                        MaxWidth="620"
+                                                        Spacing="4">
+                                                <suki:GlassCard Padding="14,10">
+                                                    <suki:GlassCard.Styles>
+                                                        <Style Selector="suki|GlassCard">
+                                                            <Setter Property="Background" Value="#1A3A6B" />
+                                                        </Style>
+                                                    </suki:GlassCard.Styles>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Text}"
+                                                                   IsVisible="{Binding !IsSpoken}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="14" />
+                                                        <TextBlock Text="{Binding SingleLineText}"
+                                                                   IsVisible="{Binding IsSpoken}"
+                                                                   TextWrapping="NoWrap"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   FontSize="14" />
+                                                    </Grid>
+                                                </suki:GlassCard>
+
+                                                <suki:GlassCard IsVisible="{Binding HasEnhancement}"
+                                                                Padding="12,8">
+                                                    <suki:GlassCard.Styles>
+                                                        <Style Selector="suki|GlassCard">
+                                                            <Setter Property="Background" Value="#2A1D00" />
+                                                        </Style>
+                                                    </suki:GlassCard.Styles>
+                                                    <TextBlock Text="{Binding EnhancementAdvice}"
+                                                               FontSize="12.5"
+                                                               TextWrapping="Wrap"
+                                                               Opacity="0.88" />
+                                                </suki:GlassCard>
+                                            </StackPanel>
+
+                                            <suki:GlassCard IsVisible="{Binding !IsUser}"
+                                                            HorizontalAlignment="Left"
+                                                            MaxWidth="620"
+                                                            Padding="14,10">
+                                                <suki:GlassCard.Styles>
+                                                    <Style Selector="suki|GlassCard">
+                                                        <Setter Property="Background" Value="#0E2E22" />
+                                                    </Style>
+                                                </suki:GlassCard.Styles>
+                                                <TextBlock Text="{Binding Text}"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="14" />
+                                            </suki:GlassCard>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </suki:GlassCard>
+                </suki:BusyArea>
+
+                <suki:GlassCard Grid.Row="3" Padding="16,12">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Quick Suggestions"
+                                   FontSize="12"
+                                   Opacity="0.55" />
+                        <ItemsControl ItemsSource="{Binding Suggestions}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Margin="0,0,8,8"
+                                            Command="{Binding $parent[UserControl].DataContext.ChooseSuggestionCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding $parent[UserControl].DataContext.CanChooseSuggestion}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Label}"
+                                                       FontSize="11"
+                                                       Opacity="0.6" />
+                                            <TextBlock Text="{Binding Text}"
+                                                       FontSize="13" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </suki:GlassCard>
+
+                <suki:GlassCard Grid.Row="4" Padding="16,12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <TextBox Text="{Binding TypedMessage}"
+                                 Watermark="Type a message to the tutor"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalContentAlignment="Center" />
+                        <Button Grid.Column="1"
+                                Command="{Binding SendTypedMessageCommand}"
+                                Content="Send"
+                                Classes="Accent"
+                                IsEnabled="{Binding CanSendTypedMessage}" />
+                        <Button Grid.Column="2"
+                                Command="{Binding StartSpeakingCommand}"
+                                Content="Start Speaking"
+                                IsVisible="{Binding !IsRecording}"
+                                IsEnabled="{Binding CanStartSpeaking}" />
+                        <Button Grid.Column="2"
+                                Command="{Binding StopSpeakingCommand}"
+                                Content="Stop"
+                                Classes="Accent"
+                                IsVisible="{Binding IsRecording}"
+                                IsEnabled="{Binding CanStopSpeaking}" />
+                    </Grid>
+                </suki:GlassCard>
             </Grid>
+        </Grid>
+
+        <suki:GlassCard Grid.Row="1" Padding="14,8" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusText}"
+                       FontSize="12.5"
+                       Opacity="0.72" />
         </suki:GlassCard>
 
+        <Border Grid.RowSpan="2"
+                IsVisible="{Binding IsCreateRoomDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="620"
+                  MaxWidth="620">
+                <suki:GlassCard Padding="18" Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Create Practice Room"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="Enter instructions for this room. Example: practice ordering coffee, use these vocabulary words, or act like a caring family member giving advice. Leave it blank for a warm daily conversation room."
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <TextBox Text="{Binding NewRoomTitle}"
+                                 Watermark="Optional room title, e.g. Job Interview Practice"
+                                 HorizontalAlignment="Stretch" />
+                        <TextBox Text="{Binding NewRoomInstructions}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 MinHeight="140"
+                                 VerticalContentAlignment="Top"
+                                 Watermark="Example: Talk only about preparing for a frontend interview and encourage the user to answer in simple English." />
+                        <TextBlock Text="{Binding NewRoomValidationError}"
+                                   Foreground="#FCA5A5"
+                                   FontSize="11"
+                                   IsVisible="{Binding HasCreateRoomValidationError}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <TextBlock Text="The AI will always follow these instructions for this room."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseCreateRoomDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding CreateRoomCommand}"
+                                    Content="Create"
+                                    IsEnabled="{Binding CanCreateRoom}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
+
+        <Border Grid.RowSpan="2"
+                IsVisible="{Binding IsDeleteRoomsDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18" Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Delete Practice Room"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="{Binding DeleteRoomsDialogMessage}"
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <TextBlock Text="This action cannot be undone."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseDeleteRoomsDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding ConfirmDeleteRoomsCommand}"
+                                    Content="Delete"
+                                    IsEnabled="{Binding !IsRoomActionBusy}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
+
+        <Border Grid.RowSpan="2"
+                IsVisible="{Binding IsEditRoomDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="620"
+                  MaxWidth="620">
+                <suki:GlassCard Padding="18" Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Edit Practice Room"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBox Text="{Binding EditRoomTitle}"
+                                 Watermark="Optional room title"
+                                 HorizontalAlignment="Stretch" />
+                        <TextBox Text="{Binding EditRoomInstructions}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 MinHeight="140"
+                                 VerticalContentAlignment="Top"
+                                 Watermark="Update the instructions for this room." />
+                        <TextBlock Text="{Binding EditRoomValidationError}"
+                                   Foreground="#FCA5A5"
+                                   FontSize="11"
+                                   IsVisible="{Binding HasEditRoomValidationError}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <TextBlock Text="The updated instructions will guide future AI replies in this room."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseEditRoomDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding SaveRoomEditsCommand}"
+                                    Content="Save"
+                                    IsEnabled="{Binding CanSaveRoomEdits}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

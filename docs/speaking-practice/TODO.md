@@ -1,63 +1,156 @@
-# Speaking Practice - Master Plan & Task Checklist (TODO.md)
+# Speaking Practice - Backlog
 
-This document is the main execution plan and checklist for building the real-time AI Speaking Practice system in Sublingual.
+This file tracks the remaining work for the `practice speak with AI` feature.
+It is intentionally scoped to `docs/speaking-practice/` so it does not overlap with the root `TODO.md`, which tracks repository-level work.
 
----
+## 1. Product Flow Update
 
-## 1. Documentation Index
+- [x] Restructure the `Practice` tab into a room list entry page
+  - When the user opens the `Practice` tab, show a list of practice rooms instead of opening a live conversation immediately.
+  - The list should be the default entry point for the feature.
+  - The room list view should be treated as a separate page/state from room detail.
 
-The technical details and architectural specifications are divided into functional files within this directory:
-1.  **[OVERVIEW.md](file:///Users/taitran/Desktop/sublingual/docs/speaking-practice/OVERVIEW.md)**: Architectural design, cross-platform dependencies, and system-wide data flow.
-2.  **[AUDIO-CAPTURE.md](file:///Users/taitran/Desktop/sublingual/docs/speaking-practice/AUDIO-CAPTURE.md)**: Technical guide on local microphone capturing (Windows NAudio WASAPI / macOS AVFoundation native C++ bridge), format normalization, and voice activity detection (VAD).
-3.  **[AI-INTEGRATION.md](file:///Users/taitran/Desktop/sublingual/docs/speaking-practice/AI-INTEGRATION.md)**: Details on local Speech-to-Text (STT) processing via **Vosk**, strict LLM conversational tutor prompt, structured grammar enhancement response, and JSON output for hint suggestions.
-4.  **[TTS-ENGINE.md](file:///Users/taitran/Desktop/sublingual/docs/speaking-practice/TTS-ENGINE.md)**: Details on converting AI response text to spoken audio via local system synthesizers (Windows SpeechSynthesizer, macOS process hooks) and audio playback queues.
-5.  **[UI-DESIGN.md](file:///Users/taitran/Desktop/sublingual/docs/speaking-practice/UI-DESIGN.md)**: UI mockup, SukiUI controls hierarchy, glassmorphism guidelines, animated levels, grammar tip cards, thinking state animations, and MVVM properties bindings.
+- [x] Add practice room creation flow
+  - The user can create a new practice room from the room list page.
+  - Creating a room should open a dialog that asks the user for `instructions`.
+  - `Instructions` are the core room prompt and should guide how the AI and user talk in that room.
+  - The room can optionally derive its display name from those instructions or ask for a short room name if needed.
+  - Keep the create flow simple and consistent with the current app patterns.
 
----
+- [x] Redirect to room detail immediately after room creation
+  - After the user submits the create-room dialog, open that room's detail page right away.
+  - The user should not need to click the new room again after creating it.
+  - Confirm whether canceling the dialog returns to the room list without side effects.
 
-## 2. Feature Implementation Checklist
+- [x] Add practice room deletion flow
+  - The user can delete a single room from the list.
+  - The user can also select and delete multiple rooms in one action.
+  - Confirm whether deletion should remove only room metadata or also the message history attached to that room.
 
-Follow this phase-by-phase task list during development:
+- [x] Add navigation from room list to room detail page
+  - Clicking a room item should open a separate room detail page/state.
+  - Room detail is where the actual conversation with AI happens.
+  - Define the minimum back-navigation behavior so the user can return to the room list without losing structure.
 
-### Phase 1: Core Domain Entities (`Sublingual.Domain`)
-- [ ] **Define Entities & Models**:
-  - `PracticeMessage` structure representing individual conversation dialogue boxes (now including an optional `EnhancementAdvice` text field).
-  - `SpeakingSessionState` enum capturing state flow (`Idle`, `Listening`, `Transcribing`, `AiThinking`, `AiSpeaking`, `Paused`).
-- [ ] **Define System Contracts**:
-  - `IMicrophoneCaptureService` for microphone streaming.
-  - `ITtsService` interface for audio synthesis playback.
-  - `IAiTutorService` representing the unified LLM backend interface.
+- [x] Split room detail into two input modes: chat and speak
+  - In room detail, the user should be able to either type a chat message or speak to the AI.
+  - Both input modes should append into the same conversation history for that room.
+  - Keep one shared message timeline instead of separate chat and voice threads.
+  - Both modes should follow the room's saved `instructions` when talking to the AI.
 
-### Phase 2: Hardware Integrations & TTS (`Sublingual.Infrastructure`)
-- [ ] **Wasapi Input Capturer**: Implement `WasapiMicrophoneCaptureService` utilizing NAudio.
-- [ ] **AVFoundation macOS Capturer**: Implement `AvFoundationMicrophoneService` inside `ScreenCaptureKitBridge` wrapper `dylib`.
-- [ ] **Voice Activity Detection**: Build C# `SilenceDetectionProcessor` trigger based on root-mean-square (RMS) energy thresholds.
-- [ ] **Local Synthesis**: Build `LocalSystemTtsService` for Windows (System.Speech) and macOS (Objective-C AVSpeech / say command process).
-- [ ] **Audio Sync Queue**: Implement interruption handling in TTS playback to safely cut off audio whenever the user speaks or clicks skip.
+- [x] Replace the current auto-send speaking flow with explicit start/stop speaking
+  - Add a toggle/button for speaking in room detail.
+  - The user starts speaking manually, talks, then stops manually.
+  - Only after the user stops should the captured speech be sent to STT and then forwarded to the AI.
+  - Remove the assumption that speech is auto-committed by silence for this room-detail flow unless there is a clear reason to keep it.
 
-### Phase 3: AI Cloud Engines & Logic (`Sublingual.Application` & `Sublingual.Infrastructure/AI`)
-- [ ] **Local STT Pipe**: Wire up the existing `VoskTranscriptionService` to feed the completed voice recording text directly to the conversational orchestrator, triggering a `"Transcribing"` state overlay.
-- [ ] **Groq client**: Write text-completion handler supporting the unified JSON response (Tutor Reply, Grammar Enhancement feedback, Suggestion Hints).
-- [ ] **Gemini client**: Write text-completion handler supporting JSON schema validation.
-- [ ] **Strict System Prompt**: Construct the strict tutoring prompt instructing the LLM to analyze the user's syntax and stay 100% committed to the topic.
-- [ ] **Session Coordinator**: Implement `SpeakingSessionManager` state machine holding sliding token context window and orchestrating the audio capture -> Vosk STT -> LLM (Thinking indicators) -> TTS pipeline.
+- [x] Render spoken user text on a single line
+  - After STT completes, the rendered text for that spoken turn should stay on one line.
+  - Confirm whether this means truncation, horizontal scroll avoidance, or plain single-line visual style with wrapping disabled.
+  - Apply the rule specifically to the spoken-input rendering path unless product wants all messages constrained to one line.
 
-### Phase 4: SukiUI Interactive UI (`Sublingual.UI` & `Sublingual.App`)
-- [ ] **Settings panel**: Add text boxes for Groq/Gemini API keys and slider configurations for VAD pause delays.
-- [ ] **SpeakingPractice View**:
-  - Build `PracticeSessionView` featuring SukiUI `GlassCard` and blur aesthetics.
-  - Build a constructive **Grammar Tip Card** nested below user chat bubbles.
-  - Implement full-screen or panel-level **`BusyArea`** and **`Loading`** loops to trigger while `IsThinking` is active.
-  - Build custom microphone `LevelMeter` representing RMS values dynamically.
-  - Render beautiful, clickable suggestion chips at the bottom.
-- [ ] **MVVM Bindings**: Complete `PracticeSessionViewModel` registering all reactive buttons and state bindings.
+## 2. Conversation Orchestration
 
----
+- [x] Make room instructions part of the AI conversation contract
+  - Each room should carry a persistent `instructions` field.
+  - The AI prompt must always include those instructions so the conversation stays aligned with the room purpose.
+  - Examples include a topic-focused room, a room limited to a vocabulary list, or a room for a specific style of advice/practice.
 
-## 3. Verification & Validation Milestones
+- [x] Add default fallback AI behavior when room instructions are empty or skipped
+  - If the user skips the instructions field or leaves it blank, the room should still work.
+  - Define a default conversational persona and fallback topics for the AI, such as greeting the user, asking about work, daily life, family-style conversation, sharing feelings, or giving advice on everyday issues.
+  - Keep this fallback behavior explicit in prompt construction instead of relying on whatever the model does by default.
 
-*   **Test 1 (Microphone Loopback)**: Capture microphone data, normalize it to 16kHz mono PCM, save to a temporary `.wav` file, and verify acoustic clarity.
-*   **Test 2 (VAD Precision)**: Verify that normal spoken phrases trigger auto-commit seamlessly within 1.2 to 1.5 seconds of pausing, without clipping sentences prematurely.
-*   **Test 3 (Suggestion & Tip Verification)**: Ensure parsed JSON response contains constructive grammar tips if an intentional error is introduced, along with context-aware suggestions matching the topic.
-*   **Test 4 (Acoustic Feedback Check)**: Test with high volume. Confirm the app does not record its own speakers, preventing infinite loops.
-*   **Test 5 (UX Loading Check)**: Verify that during slow internet responses, the `BusyArea` overlay holds properly, locking out buttons and showing a clear "Thinking" state so users are guided appropriately.
+- [x] Fix duplicated user turn in AI request context
+  - `SpeakingSessionManager` currently adds the latest user message into `_history` before calling the AI service.
+  - `GroqSpeakingTutorService` and `GeminiSpeakingTutorService` then append the same `userText` again when building the outbound request.
+  - Update the request-building flow so the latest user utterance is sent exactly once.
+  - Re-check both providers to ensure they build equivalent conversation context.
+
+- [x] Align runtime state transitions with the intended speaking flow
+  - `SpeakingSessionState.Transcribing` exists in the domain and UI, but the runtime never transitions into it.
+  - Add or remove this state based on the actual intended UX, but make code, UI text, and docs match.
+  - Ensure the user-visible status changes correctly between `Listening`, `Transcribing`, `AiThinking`, and `AiSpeaking`.
+
+- [x] Review stale or unused speaking-practice entry points
+  - `PracticeSessionViewModel.HandleVoskTranscriptAsync()` does not appear to be used in the runtime flow.
+  - Confirm whether this method is dead code or whether the intended wiring is missing.
+  - Remove the dead path or wire it properly, but do not keep both models of transcript delivery without a reason.
+
+## 3. Conversation And Session Model
+
+- [x] Introduce a practice-room model in the speaking-practice domain/app layer
+  - Add a room entity/view model that can represent list items and room detail context.
+  - Define the relationship between a room and its message history.
+  - Store the room-level `instructions` as part of this model.
+  - Decide whether the current `SpeakingSessionManager` becomes per-room state or whether a higher-level room coordinator is needed.
+
+- [x] Persist room list and room conversation history
+  - Room list should survive app restarts.
+  - Opening a room should restore its existing conversation history.
+  - Room instructions should also persist and be restored with the room.
+  - Keep persistence format minimal and aligned with the app's existing local-storage approach.
+
+- [x] Scope AI conversation state to the selected room
+  - Each room should maintain its own message history and AI context.
+  - Each room should also keep its own instructions context.
+  - Switching rooms must not leak messages or suggestions across rooms.
+  - Confirm how active TTS/mic work should behave if the user leaves a room while a response is in progress.
+
+## 4. Audio Session Reliability
+
+- [x] Stop fire-and-forget microphone lifecycle calls from hiding failures
+  - `SpeakingSessionManager.StartSession()` calls `_micTranscription.StartAsync()` without awaiting success.
+  - `SpeakingSessionManager.StopSession()` also calls `_micTranscription.StopAsync()` fire-and-forget.
+  - Change the flow so startup and shutdown failures can surface into state and status text instead of leaving the UI in a false `Listening` state.
+
+- [x] Reconcile microphone transcription behavior with the new manual speak flow
+  - The new UX requires explicit start speaking and stop speaking before sending to AI.
+  - Rework `MicrophoneTranscriptionService` and related orchestration so capture/transcription align with this manual push-to-talk style.
+  - Remove or demote VAD-driven assumptions if they no longer belong in the primary room-detail flow.
+
+- [ ] Verify mute/unmute behavior around TTS playback
+  - Mic muting is toggled around AI speech in `SpeakingSessionManager`.
+  - Re-check whether pending partial text or capture timing can leak stale speech into the next turn after unmute.
+  - Keep the fix minimal and limited to the actual observed edge case.
+
+## 5. UI Structure
+
+- [x] Create a room list page/view model for speaking practice
+  - Add the UI state for listing rooms, creating rooms, selecting rooms, and deleting one or many rooms.
+  - Include the create-room dialog flow for entering room instructions.
+  - Follow the existing Avalonia + SukiUI patterns already used in the app.
+
+- [x] Create a room detail page/view model for active conversation
+  - The detail page should show the room title/context, room instructions, and the message timeline.
+  - It should expose both typed chat input and explicit speak controls.
+  - It should support navigation back to the room list page.
+
+- [x] Update message rendering rules for room detail
+  - Preserve the shared timeline for AI and user messages.
+  - Apply the single-line display rule to spoken-text rendering as requested.
+  - Re-check whether enhancement advice should still render below the user turn in the new layout.
+
+## 6. AI Provider Configuration
+
+- [x] Honor the configured Groq model from app settings
+  - `SpeakingPracticeSettings.GroqModel` exists, but the Groq request currently hardcodes `llama-3.3-70b-versatile`.
+  - Add a configuration path equivalent to Gemini so runtime behavior matches saved settings.
+
+- [x] Tighten provider configuration failure behavior
+  - `GeminiSpeakingTutorService` can be configured with an empty API key.
+  - `GroqSpeakingTutorService` only receives an auth header when a key is present.
+  - Decide how the feature should fail when keys are missing: disable start, show a clear error, or surface a session-level failure.
+  - Make the UI/runtime behavior explicit instead of failing only at request time.
+
+## 7. Docs Alignment
+
+- [x] Update speaking-practice docs to reflect the implemented architecture
+  - `OVERVIEW.md`, `AI-INTEGRATION.md`, and `AUDIO-CAPTURE.md` currently describe behaviors that do not fully match the code.
+  - After the runtime fixes are done, revise the docs so state transitions, VAD behavior, and provider configuration are accurate.
+  - Remove implementation claims that are still aspirational.
+
+## 8. Out Of Scope
+
+- [x] Do not add tests in this pass
+  - This fix backlog intentionally excludes new test work per current request.

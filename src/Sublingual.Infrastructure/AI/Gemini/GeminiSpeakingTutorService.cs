@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Sublingual.Domain.SpeakingPractice;
+using Sublingual.Infrastructure.AI;
 
 namespace Sublingual.Infrastructure.AI.Gemini;
 
@@ -11,6 +12,7 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
     private readonly HttpClient _http;
     private string _apiKey = string.Empty;
     private string _model = "gemini-2.5-flash";
+    private const int RetryHistoryTokenBudget = 1200;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,16 +31,92 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
     }
 
     public async Task<TutorResponse?> GetResponseAsync(
-        string topic,
+        string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
-        string userText,
         CancellationToken cancellationToken = default)
     {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var response = await SendAsync(instructions, languageLevel, history, null, cancellationToken);
+        if (IsContextLimitStatus(response.StatusCode))
+        {
+            response.Dispose();
+            response = await SendAsync(instructions, languageLevel, history, RetryHistoryTokenBudget, cancellationToken);
+        }
 
-        var contents = BuildContents(history, userText);
-        var systemInstruction = BuildSystemPrompt(topic, languageLevel);
+        using (response)
+        {
+            response.EnsureSuccessStatusCode();
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            return ParseTutorResponse(responseJson);
+        }
+    }
+
+    private static object[] BuildContents(IReadOnlyList<PracticeMessage> history, int? historyTokenBudget)
+    {
+        var contents = new List<object>();
+
+        var budget = historyTokenBudget ?? SpeakingHistoryWindowing.DefaultHistoryTokenBudget;
+        foreach (var msg in SpeakingHistoryWindowing.SelectRecentMessagesWithinBudget(history, budget))
+        {
+            var role = msg.Sender == MessageSender.User ? "user" : "model";
+            contents.Add(new { role, parts = new[] { new { text = msg.Text } } });
+        }
+
+        return [.. contents];
+    }
+
+    private static string BuildSystemPrompt(string instructions, string languageLevel) => $$"""
+        You are a highly professional, encouraging, and strict English Language Tutor.
+        The user's room instructions are: '{{instructions}}'.
+        The user's language level is: '{{languageLevel}}'.
+
+        You MUST strictly follow ALL of these rules — no exceptions:
+        1. ROOM INSTRUCTIONS: Treat the room instructions as the main conversation contract. If they define a topic, role, vocabulary list, or speaking style, stay aligned with them for the whole conversation.
+        2. FALLBACK BEHAVIOR: If the room instructions are broad or effectively empty, have a warm daily conversation. Greet the user, ask about their day, work, feelings, family life, or everyday concerns, and offer gentle advice when it feels natural.
+        3. SPOKEN STYLE: Keep your 'tutor_reply' natural, warm, and conversational. Exactly 2 to 3 sentences maximum.
+        4. ENGAGEMENT: Always end your reply with an open-ended question that matches the room instructions or the fallback daily-conversation mode.
+        5. CONSTRUCTIVE ENHANCEMENT: Analyze the user's latest message carefully.
+           - If they made a grammar, vocabulary, word-choice, or collocation error: provide a gentle correction in 'english_enhancement'. Example: "Great try! Instead of 'I am agree', say 'I agree' — no verb needed."
+           - If their sentence was perfect: leave 'english_enhancement' as an empty string "".
+        6. SUGGESTIONS: Generate exactly 3 distinct and natural next-turn options in 'suggestions':
+           - Option 1 label "Direct Reply": short, simple sentence.
+           - Option 2 label "Elaborate": expanded with a reason or detail.
+           - Option 3 label "Ask Back": a follow-up question to keep the conversation going.
+        7. OUTPUT FORMAT: Respond ONLY with this exact JSON structure:
+        {
+          "tutor_reply": "...",
+          "english_enhancement": "...",
+          "suggestions": [
+            { "label": "Direct Reply", "text": "..." },
+            { "label": "Elaborate", "text": "..." },
+            { "label": "Ask Back", "text": "..." }
+          ]
+        }
+        """;
+
+    private static string TrimInstructions(string instructions)
+    {
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            return string.Empty;
+        }
+
+        const int maxChars = 1200;
+        return instructions.Length <= maxChars
+            ? instructions
+            : instructions[..maxChars].TrimEnd() + "...";
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(
+        string instructions,
+        string languageLevel,
+        IReadOnlyList<PracticeMessage> history,
+        int? historyTokenBudget,
+        CancellationToken cancellationToken)
+    {
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var contents = BuildContents(history, historyTokenBudget);
+        var systemInstruction = BuildSystemPrompt(TrimInstructions(instructions), languageLevel);
 
         var requestBody = new
         {
@@ -55,55 +133,14 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
         var json = JsonSerializer.Serialize(requestBody);
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        return ParseTutorResponse(responseJson);
+        return await _http.SendAsync(request, cancellationToken);
     }
 
-    private static object[] BuildContents(IReadOnlyList<PracticeMessage> history, string userText)
+    private static bool IsContextLimitStatus(System.Net.HttpStatusCode statusCode)
     {
-        var contents = new List<object>();
-
-        foreach (var msg in history.TakeLast(14))
-        {
-            var role = msg.Sender == MessageSender.User ? "user" : "model";
-            contents.Add(new { role, parts = new[] { new { text = msg.Text } } });
-        }
-
-        contents.Add(new { role = "user", parts = new[] { new { text = userText } } });
-
-        return [.. contents];
+        return statusCode == System.Net.HttpStatusCode.RequestEntityTooLarge
+               || statusCode == System.Net.HttpStatusCode.BadRequest;
     }
-
-    private static string BuildSystemPrompt(string topic, string languageLevel) => $$"""
-        You are a highly professional, encouraging, and strict English Language Tutor.
-        The user is practicing speaking on the topic: '{{topic}}' at language level: '{{languageLevel}}'.
-
-        You MUST strictly follow ALL of these rules — no exceptions:
-        1. TOPIC ADHERENCE: Stay 100% focused on the topic '{{topic}}'. Never deviate under any circumstances.
-        2. SPOKEN STYLE: Keep your 'tutor_reply' natural, warm, and conversational. Exactly 2 to 3 sentences maximum.
-        3. ENGAGEMENT: Always end your reply with an open-ended question related to the topic.
-        4. CONSTRUCTIVE ENHANCEMENT: Analyze the user's latest message carefully.
-           - If they made a grammar, vocabulary, word-choice, or collocation error: provide a gentle correction in 'english_enhancement'. Example: "Great try! Instead of 'I am agree', say 'I agree' — no verb needed."
-           - If their sentence was perfect: leave 'english_enhancement' as an empty string "".
-        5. SUGGESTIONS: Generate exactly 3 distinct and natural next-turn options in 'suggestions':
-           - Option 1 label "Direct Reply": short, simple sentence.
-           - Option 2 label "Elaborate": expanded with a reason or detail.
-           - Option 3 label "Ask Back": a follow-up question to keep the conversation going.
-        6. OUTPUT FORMAT: Respond ONLY with this exact JSON structure:
-        {
-          "tutor_reply": "...",
-          "english_enhancement": "...",
-          "suggestions": [
-            { "label": "Direct Reply", "text": "..." },
-            { "label": "Elaborate", "text": "..." },
-            { "label": "Ask Back", "text": "..." }
-          ]
-        }
-        """;
 
     private static TutorResponse? ParseTutorResponse(string rawJson)
     {

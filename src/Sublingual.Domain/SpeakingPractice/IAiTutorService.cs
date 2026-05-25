@@ -7,10 +7,9 @@ public interface IAiTutorService
     /// Returns a fully structured <see cref="TutorResponse"/> with a reply, enhancement tip, and suggestions.
     /// </summary>
     Task<TutorResponse?> GetResponseAsync(
-        string topic,
+        string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
-        string userText,
         CancellationToken cancellationToken = default
     );
 }

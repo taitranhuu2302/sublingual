@@ -3,15 +3,13 @@ using Sublingual.Domain.SpeakingPractice;
 namespace Sublingual.Application.SpeakingPractice;
 
 /// <summary>
-/// Orchestrates the full speaking practice loop:
-/// Mic capture → Vosk STT → AI LLM → TTS playback.
-/// Owns the session state machine and publishes events for the ViewModel to observe.
+/// Orchestrates the AI speaking practice loop.
+/// Owns the conversation history, AI/TTS lifecycle, and session state updates.
 /// </summary>
 public sealed class SpeakingSessionManager : IDisposable
 {
     private readonly IAiTutorService _aiTutor;
     private readonly ITtsService _tts;
-    private readonly IMicrophoneTranscriptionService _micTranscription;
 
     private readonly List<PracticeMessage> _history = [];
     private CancellationTokenSource? _thinkingCts;
@@ -31,31 +29,38 @@ public sealed class SpeakingSessionManager : IDisposable
 
     // ── Public API ─────────────────────────────────────────────────────────────
 
-    public string Topic { get; private set; } = string.Empty;
+    public string Instructions { get; private set; } = string.Empty;
     public string LanguageLevel { get; private set; } = "Intermediate";
     public SpeakingSessionState State => _state;
     public IReadOnlyList<PracticeMessage> History => _history;
 
     public SpeakingSessionManager(
         IAiTutorService aiTutor,
-        ITtsService tts,
-        IMicrophoneTranscriptionService micTranscription)
+        ITtsService tts)
     {
         _aiTutor = aiTutor;
         _tts = tts;
-        _micTranscription = micTranscription;
-        _micTranscription.FinalTranscriptReady += OnFinalTranscriptReady;
     }
 
-    /// <summary>Starts a new session, clears history, and transitions to Listening.</summary>
-    public void StartSession(string topic, string languageLevel)
+    /// <summary>Loads a room conversation and transitions to Listening.</summary>
+    public void LoadConversation(
+        string instructions,
+        string languageLevel,
+        IEnumerable<PracticeMessage>? history = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        CancelPendingThinking();
+        _tts.StopSpeaking();
         _history.Clear();
-        Topic = topic;
+        if (history is not null)
+        {
+            _history.AddRange(history);
+        }
+
+        Instructions = instructions;
         LanguageLevel = languageLevel;
+        SuggestionsUpdated?.Invoke(this, []);
         TransitionTo(SpeakingSessionState.Listening);
-        _ = _micTranscription.StartAsync();
     }
 
     /// <summary>
@@ -94,10 +99,9 @@ public sealed class SpeakingSessionManager : IDisposable
         try
         {
             tutorResponse = await _aiTutor.GetResponseAsync(
-                Topic,
+                Instructions,
                 LanguageLevel,
                 _history,
-                transcript,
                 linkedToken
             );
         }
@@ -143,8 +147,6 @@ public sealed class SpeakingSessionManager : IDisposable
         // Publish suggestions.
         SuggestionsUpdated?.Invoke(this, tutorResponse.Suggestions);
 
-        // Speak the AI reply — mute mic to avoid echo.
-        _micTranscription.SetMuted(true);
         TransitionTo(SpeakingSessionState.AiSpeaking);
         try
         {
@@ -154,10 +156,6 @@ public sealed class SpeakingSessionManager : IDisposable
         {
             // User skipped or started speaking.
         }
-        finally
-        {
-            _micTranscription.SetMuted(false);
-        }
 
         if (!linkedToken.IsCancellationRequested)
         {
@@ -165,12 +163,24 @@ public sealed class SpeakingSessionManager : IDisposable
         }
     }
 
-    /// <summary>Stops the session and returns to Idle.</summary>
+    public void MarkTranscribing()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        TransitionTo(SpeakingSessionState.Transcribing);
+    }
+
+    public void CancelActiveResponse()
+    {
+        CancelPendingThinking();
+        _tts.StopSpeaking();
+        TransitionTo(SpeakingSessionState.Listening);
+    }
+
+    /// <summary>Stops the loaded conversation and returns to Idle.</summary>
     public void StopSession()
     {
         CancelPendingThinking();
         _tts.StopSpeaking();
-        _ = _micTranscription.StopAsync();
         TransitionTo(SpeakingSessionState.Idle);
     }
 
@@ -180,8 +190,6 @@ public sealed class SpeakingSessionManager : IDisposable
         _disposed = true;
         CancelPendingThinking();
         _tts.StopSpeaking();
-        _micTranscription.FinalTranscriptReady -= OnFinalTranscriptReady;
-        (_micTranscription as IDisposable)?.Dispose();
         (_tts as IDisposable)?.Dispose();
     }
 
@@ -208,11 +216,5 @@ public sealed class SpeakingSessionManager : IDisposable
             cts.Dispose();
             _thinkingCts = null;
         }
-    }
-
-    private void OnFinalTranscriptReady(object? sender, string transcript)
-    {
-        // Fire-and-forget: don't block the capture callback thread.
-        _ = HandleUserTranscriptAsync(transcript);
     }
 }

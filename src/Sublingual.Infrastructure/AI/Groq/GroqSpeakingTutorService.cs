@@ -3,12 +3,15 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Sublingual.Domain.SpeakingPractice;
+using Sublingual.Infrastructure.AI;
 
 namespace Sublingual.Infrastructure.AI.Groq;
 
 public sealed class GroqSpeakingTutorService : IAiTutorService
 {
     private readonly HttpClient _http;
+    private string _model = "llama-3.3-70b-versatile";
+    private const int RetryHistoryTokenBudget = 1200;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -21,32 +24,24 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
     }
 
     public async Task<TutorResponse?> GetResponseAsync(
-        string topic,
+        string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
-        string userText,
         CancellationToken cancellationToken = default)
     {
-        var messages = BuildMessages(topic, languageLevel, history, userText);
-
-        var requestBody = new
+        var response = await SendAsync(instructions, languageLevel, history, null, cancellationToken);
+        if (IsContextLimitStatus(response.StatusCode))
         {
-            model = "llama-3.3-70b-versatile",
-            temperature = 0.7,
-            max_tokens = 512,
-            response_format = new { type = "json_object" },
-            messages,
-        };
+            response.Dispose();
+            response = await SendAsync(instructions, languageLevel, history, RetryHistoryTokenBudget, cancellationToken);
+        }
 
-        var json = JsonSerializer.Serialize(requestBody);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        return ParseTutorResponse(responseJson);
+        using (response)
+        {
+            response.EnsureSuccessStatusCode();
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            return ParseTutorResponse(responseJson);
+        }
     }
 
     public void ConfigureApiKey(string apiKey)
@@ -55,45 +50,54 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
             new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
+    public void ConfigureModel(string model)
+    {
+        if (!string.IsNullOrWhiteSpace(model))
+        {
+            _model = model;
+        }
+    }
+
     private static object[] BuildMessages(
-        string topic,
+        string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
-        string userText)
+        int? historyTokenBudget)
     {
-        var systemPrompt = BuildSystemPrompt(topic, languageLevel);
+        var systemPrompt = BuildSystemPrompt(TrimInstructions(instructions), languageLevel);
         var messages = new List<object>
         {
             new { role = "system", content = systemPrompt },
         };
 
-        foreach (var msg in history.TakeLast(14))
+        var budget = historyTokenBudget ?? SpeakingHistoryWindowing.DefaultHistoryTokenBudget;
+        foreach (var msg in SpeakingHistoryWindowing.SelectRecentMessagesWithinBudget(history, budget))
         {
             var role = msg.Sender == MessageSender.User ? "user" : "assistant";
             messages.Add(new { role, content = msg.Text });
         }
 
-        messages.Add(new { role = "user", content = userText });
-
         return [.. messages];
     }
 
-    private static string BuildSystemPrompt(string topic, string languageLevel) => $$"""
+    private static string BuildSystemPrompt(string instructions, string languageLevel) => $$"""
         You are a highly professional, encouraging, and strict English Language Tutor.
-        The user is practicing speaking on the topic: '{{topic}}' at language level: '{{languageLevel}}'.
+        The user's room instructions are: '{{instructions}}'.
+        The user's language level is: '{{languageLevel}}'.
 
         You MUST strictly follow ALL of these rules — no exceptions:
-        1. TOPIC ADHERENCE: Stay 100% focused on the topic '{{topic}}'. Never deviate under any circumstances.
-        2. SPOKEN STYLE: Keep your 'tutor_reply' natural, warm, and conversational. Exactly 2 to 3 sentences maximum.
-        3. ENGAGEMENT: Always end your reply with an open-ended question related to the topic.
-        4. CONSTRUCTIVE ENHANCEMENT: Analyze the user's latest message carefully.
+        1. ROOM INSTRUCTIONS: Treat the room instructions as the main conversation contract. If they define a topic, role, vocabulary list, or speaking style, stay aligned with them for the whole conversation.
+        2. FALLBACK BEHAVIOR: If the room instructions are broad or effectively empty, have a warm daily conversation. Greet the user, ask about their day, work, feelings, family life, or everyday concerns, and offer gentle advice when it feels natural.
+        3. SPOKEN STYLE: Keep your 'tutor_reply' natural, warm, and conversational. Exactly 2 to 3 sentences maximum.
+        4. ENGAGEMENT: Always end your reply with an open-ended question that matches the room instructions or the fallback daily-conversation mode.
+        5. CONSTRUCTIVE ENHANCEMENT: Analyze the user's latest message carefully.
            - If they made a grammar, vocabulary, word-choice, or collocation error: provide a gentle correction in 'english_enhancement'. Example: "Great try! Instead of 'I am agree', say 'I agree' — no verb needed."
            - If their sentence was perfect: leave 'english_enhancement' as an empty string "".
-        5. SUGGESTIONS: Generate exactly 3 distinct and natural next-turn options in 'suggestions':
+        6. SUGGESTIONS: Generate exactly 3 distinct and natural next-turn options in 'suggestions':
            - Option 1 label "Direct Reply": short, simple sentence.
            - Option 2 label "Elaborate": expanded with a reason or detail.
            - Option 3 label "Ask Back": a follow-up question to keep the conversation going.
-        6. OUTPUT FORMAT: You MUST respond ONLY with this exact JSON structure. No extra text outside the JSON:
+        7. OUTPUT FORMAT: You MUST respond ONLY with this exact JSON structure. No extra text outside the JSON:
         {
           "tutor_reply": "...",
           "english_enhancement": "...",
@@ -104,6 +108,48 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
           ]
         }
         """;
+
+    private static string TrimInstructions(string instructions)
+    {
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            return string.Empty;
+        }
+
+        const int maxChars = 1200;
+        return instructions.Length <= maxChars
+            ? instructions
+            : instructions[..maxChars].TrimEnd() + "...";
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(
+        string instructions,
+        string languageLevel,
+        IReadOnlyList<PracticeMessage> history,
+        int? historyTokenBudget,
+        CancellationToken cancellationToken)
+    {
+        var messages = BuildMessages(instructions, languageLevel, history, historyTokenBudget);
+        var requestBody = new
+        {
+            model = _model,
+            temperature = 0.7,
+            max_tokens = 512,
+            response_format = new { type = "json_object" },
+            messages,
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await _http.SendAsync(request, cancellationToken);
+    }
+
+    private static bool IsContextLimitStatus(System.Net.HttpStatusCode statusCode)
+    {
+        return statusCode == System.Net.HttpStatusCode.RequestEntityTooLarge
+               || statusCode == System.Net.HttpStatusCode.BadRequest;
+    }
 
     private static TutorResponse? ParseTutorResponse(string rawJson)
     {
