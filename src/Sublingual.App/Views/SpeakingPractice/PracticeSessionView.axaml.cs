@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Sublingual.App.ViewModels.SpeakingPractice;
 
@@ -53,5 +54,29 @@ public partial class PracticeSessionView : UserControl
             var scrollViewer = this.FindControl<ScrollViewer>("MessagesScrollViewer");
             scrollViewer?.ScrollToEnd();
         }, DispatcherPriority.Background);
+    }
+
+    private void OnTypedMessageKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not PracticeSessionViewModel vm)
+        {
+            return;
+        }
+
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            return;
+        }
+
+        if (vm.SendTypedMessageCommand.CanExecute(null))
+        {
+            vm.SendTypedMessageCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 }

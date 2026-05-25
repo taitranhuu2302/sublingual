@@ -78,6 +78,11 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private bool libreTranslateEnabled = true;
     [ObservableProperty] private string libreTranslateEndpoint = "https://libretranslate.com/translate";
     [ObservableProperty] private string libreTranslateApiKey = string.Empty;
+    [ObservableProperty] private string speakingPracticeAiProvider = SpeakingPracticeProviders.Groq;
+    [ObservableProperty] private string speakingPracticeGroqApiKey = string.Empty;
+    [ObservableProperty] private string speakingPracticeGroqModel = "llama-3.3-70b-versatile";
+    [ObservableProperty] private string speakingPracticeGeminiApiKey = string.Empty;
+    [ObservableProperty] private string speakingPracticeGeminiModel = "gemini-2.5-flash";
     [ObservableProperty] private bool translatePartials;
     [ObservableProperty] private string translationStatus = string.Empty;
     [ObservableProperty] private string translationRuntimeStatus = "No translation activity yet.";

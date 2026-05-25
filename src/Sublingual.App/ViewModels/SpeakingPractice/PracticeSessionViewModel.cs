@@ -23,6 +23,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     private readonly List<string> _pendingDeleteRoomIds = [];
     private CancellationTokenSource? _recordingCts;
     private bool _disposed;
+    public Action? OpenSettingsAction { get; set; }
 
     [ObservableProperty] private string _activePage = "list";
     [ObservableProperty] private bool _isCreateRoomDialogOpen;
@@ -48,7 +49,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     [ObservableProperty] private bool _isRoomActionBusy;
     [ObservableProperty] private bool _isAiConfigured = true;
     [ObservableProperty] private string _aiConfigurationError = string.Empty;
-    [ObservableProperty] private string _statusText = "Create a practice room to start chatting with AI.";
+    [ObservableProperty] private string _statusText = string.Empty;
 
     public ObservableCollection<SpeakingPracticeRoomItemViewModel> Rooms { get; } = [];
     public ObservableCollection<PracticeMessageViewModel> Messages { get; } = [];
@@ -66,11 +67,13 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public bool HasCreateRoomValidationError => !string.IsNullOrWhiteSpace(NewRoomValidationError);
     public bool CanSaveRoomEdits => !IsRoomActionBusy && HasSelectedRoom && string.IsNullOrWhiteSpace(EditRoomValidationError);
     public bool HasEditRoomValidationError => !string.IsNullOrWhiteSpace(EditRoomValidationError);
-    public bool CanSendTypedMessage => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording && !string.IsNullOrWhiteSpace(TypedMessage);
-    public bool CanChooseSuggestion => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
-    public bool CanStartSpeaking => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
+    public bool CanSendTypedMessage => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording && !string.IsNullOrWhiteSpace(TypedMessage);
+    public bool CanChooseSuggestion => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
+    public bool CanStartSpeaking => !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
     public bool CanStopSpeaking => IsRecording;
     public bool HasRecordingTranscriptPreview => !string.IsNullOrWhiteSpace(RecordingTranscriptPreview);
+    public bool HasStatusText => !string.IsNullOrWhiteSpace(StatusText);
+    public bool ShowOpenSettingsForAi => !IsAiConfigured && HasSelectedRoom;
 
     public PracticeSessionViewModel(
         SpeakingSessionManager sessionManager,
@@ -360,9 +363,13 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     private void BackToRoomList()
     {
         LeaveRoomInternal();
-        StatusText = HasRooms
-            ? "Select a practice room or create a new one."
-            : "Create a practice room to start chatting with AI.";
+        StatusText = string.Empty;
+    }
+
+    [RelayCommand]
+    private void OpenSpeakingSettings()
+    {
+        OpenSettingsAction?.Invoke();
     }
 
     [RelayCommand(CanExecute = nameof(CanSendTypedMessage))]
@@ -592,6 +599,21 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         SendTypedMessageCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasStatusText));
+    }
+
+    partial void OnIsAiConfiguredChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowOpenSettingsForAi));
+    }
+
+    partial void OnSelectedRoomChanged(SpeakingPracticeRoomItemViewModel? value)
+    {
+        OnPropertyChanged(nameof(ShowOpenSettingsForAi));
+    }
+
     partial void OnIsRecordingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanStartSpeaking));
@@ -634,9 +656,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
 
             StatusText = state switch
             {
-                SpeakingSessionState.Listening => HasSelectedRoom
-                    ? "Chat or speak to continue the conversation."
-                    : StatusText,
+                SpeakingSessionState.Listening => string.Empty,
                 SpeakingSessionState.Transcribing => "Processing your speech...",
                 SpeakingSessionState.AiThinking => "Tutor is thinking...",
                 SpeakingSessionState.AiSpeaking => "Tutor is speaking...",
@@ -816,9 +836,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         _sessionManager.LoadConversation(RoomInstructions, settings.SpeakingPractice.LanguageLevel, SpeakingPracticeRoomStore.ToDomainMessages(room));
 
         ActivePage = "detail";
-        StatusText = IsAiConfigured
-            ? "Chat or speak to continue the conversation."
-            : AiConfigurationError;
+        StatusText = IsAiConfigured ? string.Empty : AiConfigurationError;
         PersistCurrentRoomMessages();
     }
 

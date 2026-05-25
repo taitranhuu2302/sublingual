@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Sublingual.App.ViewModels.SpeakingPractice"
              xmlns:suki="https://github.com/kikipoulet/SukiUI"
+             xmlns:i="https://github.com/projektanker/icons.avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -9,6 +10,21 @@
              d:DesignHeight="720"
              x:Class="Sublingual.App.Views.SpeakingPractice.PracticeSessionView"
              x:DataType="vm:PracticeSessionViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.practice-icon-button">
+            <Setter Property="MinWidth" Value="44" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.practice-icon-button:pointerover">
+            <Setter Property="Opacity" Value="0.92" />
+        </Style>
+        <Style Selector="Button.practice-icon-button:pressed">
+            <Setter Property="Opacity" Value="0.78" />
+        </Style>
+    </UserControl.Styles>
 
     <Design.DataContext>
         <vm:PracticeSessionViewModel />
@@ -137,32 +153,39 @@
 
         <Grid IsVisible="{Binding IsDetailPageActive}">
             <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
-                <suki:GlassCard Grid.Row="0" Padding="18,14">
+                <suki:GlassCard Grid.Row="0" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
-                        <Button Content="Back"
+                        <Button Classes="practice-icon-button"
                                 Command="{Binding BackToRoomListCommand}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>Back to rooms</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-arrow-left" FontSize="14" />
+                        </Button>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding RoomTitle}"
-                                       FontSize="20"
+                                       FontSize="16"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
                             <TextBlock Text="{Binding RoomInstructions}"
-                                       FontSize="12.5"
+                                       FontSize="11.5"
                                        Opacity="0.66"
                                        TextWrapping="Wrap"
                                        MaxLines="3" />
                         </StackPanel>
-                        <Button Grid.Column="2"
-                                Content="Duplicate"
+                        <Button Grid.Column="2" Classes="practice-icon-button"
                                 Command="{Binding DuplicateCurrentRoomCommand}"
                                 IsEnabled="{Binding !IsRoomActionBusy}"
-                                VerticalAlignment="Center" />
-                        <Button Grid.Column="3"
-                                Content="Edit Room"
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>Duplicate room</ToolTip.Tip>
+                            <i:Icon Value="fa-regular fa-clone" FontSize="14" />
+                        </Button>
+                        <Button Grid.Column="3" Classes="practice-icon-button"
                                 Command="{Binding OpenEditRoomDialogCommand}"
                                 IsEnabled="{Binding !IsRoomActionBusy}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>Edit room</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-pen" FontSize="14" />
+                        </Button>
                         <TextBlock Grid.Column="4"
                                    Text="{Binding StatusText}"
                                    FontSize="12"
@@ -287,35 +310,51 @@
 
                 <suki:GlassCard Grid.Row="4" Padding="16,12">
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                        <TextBox Text="{Binding TypedMessage}"
+                        <TextBox x:Name="TypedMessageTextBox"
+                                 Text="{Binding TypedMessage}"
                                  Watermark="Type a message to the tutor"
+                                 AcceptsReturn="True"
                                  HorizontalAlignment="Stretch"
-                                 VerticalContentAlignment="Center" />
-                        <Button Grid.Column="1"
+                                 VerticalContentAlignment="Center"
+                                 KeyDown="OnTypedMessageKeyDown" />
+                        <Button Grid.Column="1" Classes="practice-icon-button Accent"
                                 Command="{Binding SendTypedMessageCommand}"
-                                Content="Send"
-                                Classes="Accent"
-                                IsEnabled="{Binding CanSendTypedMessage}" />
-                        <Button Grid.Column="2"
+                                IsEnabled="{Binding CanSendTypedMessage}">
+                            <ToolTip.Tip>Send message</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-paper-plane" FontSize="13" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="practice-icon-button"
                                 Command="{Binding StartSpeakingCommand}"
-                                Content="Start Speaking"
                                 IsVisible="{Binding !IsRecording}"
-                                IsEnabled="{Binding CanStartSpeaking}" />
-                        <Button Grid.Column="2"
+                                IsEnabled="{Binding CanStartSpeaking}">
+                            <ToolTip.Tip>Start speaking</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-microphone" FontSize="14" />
+                        </Button>
+                        <Button Grid.Column="2" Classes="practice-icon-button Accent"
                                 Command="{Binding StopSpeakingCommand}"
-                                Content="Stop"
-                                Classes="Accent"
                                 IsVisible="{Binding IsRecording}"
-                                IsEnabled="{Binding CanStopSpeaking}" />
+                                IsEnabled="{Binding CanStopSpeaking}">
+                            <ToolTip.Tip>Stop speaking</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-stop" FontSize="14" />
+                        </Button>
                     </Grid>
                 </suki:GlassCard>
             </Grid>
         </Grid>
 
-        <suki:GlassCard Grid.Row="1" Padding="14,8" Margin="0,12,0,0">
-            <TextBlock Text="{Binding StatusText}"
-                       FontSize="12.5"
-                       Opacity="0.72" />
+        <suki:GlassCard Grid.Row="1" Padding="14,8" Margin="0,12,0,0" IsVisible="{Binding HasStatusText}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="12.5"
+                           Opacity="0.72"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Command="{Binding OpenSpeakingSettingsCommand}"
+                        Content="Open Settings"
+                        IsVisible="{Binding ShowOpenSettingsForAi}"
+                        Classes="practice-icon-button"
+                        VerticalAlignment="Center" />
+            </Grid>
         </suki:GlassCard>
 
         <Border Grid.RowSpan="2"

@@ -1050,12 +1050,68 @@
                                             <TextBox Text="{Binding LibreTranslateApiKey}"
                                                      Watermark="Optional API key"
                                                      HorizontalAlignment="Stretch" />
-                                        </StackPanel>
-                                    </suki:GlassCard>
+                                         </StackPanel>
+                                     </suki:GlassCard>
 
-                                     <TextBlock Text="{Binding TranslationStatus}"
-                                                Foreground="#8BA3C7"
-                                                FontSize="12"
+                                     <suki:GlassCard Background="#0D1F38"
+                                                     CornerRadius="10"
+                                                     Padding="14">
+                                         <StackPanel Spacing="12">
+                                             <StackPanel Spacing="3">
+                                                 <TextBlock Text="Speaking Practice AI"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="#F0F4FF" />
+                                                 <TextBlock Text="Used by the Practice tab rooms."
+                                                            Foreground="#8BA3C7"
+                                                            FontSize="12" />
+                                             </StackPanel>
+
+                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                                 <TextBlock Text="Provider"
+                                                            VerticalAlignment="Center"
+                                                            Foreground="#8BA3C7" />
+                                                 <ComboBox Grid.Column="1"
+                                                           SelectedItem="{Binding SpeakingPracticeAiProvider}">
+                                                     <x:String>Groq</x:String>
+                                                     <x:String>Gemini</x:String>
+                                                 </ComboBox>
+                                             </Grid>
+
+                                             <TextBlock Text="Groq API Key"
+                                                        Foreground="#8BA3C7"
+                                                        FontSize="12" />
+                                             <TextBox Text="{Binding SpeakingPracticeGroqApiKey}"
+                                                      PasswordChar="*"
+                                                      Watermark="gsk_..."
+                                                      HorizontalAlignment="Stretch" />
+
+                                             <TextBlock Text="Groq Model"
+                                                        Foreground="#8BA3C7"
+                                                        FontSize="12" />
+                                             <TextBox Text="{Binding SpeakingPracticeGroqModel}"
+                                                      Watermark="llama-3.3-70b-versatile"
+                                                      HorizontalAlignment="Stretch" />
+
+                                             <TextBlock Text="Gemini API Key"
+                                                        Foreground="#8BA3C7"
+                                                        FontSize="12" />
+                                             <TextBox Text="{Binding SpeakingPracticeGeminiApiKey}"
+                                                      PasswordChar="*"
+                                                      Watermark="AIza..."
+                                                      HorizontalAlignment="Stretch" />
+
+                                             <TextBlock Text="Gemini Model"
+                                                        Foreground="#8BA3C7"
+                                                        FontSize="12" />
+                                             <TextBox Text="{Binding SpeakingPracticeGeminiModel}"
+                                                      Watermark="gemini-2.5-flash"
+                                                      HorizontalAlignment="Stretch" />
+                                         </StackPanel>
+                                     </suki:GlassCard>
+
+                                      <TextBlock Text="{Binding TranslationStatus}"
+                                                 Foreground="#8BA3C7"
+                                                 FontSize="12"
                                                 TextWrapping="Wrap" />
 
                                      <suki:GlassCard Background="#081221"

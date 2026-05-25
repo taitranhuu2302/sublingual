@@ -34,7 +34,9 @@ public sealed class AppBootstrapper : IDisposable
     public MainWindow CreateMainWindow()
     {
         var vm = _serviceProvider.GetRequiredService<MainWindowViewModel>();
-        vm.SpeakingPractice = _serviceProvider.GetRequiredService<PracticeSessionViewModel>();
+        var speakingPractice = _serviceProvider.GetRequiredService<PracticeSessionViewModel>();
+        speakingPractice.OpenSettingsAction = vm.OpenSpeakingPracticeSettings;
+        vm.SpeakingPractice = speakingPractice;
         return new MainWindow
         {
             DataContext = vm,
