@@ -16,10 +16,12 @@ public sealed class CaptureSessionStorage
     };
 
     private readonly AppSettingsStore _settingsStore;
+    private readonly SessionIndexStore _index;
 
-    public CaptureSessionStorage(AppSettingsStore settingsStore)
+    public CaptureSessionStorage(AppSettingsStore settingsStore, SessionIndexStore index)
     {
         _settingsStore = settingsStore;
+        _index = index;
     }
 
     public string CreateSessionOutputPath(string? sessionTitle = null, string? folderSelector = null)
@@ -83,6 +85,7 @@ public sealed class CaptureSessionStorage
             };
             collection.Folders.Add(existing);
             SaveFolders(collection);
+            _index.UpsertFolder(existing);
         }
         else
         {
@@ -90,6 +93,7 @@ public sealed class CaptureSessionStorage
             existing.Slug = GlobalSessionFolderSlug;
             existing.IsDefault = true;
             SaveFolders(collection);
+            _index.UpsertFolder(existing);
         }
 
         Directory.CreateDirectory(Path.Combine(sessionsRoot, GlobalSessionFolderSlug));
@@ -122,6 +126,7 @@ public sealed class CaptureSessionStorage
         collection.Folders.Add(folder);
         SaveFolders(collection);
         Directory.CreateDirectory(Path.Combine(GetSessionsRoot(), folder.Slug));
+        _index.UpsertFolder(folder);
         return folder;
     }
 
@@ -184,7 +189,10 @@ public sealed class CaptureSessionStorage
                 continue;
             }
 
+            var sessionId = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             Directory.Delete(path, true);
+            _index.DeleteTranscriptEntriesForSession(sessionId);
+            _index.DeleteSession(sessionId);
             deleted += 1;
         }
 
@@ -231,6 +239,9 @@ public sealed class CaptureSessionStorage
 
         var json = JsonSerializer.Serialize(existingEntries, SerializerOptions);
         File.WriteAllText(transcriptPath, json);
+
+        var sessionId = Path.GetFileName(sessionDirectory);
+        _index.UpsertTranscriptEntry(sessionId, entry);
     }
 
     public void DeleteTranscriptEntry(string outputAudioPath, string segmentId)
@@ -251,6 +262,9 @@ public sealed class CaptureSessionStorage
 
         var json = JsonSerializer.Serialize(existingEntries, SerializerOptions);
         File.WriteAllText(transcriptPath, json);
+
+        var sessionId = Path.GetFileName(sessionDirectory);
+        _index.DeleteTranscriptEntry(sessionId, segmentId);
     }
 
     public void SaveSessionMetadata(string outputAudioPath, CaptureSessionMetadata metadata)
@@ -271,6 +285,19 @@ public sealed class CaptureSessionStorage
         var metadataPath = Path.Combine(sessionDirectory, "session.json");
         var json = JsonSerializer.Serialize(metadata, SerializerOptions);
         File.WriteAllText(metadataPath, json);
+
+        var sessionRecord = new CaptureSessionRecord
+        {
+            SessionId = Path.GetFileName(sessionDirectory),
+            FolderId = resolvedFolder.Id,
+            Title = metadata.Title,
+            DirectoryPath = sessionDirectory,
+            AudioPath = outputAudioPath,
+            TranscriptPath = Path.Combine(sessionDirectory, "transcript.json"),
+            MetadataPath = metadataPath,
+            CreatedAt = metadata.CreatedAt,
+        };
+        _index.UpsertSession(sessionRecord, metadata);
     }
 
     public CaptureSessionMetadata? GetSessionMetadata(string metadataPath)
@@ -361,6 +388,7 @@ public sealed class CaptureSessionStorage
         folder.Name = normalizedNewName;
         folder.UpdatedAt = DateTimeOffset.UtcNow;
         SaveFolders(collection);
+        _index.UpsertFolder(folder);
         return folder;
     }
 
@@ -392,6 +420,7 @@ public sealed class CaptureSessionStorage
 
         collection.Folders.RemoveAll(f => string.Equals(f.Id, folder.Id, StringComparison.OrdinalIgnoreCase));
         SaveFolders(collection);
+        _index.DeleteFolder(folder.Id);
 
         var settings = _settingsStore.Load();
         if (string.Equals(settings.Storage.LastSessionFolderId, folder.Id, StringComparison.OrdinalIgnoreCase))

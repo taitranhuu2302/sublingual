@@ -147,6 +147,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public bool CanSendTypedMessage => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording && !string.IsNullOrWhiteSpace(TypedMessage);
     public bool CanChooseSuggestion => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
     public bool CanStartSpeaking => IsAiConfigured && !IsRoomActionBusy && HasSelectedRoom && !IsThinking && !IsRecording;
+    public bool CanStopAiSpeaking => IsSpeaking;
     public bool CanStopSpeaking => IsRecording;
     public bool HasRecordingTranscriptPreview => !string.IsNullOrWhiteSpace(RecordingTranscriptPreview);
     public bool HasStatusText => !string.IsNullOrWhiteSpace(StatusText);
@@ -792,6 +793,28 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanStopAiSpeaking))]
+    private void StopAiSpeaking()
+    {
+        if (!IsSpeaking)
+        {
+            return;
+        }
+
+        _sessionManager.CancelActiveResponse();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanStartSpeaking))]
+    private async Task PlayMessageAsync(PracticeMessageViewModel? messageViewModel)
+    {
+        if (messageViewModel is null || string.IsNullOrWhiteSpace(messageViewModel.Text))
+        {
+            return;
+        }
+
+        await _sessionManager.SpeakTextAsync(messageViewModel.Text);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -914,6 +937,12 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         ChooseSuggestionCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnIsSpeakingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanStopAiSpeaking));
+        StopAiSpeakingCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnIsRoomActionBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanCreateRoom));
@@ -957,6 +986,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
             SendTypedMessageCommand.NotifyCanExecuteChanged();
             ChooseSuggestionCommand.NotifyCanExecuteChanged();
             StartSpeakingCommand.NotifyCanExecuteChanged();
+            StopAiSpeakingCommand.NotifyCanExecuteChanged();
         });
     }
 
@@ -1145,6 +1175,43 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         ActivePage = "detail";
         StatusText = IsAiConfigured ? string.Empty : AiConfigurationError;
         PersistCurrentRoomMessages();
+
+        // If the room has no messages yet, let the tutor start with a greeting/opening question.
+        if (IsAiConfigured && room.Messages.Count == 0)
+        {
+            _ = Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                if (SelectedRoom is null || !string.Equals(SelectedRoom.Id, room.Id, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                try
+                {
+                    StatusText = $"Starting via {ActiveAiRuntimeLabel}...";
+                    var beforeCount = _sessionManager.History.Count;
+                    await _sessionManager.HandleTutorKickoffAsync();
+
+                    // If AI returned an empty/unparseable reply, SessionManager will not publish an AI message.
+                    if (_sessionManager.History.Count == beforeCount)
+                    {
+                        StatusText = "AI did not return a reply. Check your model/provider settings and try again.";
+                    }
+                    else
+                    {
+                        StatusText = string.Empty;
+                    }
+                }
+                catch
+                {
+                    StatusText = "AI did not return a reply. Check your model/provider settings and try again.";
+                }
+                finally
+                {
+                    PersistCurrentRoomMessages();
+                }
+            });
+        }
     }
 
     private void LeaveRoomInternal()

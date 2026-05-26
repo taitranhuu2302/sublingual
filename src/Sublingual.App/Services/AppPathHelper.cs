@@ -8,6 +8,11 @@ public static class AppPathHelper
         return Path.Combine(home, ".sublingual");
     }
 
+    public static string GetDefaultDatabasePath()
+    {
+        return Path.Combine(GetDefaultAppRoot(), "sublingual.db");
+    }
+
     public static string ResolveConfiguredPath(string? configuredPath, string defaultSubfolder)
     {
         var appRoot = GetDefaultAppRoot();

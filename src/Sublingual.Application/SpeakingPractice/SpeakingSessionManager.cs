@@ -171,6 +171,92 @@ public sealed class SpeakingSessionManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Starts the conversation with an AI opening message when the room has no messages yet.
+    /// Safe to call multiple times; it will no-op once history is non-empty.
+    /// </summary>
+    public async Task HandleTutorKickoffAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_history.Count != 0)
+        {
+            return;
+        }
+
+        _tts.StopSpeaking();
+        CancelPendingThinking();
+
+        TransitionTo(SpeakingSessionState.AiThinking);
+
+        _thinkingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var linkedToken = _thinkingCts.Token;
+
+        TutorResponse? tutorResponse = null;
+        try
+        {
+            tutorResponse = await _aiTutor.GetResponseAsync(
+                Instructions,
+                LanguageLevel,
+                _history,
+                linkedToken
+            );
+        }
+        catch (OperationCanceledException)
+        {
+            _logger?.LogInformation("AI kickoff cancelled");
+            TransitionTo(SpeakingSessionState.Listening);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "AI kickoff failed");
+            TransitionTo(SpeakingSessionState.Listening);
+            return;
+        }
+
+        if (tutorResponse is null)
+        {
+            _logger?.LogWarning("AI kickoff returned null response");
+            TransitionTo(SpeakingSessionState.Listening);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(tutorResponse.TutorReply))
+        {
+            _logger?.LogWarning("AI kickoff returned empty reply");
+            TransitionTo(SpeakingSessionState.Listening);
+            return;
+        }
+
+        var aiMessage = new PracticeMessage(
+            Id: Guid.NewGuid().ToString(),
+            Sender: MessageSender.Ai,
+            Text: tutorResponse.TutorReply,
+            EnhancementAdvice: null,
+            Timestamp: DateTimeOffset.Now,
+            Suggestions: tutorResponse.Suggestions
+        );
+        AddMessage(aiMessage);
+
+        SuggestionsUpdated?.Invoke(this, tutorResponse.Suggestions);
+
+        TransitionTo(SpeakingSessionState.AiSpeaking);
+        try
+        {
+            await _tts.SpeakAsync(tutorResponse.TutorReply, linkedToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // User skipped or started speaking.
+        }
+
+        if (!linkedToken.IsCancellationRequested)
+        {
+            TransitionTo(SpeakingSessionState.Listening);
+        }
+    }
+
     public void MarkTranscribing()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -182,6 +268,46 @@ public sealed class SpeakingSessionManager : IDisposable
         CancelPendingThinking();
         _tts.StopSpeaking();
         TransitionTo(SpeakingSessionState.Listening);
+    }
+
+    public async Task SpeakTextAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        CancelActiveResponse();
+        TransitionTo(SpeakingSessionState.AiSpeaking);
+
+        try
+        {
+            await _tts.SpeakAsync(text, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // User stopped or playback was interrupted.
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            TransitionTo(SpeakingSessionState.Listening);
+        }
+    }
+
+    public async Task ReplayLastAiResponseAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var lastAiMessage = _history.LastOrDefault(message => message.Sender == MessageSender.Ai);
+        if (lastAiMessage is null || string.IsNullOrWhiteSpace(lastAiMessage.Text))
+        {
+            return;
+        }
+
+        await SpeakTextAsync(lastAiMessage.Text, cancellationToken);
     }
 
     /// <summary>Stops the loaded conversation and returns to Idle.</summary>

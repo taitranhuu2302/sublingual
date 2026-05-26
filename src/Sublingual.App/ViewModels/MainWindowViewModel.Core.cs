@@ -128,7 +128,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             new SpeechToTextModelSourceCatalog(),
             new SpeechToTextDefaultModelInstaller(new HttpClient(), new SpeechToTextModelImporter(CreateDesignTimeModelCatalog())),
             new SpeechToTextModelImporter(CreateDesignTimeModelCatalog()),
-            new CaptureSessionStorage(new AppSettingsStore()),
+            new CaptureSessionStorage(new AppSettingsStore(), new SessionIndexStore(new LocalSqliteDatabase())),
             new AppSettingsStore(),
             speechToTextRuntimeOptions: CreateSpeechToTextRuntimeOptions(new AppSettingsStore()),
             translationService: new ConfigurableTranslationService(

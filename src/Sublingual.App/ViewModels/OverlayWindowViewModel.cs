@@ -224,7 +224,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                 ],
                 settingsStore
             ),
-            new CaptureSessionStorage(settingsStore),
+            new CaptureSessionStorage(settingsStore, new SessionIndexStore(new LocalSqliteDatabase())),
             new Sublingual.Infrastructure.Audio.Processing.AudioFormatNormalizer(),
             new Sublingual.Infrastructure.Audio.Processing.VoskInputVerifier(),
             settingsStore,

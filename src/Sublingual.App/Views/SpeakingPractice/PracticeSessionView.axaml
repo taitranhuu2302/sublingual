@@ -47,16 +47,21 @@
                                        TextWrapping="Wrap" />
                         </StackPanel>
                         <Button Grid.Column="1"
-                                Classes="Accent"
+                                Classes="Accent practice-icon-button"
                                 Command="{Binding OpenCreateRoomDialogCommand}"
-                                Content="New Room"
                                 IsEnabled="{Binding !IsRoomActionBusy}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>New Room</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-plus" FontSize="14" />
+                        </Button>
                         <Button Grid.Column="2"
+                                Classes="practice-icon-button"
                                 Command="{Binding DeleteSelectedRoomsCommand}"
-                                Content="Delete Selected"
                                 IsEnabled="{Binding HasSelectedRooms}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>Delete Selected</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-trash" FontSize="14" />
+                        </Button>
                     </Grid>
                 </suki:GlassCard>
 
@@ -127,22 +132,21 @@
                                     <Button Grid.Column="2"
                                             Command="{Binding $parent[UserControl].DataContext.OpenRoomCommand}"
                                             CommandParameter="{Binding}"
-                                            Content="Open"
-                                            Classes="Accent"
+                                            Classes="Accent practice-icon-button"
                                             IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center">
+                                        <ToolTip.Tip>Open</ToolTip.Tip>
+                                        <i:Icon Value="fa-solid fa-door-open" FontSize="13" />
+                                    </Button>
                                      <Button Grid.Column="3"
                                              Command="{Binding $parent[UserControl].DataContext.OpenDeleteRoomDialogCommand}"
                                              CommandParameter="{Binding}"
-                                             Content="Delete"
+                                             Classes="practice-icon-button"
                                              IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
-                                             VerticalAlignment="Center" />
-                                     <Button Grid.Column="3"
-                                             Command="{Binding $parent[UserControl].DataContext.OpenDeleteRoomDialogCommand}"
-                                             CommandParameter="{Binding}"
-                                             Content="Delete"
-                                             IsEnabled="{Binding !$parent[UserControl].DataContext.IsRoomActionBusy}"
-                                             VerticalAlignment="Center" />
+                                             VerticalAlignment="Center">
+                                         <ToolTip.Tip>Delete</ToolTip.Tip>
+                                         <i:Icon Value="fa-solid fa-trash" FontSize="13" />
+                                     </Button>
                                  </Grid>
                              </suki:GlassCard>
                          </DataTemplate>
@@ -225,7 +229,18 @@
                                                         HorizontalAlignment="Right"
                                                         MaxWidth="620"
                                                         Spacing="4">
-                                                <suki:GlassCard Padding="14,10">
+                                                <suki:GlassCard Padding="14,10" Tag="{Binding}">
+                                                    <suki:GlassCard.ContextMenu>
+                                                        <ContextMenu Placement="Bottom">
+                                                            <MenuItem Header="Suggestions"
+                                                                      Click="OnMessageSuggestionsMenuItemClick"
+                                                                      IsVisible="{Binding !IsUser}" />
+                                                            <MenuItem Header="Play" Click="OnMessagePlayMenuItemClick" />
+                                                            <MenuItem Header="Stop"
+                                                                      Click="OnMessageStopMenuItemClick"
+                                                                      IsVisible="{Binding !IsUser}" />
+                                                        </ContextMenu>
+                                                    </suki:GlassCard.ContextMenu>
                                                     <suki:GlassCard.Styles>
                                                         <Style Selector="suki|GlassCard">
                                                             <Setter Property="Background" Value="#1A3A6B" />
@@ -251,7 +266,18 @@
                                                         HorizontalAlignment="Left"
                                                         MaxWidth="620"
                                                         Spacing="4">
-                                                <suki:GlassCard Padding="14,10">
+                                                <suki:GlassCard Padding="14,10" Tag="{Binding}">
+                                                    <suki:GlassCard.ContextMenu>
+                                                        <ContextMenu Placement="Bottom">
+                                                            <MenuItem Header="Suggestions"
+                                                                      Click="OnMessageSuggestionsMenuItemClick"
+                                                                      IsVisible="{Binding !IsUser}" />
+                                                            <MenuItem Header="Play" Click="OnMessagePlayMenuItemClick" />
+                                                            <MenuItem Header="Stop"
+                                                                      Click="OnMessageStopMenuItemClick"
+                                                                      IsVisible="{Binding !IsUser}" />
+                                                        </ContextMenu>
+                                                    </suki:GlassCard.ContextMenu>
                                                     <suki:GlassCard.Styles>
                                                         <Style Selector="suki|GlassCard">
                                                             <Setter Property="Background" Value="#0E2E22" />
@@ -261,20 +287,6 @@
                                                                TextWrapping="Wrap"
                                                                FontSize="14" />
                                                 </suki:GlassCard>
-
-                                                <!-- Action button row under AI message -->
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="6" Margin="0,2,0,0">
-                                                    <Button Classes="practice-icon-button"
-                                                            Padding="8,4"
-                                                            Command="{Binding $parent[UserControl].DataContext.ToggleSuggestionsCommand}"
-                                                            CommandParameter="{Binding}">
-                                                        <ToolTip.Tip>Show suggestions</ToolTip.Tip>
-                                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <i:Icon Value="fa-solid fa-lightbulb" FontSize="11" />
-                                                            <TextBlock Text="Suggestions" FontSize="12" Opacity="0.85" />
-                                                        </StackPanel>
-                                                    </Button>
-                                                </StackPanel>
 
                                                 <!-- Suggestions display -->
                                                 <suki:GlassCard IsVisible="{Binding ShowSuggestions}"
@@ -345,11 +357,10 @@
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                         <TextBox x:Name="TypedMessageTextBox"
                                  Text="{Binding TypedMessage, UpdateSourceTrigger=PropertyChanged}"
-                                  Watermark="Type a message to the tutor"
-                                  AcceptsReturn="True"
-                                  HorizontalAlignment="Stretch"
-                                  VerticalContentAlignment="Center"
-                                  KeyDown="OnTypedMessageKeyDown" />
+                                   Watermark="Type a message to the tutor"
+                                   AcceptsReturn="True"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalContentAlignment="Center" />
                         <Button Grid.Column="1" Classes="practice-icon-button Accent"
                                 Command="{Binding SendTypedMessageCommand}"
                                 IsEnabled="{Binding CanSendTypedMessage}">

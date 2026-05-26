@@ -42,6 +42,9 @@ public static class SpeakingTutorPrompts
         - Prefer ending your reply with exactly ONE question that fits the current mode.
         - If the user asked a direct factual question, answer it first, then ask a short follow-up question.
 
+        CONVERSATION START (no prior messages):
+        - Start with a warm greeting and one simple opening question that matches the inferred mode.
+
         USER IS STUCK:
         - If the user's last message is very short, "I don't know", "not sure", "...", or shows confusion:
           ask an easier question and provide very easy suggestions to help them continue.

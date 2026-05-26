@@ -87,6 +87,9 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
 
         services.AddSingleton<AppSettingsStore>();
+        services.AddSingleton<LocalSqliteDatabase>();
+        services.AddSingleton<SessionIndexStore>();
+
         services.AddSingleton(provider =>
         {
             var runtimeOptions = new SpeechToTextRuntimeOptions();
@@ -130,7 +133,8 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<OverlayWindowViewModel>();
 
         // Speaking Practice
-        services.AddSingleton<SpeakingPracticeRoomStore>();
+        services.AddSingleton<SpeakingPracticeRoomStore>(provider =>
+            new SpeakingPracticeRoomStore(provider.GetRequiredService<LocalSqliteDatabase>()));
         services.AddSingleton<GroqSpeakingTutorService>(provider =>
         {
             var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
