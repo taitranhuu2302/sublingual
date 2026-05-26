@@ -1,0 +1,7 @@
+{
+  "min_level": "Information",
+  "file": {
+    "enabled": true,
+    "directory": "~/.sublingual/logs"
+  }
+}

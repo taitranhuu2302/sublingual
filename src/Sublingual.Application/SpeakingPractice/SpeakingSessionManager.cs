@@ -1,4 +1,5 @@
 using Sublingual.Domain.SpeakingPractice;
+using Microsoft.Extensions.Logging;
 
 namespace Sublingual.Application.SpeakingPractice;
 
@@ -10,6 +11,7 @@ public sealed class SpeakingSessionManager : IDisposable
 {
     private readonly IAiTutorService _aiTutor;
     private readonly ITtsService _tts;
+    private readonly ILogger? _logger;
 
     private readonly List<PracticeMessage> _history = [];
     private CancellationTokenSource? _thinkingCts;
@@ -36,10 +38,12 @@ public sealed class SpeakingSessionManager : IDisposable
 
     public SpeakingSessionManager(
         IAiTutorService aiTutor,
-        ITtsService tts)
+        ITtsService tts,
+        ILogger<SpeakingSessionManager>? logger = null)
     {
         _aiTutor = aiTutor;
         _tts = tts;
+        _logger = logger;
     }
 
     /// <summary>Loads a room conversation and transitions to Listening.</summary>
@@ -59,6 +63,7 @@ public sealed class SpeakingSessionManager : IDisposable
 
         Instructions = instructions;
         LanguageLevel = languageLevel;
+        _logger?.LogInformation("Speaking session loaded. Level={Level} HistoryCount={HistoryCount}", languageLevel, _history.Count);
         SuggestionsUpdated?.Invoke(this, []);
         TransitionTo(SpeakingSessionState.Listening);
     }
@@ -75,6 +80,8 @@ public sealed class SpeakingSessionManager : IDisposable
         {
             return;
         }
+
+        _logger?.LogInformation("User transcript received. Len={Len}", transcript.Length);
 
         // Stop any prior TTS before reacting.
         _tts.StopSpeaking();
@@ -107,32 +114,32 @@ public sealed class SpeakingSessionManager : IDisposable
         }
         catch (OperationCanceledException)
         {
+            _logger?.LogInformation("AI request cancelled");
             TransitionTo(SpeakingSessionState.Listening);
             return;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogError(ex, "AI request failed");
             TransitionTo(SpeakingSessionState.Listening);
             return;
         }
 
         if (tutorResponse is null)
         {
+            _logger?.LogWarning("AI returned null response");
             TransitionTo(SpeakingSessionState.Listening);
             return;
         }
 
-        // Patch user message with enhancement advice (immutable record — replace in history).
-        if (!string.IsNullOrWhiteSpace(tutorResponse.EnglishEnhancement))
+        if (string.IsNullOrWhiteSpace(tutorResponse.TutorReply))
         {
-            var enhanced = userMessage with { EnhancementAdvice = tutorResponse.EnglishEnhancement };
-            var idx = _history.IndexOf(userMessage);
-            if (idx >= 0)
-            {
-                _history[idx] = enhanced;
-                MessageAdded?.Invoke(this, enhanced);
-            }
+            _logger?.LogWarning("AI returned empty reply");
+            TransitionTo(SpeakingSessionState.Listening);
+            return;
         }
+
+        // (Removed) correction/scoring patching for user message.
 
         // Publish AI reply message.
         var aiMessage = new PracticeMessage(
@@ -200,6 +207,7 @@ public sealed class SpeakingSessionManager : IDisposable
     {
         if (_state == next) return;
         _state = next;
+        _logger?.LogDebug("Speaking state changed. State={State}", next);
         StateChanged?.Invoke(this, next);
     }
 

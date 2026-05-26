@@ -1,6 +1,6 @@
 # Speaking Practice - UI/UX Design & SukiUI Specifications
 
-This document outlines the user interface layout, interactive SukiUI components, constructive feedback (enhancements) cards, and states handlers designed to provide a premium, modern experience.
+This document outlines the user interface layout and interactive SukiUI components.
 
 ---
 
@@ -18,10 +18,8 @@ Following Sublingual's premium guidelines, the Speaking Practice view adopts a m
 To ensure the user is fully aware when the AI is processing (STT, LLM thinking, or TTS synthesis in flight), the interface leverages SukiUI's high-fidelity progress indicators:
 
 ### A. State: "Tutor is Thinking..."
-*   When the app transits to the `AiThinking` state, the main input controls are disabled to prevent duplicate triggers.
-*   A dedicated **`BusyArea`** wraps the chat session panel.
-*   A beautiful looping **`Loading`** spinner (configured with `LoadingStyle.Circle` or `LoadingStyle.Wave`) appears over the tutor's profile panel.
-*   A skeleton-pulse card represents the upcoming chat bubble, reflecting a natural "Tutor is writing a reply..." state.
+*   When the app transits to the `AiThinking` state, the UI renders a non-blocking inline "thinking" bubble in the message list.
+*   The message list remains visible (no full overlay).
 
 ### B. State: "Microphone Active / Listening"
 *   A glowing, pulsing outer circle outlines the microphone button.
@@ -29,9 +27,7 @@ To ensure the user is fully aware when the AI is processing (STT, LLM thinking, 
 
 ---
 
-## 3. UI Layout & Grammar Enhancement Card
-
-The conversational view integrates a **Constructive Language Enhancement** panel. This ensures that constructive tutor feedback is readable, encouraging, and separated from the main chat flow:
+## 3. UI Layout
 
 ```
 +-------------------------------------------------------------+
@@ -70,9 +66,8 @@ The conversational view integrates a **Constructive Language Enhancement** panel
 ```
 
 ### Main Visual Elements:
-1.  **`GlassCard` (Enhancement Advice)**: Placed inline directly below the user's message bubble. Styled with a delicate amber or gold glow border and a small lightbulb icon (`💡`) to indicate a friendly tip.
-2.  **`SukiSideMenu` / Navigation**: Seamless sidebar layout allowing the user to quickly return to normal live caption tools.
-3.  **`WaveProgress`**: Dynamic indicators that visualize the vocal loading queue.
+1.  **`GlassCard` (Chat bubbles)**: AI on left, user on right.
+2.  **Suggestions**: Shown under each AI message via a toggle button. Suggestions panel is hidden by default.
 
 ---
 
@@ -86,5 +81,4 @@ The `PracticeSessionViewModel` coordinates the UI state via CommunityToolkit MVV
 | `SessionState` | `SpeakingSessionState` | Controls active loader visibility and control enabling states. |
 | `IsThinking` | `bool` | Derived helper property binding to SukiUI `BusyArea.IsBusy`. |
 | `SpeechWaveLevel` | `double` | Feeds the real-time RMS microphone amplitude into the equalizer. |
-| `Suggestions` | `List<SuggestionOption>` | Populates the help chips below the chat box. |
-| `LatestEnhancement` | `string` | Binds to the visual feedback lightbulb card. |
+| `Suggestions` | `List<SuggestionOption>` | Populates the suggestion buttons under an AI message (hidden until toggled). |

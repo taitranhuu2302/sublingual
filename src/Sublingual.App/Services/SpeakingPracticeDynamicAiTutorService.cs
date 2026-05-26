@@ -1,24 +1,18 @@
-using Sublingual.App.Models;
 using Sublingual.Domain.SpeakingPractice;
-using Sublingual.Infrastructure.AI.Gemini;
-using Sublingual.Infrastructure.AI.Groq;
 
 namespace Sublingual.App.Services;
 
 public sealed class SpeakingPracticeDynamicAiTutorService : IAiTutorService
 {
     private readonly AppSettingsStore _settingsStore;
-    private readonly GroqSpeakingTutorService _groq;
-    private readonly GeminiSpeakingTutorService _gemini;
+    private readonly ISpeakingPracticeAiTutorFactory _aiTutorFactory;
 
     public SpeakingPracticeDynamicAiTutorService(
         AppSettingsStore settingsStore,
-        GroqSpeakingTutorService groq,
-        GeminiSpeakingTutorService gemini)
+        ISpeakingPracticeAiTutorFactory aiTutorFactory)
     {
         _settingsStore = settingsStore;
-        _groq = groq;
-        _gemini = gemini;
+        _aiTutorFactory = aiTutorFactory;
     }
 
     public Task<TutorResponse?> GetResponseAsync(
@@ -28,19 +22,8 @@ public sealed class SpeakingPracticeDynamicAiTutorService : IAiTutorService
         CancellationToken cancellationToken = default)
     {
         var settings = _settingsStore.Load().SpeakingPractice;
-        var provider = string.Equals(settings.AiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
-            ? SpeakingPracticeProviders.Gemini
-            : SpeakingPracticeProviders.Groq;
-
-        if (string.Equals(provider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase))
-        {
-            _gemini.Configure(settings.GeminiApiKey, settings.GeminiModel);
-            return _gemini.GetResponseAsync(instructions, languageLevel, history, cancellationToken);
-        }
-
-        _groq.ConfigureApiKey(settings.GroqApiKey);
-        _groq.ConfigureModel(settings.GroqModel);
-        return _groq.GetResponseAsync(instructions, languageLevel, history, cancellationToken);
+        var tutor = _aiTutorFactory.Create(settings);
+        return tutor.GetResponseAsync(instructions, languageLevel, history, cancellationToken);
     }
 
     public Task<string> GetDirectCorrectionAsync(
@@ -48,18 +31,7 @@ public sealed class SpeakingPracticeDynamicAiTutorService : IAiTutorService
         CancellationToken cancellationToken = default)
     {
         var settings = _settingsStore.Load().SpeakingPractice;
-        var provider = string.Equals(settings.AiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
-            ? SpeakingPracticeProviders.Gemini
-            : SpeakingPracticeProviders.Groq;
-
-        if (string.Equals(provider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase))
-        {
-            _gemini.Configure(settings.GeminiApiKey, settings.GeminiModel);
-            return _gemini.GetDirectCorrectionAsync(sentence, cancellationToken);
-        }
-
-        _groq.ConfigureApiKey(settings.GroqApiKey);
-        _groq.ConfigureModel(settings.GroqModel);
-        return _groq.GetDirectCorrectionAsync(sentence, cancellationToken);
+        var tutor = _aiTutorFactory.Create(settings);
+        return tutor.GetDirectCorrectionAsync(sentence, cancellationToken);
     }
 }

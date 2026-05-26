@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.Application.SpeakingPractice;
@@ -12,6 +13,8 @@ namespace Sublingual.App.ViewModels.SpeakingPractice;
 public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposable
 {
     private const string DefaultInstructions = "Have a warm daily English conversation with the user. Greet them, ask about their day, work, feelings, family life, or everyday concerns, and offer gentle advice when it feels natural.";
+    private const string InstructionBuilderModeDaily = "Daily";
+    private const string InstructionBuilderModeRoleplay = "Roleplay";
 
     private readonly SpeakingSessionManager _sessionManager;
     private readonly AppSettingsStore _settingsStore;
@@ -51,9 +54,83 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     [ObservableProperty] private string _aiConfigurationError = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
 
+    // Room instructions helper (builder). This reduces user prompt-writing friction.
+    [ObservableProperty] private bool _isCreateInstructionBuilderOpen;
+    [ObservableProperty] private bool _isEditInstructionBuilderOpen;
+    [ObservableProperty] private string _instructionBuilderMode = InstructionBuilderModeDaily;
+    [ObservableProperty] private string _builderTopic = string.Empty;
+    [ObservableProperty] private string _builderScenario = string.Empty;
+    [ObservableProperty] private string _builderTutorRole = string.Empty;
+    [ObservableProperty] private string _builderUserRole = string.Empty;
+    [ObservableProperty] private string _builderGoal = string.Empty;
+    [ObservableProperty] private string _builderConstraints = string.Empty;
+    [ObservableProperty] private string _builderTone = string.Empty;
+
     public ObservableCollection<SpeakingPracticeRoomItemViewModel> Rooms { get; } = [];
     public ObservableCollection<PracticeMessageViewModel> Messages { get; } = [];
     public ObservableCollection<SuggestionOption> Suggestions { get; } = [];
+
+    public IReadOnlyList<string> InstructionBuilderModes { get; } =
+    [
+        InstructionBuilderModeDaily,
+        InstructionBuilderModeRoleplay,
+    ];
+
+    public IReadOnlyList<QuickInstructionTemplate> QuickInstructionTemplates { get; } =
+    [
+        new(
+            Name: "Daily - Catch-up",
+            Mode: InstructionBuilderModeDaily,
+            Topic: "daily life",
+            Scenario: "",
+            TutorRole: "",
+            UserRole: "",
+            Goal: "have a warm daily conversation",
+            Constraints: "",
+            Tone: "warm and casual"),
+        new(
+            Name: "Daily - Small talk",
+            Mode: InstructionBuilderModeDaily,
+            Topic: "small talk",
+            Scenario: "",
+            TutorRole: "",
+            UserRole: "",
+            Goal: "help me respond naturally and keep the conversation going",
+            Constraints: "avoid being formal",
+            Tone: "friendly"),
+        new(
+            Name: "Roleplay - Coffee shop",
+            Mode: InstructionBuilderModeRoleplay,
+            Topic: "",
+            Scenario: "ordering coffee",
+            TutorRole: "barista",
+            UserRole: "customer",
+            Goal: "order a drink, customize it, and pay",
+            Constraints: "keep it realistic and short",
+            Tone: "friendly"),
+        new(
+            Name: "Roleplay - Hotel check-in",
+            Mode: InstructionBuilderModeRoleplay,
+            Topic: "",
+            Scenario: "hotel check-in",
+            TutorRole: "front desk staff",
+            UserRole: "guest",
+            Goal: "check in and ask about breakfast and check-out time",
+            Constraints: "one question at a time",
+            Tone: "polite"),
+        new(
+            Name: "Roleplay - Job interview",
+            Mode: InstructionBuilderModeRoleplay,
+            Topic: "",
+            Scenario: "job interview for a backend developer role",
+            TutorRole: "interviewer",
+            UserRole: "candidate",
+            Goal: "practice common interview questions and ask one question at the end",
+            Constraints: "keep it realistic",
+            Tone: "professional but supportive"),
+    ];
+
+    [ObservableProperty] private QuickInstructionTemplate? _selectedQuickInstructionTemplate;
 
     public bool IsListPageActive => string.Equals(ActivePage, "list", StringComparison.OrdinalIgnoreCase);
     public bool IsDetailPageActive => string.Equals(ActivePage, "detail", StringComparison.OrdinalIgnoreCase);
@@ -80,19 +157,22 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public string ActiveAiRuntimeLabel => $"{ActiveAiProviderLabel} • {ActiveAiModelLabel}";
 
     private readonly IAiTutorService _aiTutor;
+    private readonly ILogger? _logger;
 
     public PracticeSessionViewModel(
         SpeakingSessionManager sessionManager,
         AppSettingsStore settingsStore,
         SpeakingPracticeRoomStore roomStore,
         IMicrophoneTranscriptionService micTranscription,
-        IAiTutorService aiTutor)
+        IAiTutorService aiTutor,
+        ILogger<PracticeSessionViewModel>? logger = null)
     {
         _sessionManager = sessionManager;
         _settingsStore = settingsStore;
         _roomStore = roomStore;
         _micTranscription = micTranscription;
         _aiTutor = aiTutor;
+        _logger = logger;
 
         _sessionManager.StateChanged += OnSessionStateChanged;
         _sessionManager.MessageAdded += OnMessageAdded;
@@ -105,11 +185,13 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public PracticeSessionViewModel() : this(
         new SpeakingSessionManager(
             new DesignTimeAiTutor(),
-            new DesignTimeTts()),
+            new DesignTimeTts(),
+            null),
         new AppSettingsStore(),
         new SpeakingPracticeRoomStore(),
         new DesignTimeMicTranscription(),
-        new DesignTimeAiTutor())
+        new DesignTimeAiTutor(),
+        null)
     {
     }
 
@@ -124,6 +206,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         NewRoomTitle = string.Empty;
         NewRoomInstructions = string.Empty;
         NewRoomValidationError = string.Empty;
+        IsCreateInstructionBuilderOpen = false;
+        ResetInstructionBuilder();
         IsCreateRoomDialogOpen = true;
         CreateRoomCommand.NotifyCanExecuteChanged();
     }
@@ -153,8 +237,223 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
             ? string.Empty
             : RoomInstructions;
         EditRoomValidationError = string.Empty;
+        IsEditInstructionBuilderOpen = false;
+        ResetInstructionBuilder();
         IsEditRoomDialogOpen = true;
         SaveRoomEditsCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private void ToggleCreateInstructionBuilder()
+    {
+        IsCreateInstructionBuilderOpen = !IsCreateInstructionBuilderOpen;
+    }
+
+    [RelayCommand]
+    private void ToggleEditInstructionBuilder()
+    {
+        IsEditInstructionBuilderOpen = !IsEditInstructionBuilderOpen;
+    }
+
+    [RelayCommand]
+    private void ApplyInstructionBuilder(string target)
+    {
+        if (IsRoomActionBusy)
+        {
+            return;
+        }
+
+        var composed = ComposeInstructionsFromBuilder();
+        if (string.IsNullOrWhiteSpace(composed))
+        {
+            StatusText = "Fill at least one field in the Instruction Builder.";
+            return;
+        }
+
+        // Keep within the current UI validation constraint.
+        if (composed.Length > 1000)
+        {
+            composed = composed[..997].TrimEnd() + "...";
+        }
+
+        if (string.Equals(target, "new", StringComparison.OrdinalIgnoreCase))
+        {
+            NewRoomInstructions = composed;
+        }
+        else if (string.Equals(target, "edit", StringComparison.OrdinalIgnoreCase))
+        {
+            EditRoomInstructions = composed;
+        }
+    }
+
+    [RelayCommand]
+    private void LoadInstructionBuilderFromInstructions(string target)
+    {
+        if (IsRoomActionBusy)
+        {
+            return;
+        }
+
+        var source = string.Equals(target, "new", StringComparison.OrdinalIgnoreCase)
+            ? NewRoomInstructions
+            : EditRoomInstructions;
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            StatusText = "There are no instructions to load.";
+            return;
+        }
+
+        ParseInstructionsIntoBuilder(source);
+
+        if (string.Equals(target, "new", StringComparison.OrdinalIgnoreCase))
+        {
+            IsCreateInstructionBuilderOpen = true;
+        }
+        else
+        {
+            IsEditInstructionBuilderOpen = true;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearInstructionBuilder()
+    {
+        ResetInstructionBuilder();
+    }
+
+    private void ResetInstructionBuilder()
+    {
+        InstructionBuilderMode = InstructionBuilderModeDaily;
+        BuilderTopic = string.Empty;
+        BuilderScenario = string.Empty;
+        BuilderTutorRole = string.Empty;
+        BuilderUserRole = string.Empty;
+        BuilderGoal = string.Empty;
+        BuilderConstraints = string.Empty;
+        BuilderTone = string.Empty;
+        SelectedQuickInstructionTemplate = null;
+    }
+
+    [RelayCommand]
+    private void ApplyQuickTemplate(string target)
+    {
+        if (IsRoomActionBusy)
+        {
+            return;
+        }
+
+        var tpl = SelectedQuickInstructionTemplate;
+        if (tpl is null)
+        {
+            StatusText = "Pick a template first.";
+            return;
+        }
+
+        InstructionBuilderMode = tpl.Mode;
+        BuilderTopic = tpl.Topic;
+        BuilderScenario = tpl.Scenario;
+        BuilderTutorRole = tpl.TutorRole;
+        BuilderUserRole = tpl.UserRole;
+        BuilderGoal = tpl.Goal;
+        BuilderConstraints = tpl.Constraints;
+        BuilderTone = tpl.Tone;
+
+        ApplyInstructionBuilder(target);
+
+        if (string.Equals(target, "new", StringComparison.OrdinalIgnoreCase))
+        {
+            IsCreateInstructionBuilderOpen = true;
+        }
+        else if (string.Equals(target, "edit", StringComparison.OrdinalIgnoreCase))
+        {
+            IsEditInstructionBuilderOpen = true;
+        }
+    }
+
+    private void ParseInstructionsIntoBuilder(string instructions)
+    {
+        ResetInstructionBuilder();
+
+        var lines = instructions
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var line in lines)
+        {
+            if (TryParseLabeledLine(line, "Topic:", out var topic)) BuilderTopic = topic;
+            else if (TryParseLabeledLine(line, "Scenario:", out var scenario)) BuilderScenario = scenario;
+            else if (TryParseLabeledLine(line, "You are:", out var tutorRole)) BuilderTutorRole = tutorRole;
+            else if (TryParseLabeledLine(line, "I am:", out var userRole)) BuilderUserRole = userRole;
+            else if (TryParseLabeledLine(line, "Goal:", out var goal)) BuilderGoal = goal;
+            else if (TryParseLabeledLine(line, "Constraints:", out var constraints)) BuilderConstraints = constraints;
+            else if (TryParseLabeledLine(line, "Tone:", out var tone)) BuilderTone = tone;
+        }
+
+        // Best-effort mode inference based on structured lines.
+        InstructionBuilderMode =
+            !string.IsNullOrWhiteSpace(BuilderScenario)
+            || !string.IsNullOrWhiteSpace(BuilderTutorRole)
+            || !string.IsNullOrWhiteSpace(BuilderUserRole)
+                ? InstructionBuilderModeRoleplay
+                : InstructionBuilderModeDaily;
+    }
+
+    private static bool TryParseLabeledLine(string line, string label, out string value)
+    {
+        if (!line.StartsWith(label, StringComparison.OrdinalIgnoreCase))
+        {
+            value = string.Empty;
+            return false;
+        }
+
+        value = line[label.Length..].Trim();
+        value = value.TrimEnd('.');
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    public sealed record QuickInstructionTemplate(
+        string Name,
+        string Mode,
+        string Topic,
+        string Scenario,
+        string TutorRole,
+        string UserRole,
+        string Goal,
+        string Constraints,
+        string Tone);
+
+    private string ComposeInstructionsFromBuilder()
+    {
+        var mode = InstructionBuilderMode?.Trim() ?? InstructionBuilderModeDaily;
+        var topic = BuilderTopic.Trim();
+        var scenario = BuilderScenario.Trim();
+        var tutorRole = BuilderTutorRole.Trim();
+        var userRole = BuilderUserRole.Trim();
+        var goal = BuilderGoal.Trim();
+        var constraints = BuilderConstraints.Trim();
+        var tone = BuilderTone.Trim();
+
+        if (string.Equals(mode, InstructionBuilderModeRoleplay, StringComparison.OrdinalIgnoreCase))
+        {
+            // Structured roleplay instructions help the model infer "roleplay" without special settings.
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(scenario)) parts.Add($"Scenario: {scenario}.");
+            if (!string.IsNullOrWhiteSpace(tutorRole)) parts.Add($"You are: {tutorRole}.");
+            if (!string.IsNullOrWhiteSpace(userRole)) parts.Add($"I am: {userRole}.");
+            if (!string.IsNullOrWhiteSpace(goal)) parts.Add($"Goal: {goal}.");
+            if (!string.IsNullOrWhiteSpace(constraints)) parts.Add($"Constraints: {constraints}.");
+            if (!string.IsNullOrWhiteSpace(tone)) parts.Add($"Tone: {tone}.");
+            return string.Join("\n", parts).Trim();
+        }
+
+        // Daily conversation.
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(topic)) parts.Add($"Topic: {topic}.");
+            if (!string.IsNullOrWhiteSpace(goal)) parts.Add($"Goal: {goal}.");
+            if (!string.IsNullOrWhiteSpace(tone)) parts.Add($"Tone: {tone}.");
+            return string.Join("\n", parts).Trim();
+        }
     }
 
     [RelayCommand]
@@ -231,52 +530,6 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         _pendingDeleteRoomIds.Add(room.Id);
         DeleteRoomsDialogMessage = $"Delete room '{room.Name}'? This will also remove its conversation history.";
         IsDeleteRoomsDialogOpen = true;
-    }
-
-    [RelayCommand]
-    private void DuplicateRoom(SpeakingPracticeRoomItemViewModel? room)
-    {
-        if (IsRoomActionBusy)
-        {
-            return;
-        }
-
-        if (room is null)
-        {
-            return;
-        }
-
-        IsRoomActionBusy = true;
-        try
-        {
-            var source = _roomStore.GetRoom(room.Id);
-            if (source is null)
-            {
-                StatusText = "Room no longer exists.";
-                LoadRooms();
-                return;
-            }
-
-            var duplicate = _roomStore.CreateRoom($"{source.Name} Copy", source.Instructions);
-            LoadRooms(duplicate.Id);
-            OpenRoomById(duplicate.Id);
-            StatusText = "Room duplicated.";
-        }
-        finally
-        {
-            IsRoomActionBusy = false;
-        }
-    }
-
-    [RelayCommand]
-    private void DuplicateCurrentRoom()
-    {
-        if (IsRoomActionBusy)
-        {
-            return;
-        }
-
-        DuplicateRoom(SelectedRoom);
     }
 
     [RelayCommand]
@@ -399,6 +652,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         try
         {
             TypedMessage = string.Empty;
+            _logger?.LogInformation("Speaking practice typed message send. Len={Len}", message.Length);
             await SubmitUserMessageAsync(message, isSpoken: false);
         }
         finally
@@ -423,6 +677,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         IsRoomActionBusy = true;
         try
         {
+            _logger?.LogInformation("Speaking practice suggestion chosen. Label={Label} Len={Len}", suggestion.Label, suggestion.Text.Length);
             await SubmitUserMessageAsync(suggestion.Text, isSpoken: false);
         }
         finally
@@ -441,47 +696,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         messageViewModel.ShowSuggestions = !messageViewModel.ShowSuggestions;
     }
 
-    [RelayCommand]
-    private async Task ToggleCorrectionAsync(PracticeMessageViewModel? messageViewModel)
-    {
-        if (messageViewModel is null || !messageViewModel.IsUser)
-        {
-            return;
-        }
-
-        if (messageViewModel.ShowCorrection)
-        {
-            messageViewModel.ShowCorrection = false;
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(messageViewModel.DirectCorrection))
-        {
-            messageViewModel.ShowCorrection = true;
-            return;
-        }
-
-        if (!EnsureAiConfigurationReady())
-        {
-            return;
-        }
-
-        messageViewModel.IsCorrectionLoading = true;
-        try
-        {
-            var correction = await _aiTutor.GetDirectCorrectionAsync(messageViewModel.Text);
-            messageViewModel.DirectCorrection = correction;
-            messageViewModel.ShowCorrection = true;
-        }
-        catch (System.Exception ex)
-        {
-            StatusText = $"Correction failed: {ex.Message}";
-        }
-        finally
-        {
-            messageViewModel.IsCorrectionLoading = false;
-        }
-    }
+    // (Removed) correction/scoring feature
 
     [RelayCommand(CanExecute = nameof(CanStartSpeaking))]
     private async Task StartSpeakingAsync()
@@ -507,12 +722,14 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
 
             try
             {
+                _logger?.LogInformation("Mic recording start");
                 await _micTranscription.StartAsync(_recordingCts.Token);
                 IsRecording = true;
                 StatusText = "Recording... press Stop when you finish speaking.";
             }
             catch (Exception ex)
             {
+                _logger?.LogError(ex, "Mic recording start failed");
                 _recordingCts.Dispose();
                 _recordingCts = null;
                 IsRecording = false;
@@ -538,10 +755,12 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         {
             try
             {
+                _logger?.LogInformation("Mic recording stop");
                 await _micTranscription.StopAsync();
             }
             catch (Exception ex)
             {
+                _logger?.LogError(ex, "Mic recording stop failed");
                 StatusText = $"Could not stop microphone: {ex.Message}";
                 return;
             }
@@ -563,6 +782,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
                 return;
             }
 
+            _logger?.LogInformation("Mic transcript submitted. Len={Len}", transcript.Length);
             _sessionManager.MarkTranscribing();
             await SubmitUserMessageAsync(transcript, isSpoken: true);
         }
@@ -585,6 +805,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         _sessionManager.MessageAdded -= OnMessageAdded;
         _sessionManager.SuggestionsUpdated -= OnSuggestionsUpdated;
         _micTranscription.FinalTranscriptReady -= OnFinalTranscriptReady;
+
+        _logger?.LogInformation("Disposing speaking practice session view model");
         _sessionManager.Dispose();
         (_micTranscription as IDisposable)?.Dispose();
     }
@@ -801,7 +1023,17 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         }
 
         var beforeIds = _sessionManager.History.Select(message => message.Id).ToHashSet(StringComparer.Ordinal);
+        var beforeCount = _sessionManager.History.Count;
         await _sessionManager.HandleUserTranscriptAsync(text);
+
+        // If AI returned an empty/unparseable reply, SessionManager will not publish an AI message.
+        // Surface a user-visible status instead of showing an empty bubble.
+        var afterCount = _sessionManager.History.Count;
+        var lastIsUserOnly = afterCount == beforeCount + 1 && _sessionManager.History.LastOrDefault()?.Sender == MessageSender.User;
+        if (lastIsUserOnly)
+        {
+            StatusText = "AI did not return a reply. Check your model/provider settings and try again.";
+        }
 
         if (isSpoken)
         {
@@ -896,7 +1128,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
                 messageRecord.Id,
                 Enum.TryParse<MessageSender>(messageRecord.Sender, true, out var sender) ? sender : MessageSender.User,
                 messageRecord.Text,
-                messageRecord.EnhancementAdvice,
+                null,
                 messageRecord.Timestamp,
                 messageRecord.Suggestions?.Select(s => new SuggestionOption(s.Label, s.Text)).ToList());
             if (messageRecord.IsSpoken)
@@ -1115,24 +1347,17 @@ public sealed partial class PracticeMessageViewModel : ObservableObject
     public bool IsUser { get; }
     public string Text { get; }
     public string SingleLineText => Text.Replace("\r", " ").Replace("\n", " ");
-    public string? EnhancementAdvice { get; }
-    public bool HasEnhancement => !string.IsNullOrWhiteSpace(EnhancementAdvice);
     public DateTimeOffset Timestamp { get; }
     public bool IsSpoken { get; }
     public System.Collections.Generic.IReadOnlyList<SuggestionOption> Suggestions { get; }
-    public bool HasSuggestions => Suggestions.Count > 0;
 
     [ObservableProperty] private bool _showSuggestions;
-    [ObservableProperty] private string? _directCorrection;
-    [ObservableProperty] private bool _showCorrection;
-    [ObservableProperty] private bool _isCorrectionLoading;
 
     public PracticeMessageViewModel(PracticeMessage message, bool isSpoken)
     {
         Id = message.Id;
         IsUser = message.Sender == MessageSender.User;
         Text = message.Text;
-        EnhancementAdvice = message.EnhancementAdvice;
         Timestamp = message.Timestamp;
         IsSpoken = isSpoken;
         Suggestions = message.Suggestions ?? [];

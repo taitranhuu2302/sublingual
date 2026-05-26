@@ -1,11 +1,14 @@
 using Sublingual.App.Models;
+using Microsoft.Extensions.Logging;
+using Sublingual.App.Services.Logging;
 using Sublingual.Domain.Transcription;
 
 namespace Sublingual.App.Services.Translation;
 
 public sealed class ConfigurableTranslationService(
     IEnumerable<ITranslationProvider> providers,
-    AppSettingsStore settingsStore
+    AppSettingsStore settingsStore,
+    ILogger<ConfigurableTranslationService>? logger = null
 ) : ITranslationExecutionService
 {
     private const int CacheLimit = 160;
@@ -14,6 +17,7 @@ public sealed class ConfigurableTranslationService(
         provider => provider.Name,
         StringComparer.OrdinalIgnoreCase
     );
+    private readonly ILogger _logger = logger ?? AppLog.CreateLogger(nameof(ConfigurableTranslationService));
     private readonly Dictionary<string, TranslationExecutionResult> _cache = new(StringComparer.Ordinal);
     private readonly Queue<string> _cacheOrder = new();
     private readonly Lock _cacheLock = new();
@@ -135,6 +139,8 @@ public sealed class ConfigurableTranslationService(
             }
             catch (Exception ex)
             {
+                // Providers are best-effort; log once per failure for diagnosis.
+                _logger.LogWarning(ex, "Translation provider failed. Provider={Provider}", provider.Name);
                 attemptLog.Add($"{provider.Name}: {ex.Message}");
             }
         }

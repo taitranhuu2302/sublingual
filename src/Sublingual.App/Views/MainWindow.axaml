@@ -126,43 +126,6 @@
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
                      </Button>
 
-                    <Button Classes="nav-item nav-item-active"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="settings"
-                            IsVisible="{Binding IsSettingsTabActive}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="settings"
-                            IsVisible="{Binding IsCaptureTabActive}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </Button>
-                     <Button Classes="nav-item"
-                             HorizontalAlignment="Stretch"
-                             HorizontalContentAlignment="Left"
-                             Command="{Binding SelectTabCommand}"
-                             CommandParameter="settings"
-                             IsVisible="{Binding IsSessionsTabActive}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                      </Button>
-                     <Button Classes="nav-item"
-                             HorizontalAlignment="Stretch"
-                             HorizontalContentAlignment="Left"
-                             Command="{Binding SelectTabCommand}"
-                             CommandParameter="settings"
-                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                     </Button>
-
                      <!-- Speaking Practice nav -->
                       <Button Classes="nav-item nav-item-active"
                               HorizontalAlignment="Stretch"
@@ -191,16 +154,54 @@
                           <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
                           <TextBlock Text="Practice" VerticalAlignment="Center" />
                       </Button>
-                      <Button Classes="nav-item"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Left"
-                              Command="{Binding SelectTabCommand}"
-                              CommandParameter="speaking"
-                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
-                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
-                          <TextBlock Text="Practice" VerticalAlignment="Center" />
-                      </Button>
-                 </StackPanel>
+                       <Button Classes="nav-item"
+                               HorizontalAlignment="Stretch"
+                               HorizontalContentAlignment="Left"
+                               Command="{Binding SelectTabCommand}"
+                               CommandParameter="speaking"
+                               IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
+                           <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
+                           <TextBlock Text="Practice" VerticalAlignment="Center" />
+                       </Button>
+
+                    <!-- Settings nav (kept at bottom of nav list) -->
+                    <Button Classes="nav-item nav-item-active"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsSettingsTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsCaptureTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding IsSessionsTabActive}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="nav-item"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="settings"
+                            IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
+                        <ToolTip.Tip>Settings</ToolTip.Tip>
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </Button>
+                  </StackPanel>
 
                 <!-- Status at bottom -->
                 <StackPanel Grid.Row="2" Margin="18,0" Spacing="8">

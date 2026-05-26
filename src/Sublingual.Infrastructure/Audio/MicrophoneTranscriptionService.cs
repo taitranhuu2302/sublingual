@@ -2,6 +2,7 @@ using Sublingual.Domain.Audio;
 using Sublingual.Domain.SpeakingPractice;
 using Sublingual.Domain.Transcription;
 using Sublingual.Infrastructure.Audio.Processing;
+using Microsoft.Extensions.Logging;
 
 namespace Sublingual.Infrastructure.Audio;
 
@@ -16,6 +17,7 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
     private readonly IAudioCaptureService _micCapture;
     private readonly ITranscriptionService _transcription;
     private readonly AudioFormatNormalizer _normalizer;
+    private readonly ILogger? _logger;
 
     private bool _muted;
     private bool _running;
@@ -26,11 +28,13 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
     public MicrophoneTranscriptionService(
         IAudioCaptureService micCapture,
         ITranscriptionService transcription,
-        AudioFormatNormalizer normalizer)
+        AudioFormatNormalizer normalizer,
+        ILogger<MicrophoneTranscriptionService>? logger = null)
     {
         _micCapture = micCapture;
         _transcription = transcription;
         _normalizer = normalizer;
+        _logger = logger;
         _micCapture.AudioChunkCaptured += OnAudioChunkCaptured;
     }
 
@@ -43,6 +47,8 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
 
         _running = true;
         _pendingText = string.Empty;
+
+        _logger?.LogInformation("Microphone transcription start");
 
         await _micCapture.StartAsync(
             new AudioCaptureRequest(AudioSourceType.Microphone, null, 16_000, 1),
@@ -60,6 +66,8 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
         _running = false;
         _pendingText = string.Empty;
         await _micCapture.StopAsync();
+
+        _logger?.LogInformation("Microphone transcription stopped");
     }
 
     public void SetMuted(bool muted)
@@ -69,6 +77,8 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
         {
             _pendingText = string.Empty;
         }
+
+        _logger?.LogDebug("Microphone muted={Muted}", muted);
     }
 
     public void Dispose()
@@ -95,7 +105,16 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
         // Transcribe synchronously on the capture thread.
         // VoskTranscriptionService is thread-safe (uses lock internally).
         var request = new TranscriptionRequest(normalizedChunk, "en");
-        var result = _transcription.TranscribeAsync(request).GetAwaiter().GetResult();
+        TranscriptionResult result;
+        try
+        {
+            result = _transcription.TranscribeAsync(request).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Mic STT failed");
+            return;
+        }
 
         foreach (var segment in result.Segments)
         {
@@ -117,6 +136,7 @@ public sealed class MicrophoneTranscriptionService : IMicrophoneTranscriptionSer
 
                 if (!string.IsNullOrWhiteSpace(finalText))
                 {
+                    _logger?.LogInformation("Mic STT final. Len={Len}", finalText.Length);
                     FinalTranscriptReady?.Invoke(this, finalText);
                 }
             }

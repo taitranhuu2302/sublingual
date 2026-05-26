@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Sublingual.Domain.Transcription;
+using Sublingual.App.Services.Logging;
 using Vosk;
 
 namespace Sublingual.App.Services;
@@ -8,6 +10,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
 {
     private readonly SpeechToTextModelCatalog _modelCatalog;
     private readonly AppSettingsStore _settingsStore;
+    private readonly ILogger _logger;
     private readonly object _sync = new();
     private readonly SemaphoreSlim _modelLoadGate = new(1, 1);
     private Model? _model;
@@ -21,10 +24,12 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
 
     public VoskTranscriptionService(
         SpeechToTextModelCatalog modelCatalog,
-        AppSettingsStore settingsStore)
+        AppSettingsStore settingsStore,
+        ILogger<VoskTranscriptionService>? logger = null)
     {
         _modelCatalog = modelCatalog;
         _settingsStore = settingsStore;
+        _logger = logger ?? AppLog.CreateLogger(nameof(VoskTranscriptionService));
         Vosk.Vosk.SetLogLevel(-1);
     }
 
@@ -39,6 +44,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
             var modelPath = ResolveModelPath();
             if (string.IsNullOrWhiteSpace(modelPath) || !Directory.Exists(modelPath))
             {
+                _logger.LogWarning("STT unavailable: no model found");
                 return CreateUnavailableResult("No local speech model found.");
             }
 
@@ -46,6 +52,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
 
             if (_model is null)
             {
+                _logger.LogWarning("STT unavailable: model failed to load. ModelPath={ModelPath}", modelPath);
                 return CreateUnavailableResult("Speech model could not be loaded.");
             }
 
@@ -59,6 +66,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Speech recognition failed");
             return CreateUnavailableResult($"Speech recognition failed: {ex.Message}");
         }
     }
@@ -68,9 +76,11 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
         var modelPath = ResolveModelPath(modelName);
         if (string.IsNullOrWhiteSpace(modelPath) || !Directory.Exists(modelPath))
         {
+            _logger.LogWarning("STT preload failed: no model found. ModelName={ModelName}", modelName);
             throw new InvalidOperationException("No local speech model found.");
         }
 
+        _logger.LogInformation("Preloading STT model. ModelPath={ModelPath}", modelPath);
         return EnsureModelLoadedAsync(modelPath, cancellationToken);
     }
 
@@ -91,6 +101,7 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
 
     public void ResetSession()
     {
+        _logger.LogDebug("Resetting Vosk recognizer session");
         lock (_sync)
         {
             _recognizer?.Dispose();
@@ -154,6 +165,8 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
                 _model = loadedModel;
                 _loadedModelPath = modelPath;
                 loadedModel = null;
+
+                _logger.LogInformation("STT model loaded. ModelPath={ModelPath}", modelPath);
             }
         }
         finally
@@ -178,6 +191,8 @@ public sealed class VoskTranscriptionService : ITranscriptionService, IDisposabl
                 _recognizer = new VoskRecognizer(_model, chunk.SampleRate);
                 _recognizer.SetWords(true);
                 _recognizerSampleRate = chunk.SampleRate;
+
+                _logger.LogDebug("Created Vosk recognizer. SampleRate={SampleRate}", chunk.SampleRate);
             }
 
             var hasFinalResult = _recognizer.AcceptWaveform(chunk.Data, chunk.Data.Length);

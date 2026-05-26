@@ -2,6 +2,8 @@ using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
 using Sublingual.App.Services.Translation;
 using Sublingual.Infrastructure.Audio.Processing;
+using Microsoft.Extensions.Logging;
+using Sublingual.App.Services.Logging;
 
 namespace Sublingual.App.Services;
 
@@ -19,6 +21,7 @@ public class AudioCaptureDebugSession : IDisposable
     private readonly AppSettingsStore _settingsStore;
     private readonly RealtimeTranslationScheduler _translationScheduler;
     private readonly VoskTranscriptionService? _voskTranscriptionService;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _pipelineGate = new(1, 1);
     private WaveFileCaptureVerifier? _captureVerifier;
     private string? _currentOutputPath;
@@ -50,7 +53,8 @@ public class AudioCaptureDebugSession : IDisposable
         VoskInputVerifier voskInputVerifier,
         AppSettingsStore settingsStore,
         RealtimeTranslationScheduler translationScheduler,
-        VoskTranscriptionService? voskTranscriptionService = null)
+        VoskTranscriptionService? voskTranscriptionService = null,
+        ILogger<AudioCaptureDebugSession>? logger = null)
     {
         _audioCaptureService = audioCaptureService;
         _startCaptureUseCase = startCaptureUseCase;
@@ -64,6 +68,7 @@ public class AudioCaptureDebugSession : IDisposable
         _settingsStore = settingsStore;
         _translationScheduler = translationScheduler;
         _voskTranscriptionService = voskTranscriptionService;
+        _logger = logger ?? AppLog.CreateLogger(nameof(AudioCaptureDebugSession));
 
         _audioCaptureService.AudioChunkCaptured += OnAudioChunkCaptured;
         _translationScheduler.TranslationCompleted += OnTranslationCompleted;
@@ -84,6 +89,12 @@ public class AudioCaptureDebugSession : IDisposable
 
     public async Task StartAsync(string? deviceId, string deviceName, string outputPath, string sessionTitle = "", string sessionTreePath = "", CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "Capture start requested. DeviceId={DeviceId} DeviceName={DeviceName} OutputPath={OutputPath}",
+            deviceId,
+            deviceName,
+            outputPath);
+
         _voskTranscriptionService?.ResetSession();
         _translationService.ClearCache();
         PublishRealtimeTranscriptEvent(new TranscriptOverlayReset(
@@ -97,6 +108,14 @@ public class AudioCaptureDebugSession : IDisposable
         _currentSourceLanguage = NormalizeLanguage(translationSettings.SourceLanguage, "en");
         _currentTargetLanguage = NormalizeLanguage(translationSettings.TargetLanguage, "vi");
         _translatePartials = translationSettings.TranslatePartials;
+
+        _logger.LogInformation(
+            "Capture config. SourceLang={SourceLang} TargetLang={TargetLang} TranslatePartials={TranslatePartials} Model={Model}",
+            _currentSourceLanguage,
+            _currentTargetLanguage,
+            _translatePartials,
+            _voskTranscriptionService?.CurrentModelName ?? "Unknown");
+
         await ResetRealtimeProviderSessionIfNeededAsync(translationSettings, _translationSessionId, cancellationToken);
         _capturedDurationSeconds = 0;
         _currentSessionCreatedAt = DateTimeOffset.UtcNow;
@@ -126,10 +145,13 @@ public class AudioCaptureDebugSession : IDisposable
         await _startCaptureUseCase.ExecuteAsync(
             new AudioCaptureRequest(AudioSourceType.System, deviceId, 16_000, 1),
             cancellationToken);
+
+        _logger.LogInformation("Capture started. State={State}", _audioCaptureService.State);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Capture stop requested. State={State}", _audioCaptureService.State);
         var translationSettings = _settingsStore.Load().Translation;
         var sessionIdToReset = _translationSessionId;
         await _stopCaptureUseCase.ExecuteAsync(cancellationToken);
@@ -162,6 +184,8 @@ public class AudioCaptureDebugSession : IDisposable
         DisposeVerifier();
         _currentOutputPath = null;
         await ResetRealtimeProviderSessionIfNeededAsync(translationSettings, sessionIdToReset, cancellationToken);
+
+        _logger.LogInformation("Capture stopped. DurationSeconds={DurationSeconds}", _capturedDurationSeconds);
     }
 
     public void Dispose()
@@ -170,6 +194,8 @@ public class AudioCaptureDebugSession : IDisposable
         {
             return;
         }
+
+        _logger.LogInformation("Disposing capture session");
 
         _audioCaptureService.AudioChunkCaptured -= OnAudioChunkCaptured;
         _translationScheduler.TranslationCompleted -= OnTranslationCompleted;
@@ -205,6 +231,7 @@ public class AudioCaptureDebugSession : IDisposable
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Capture pipeline error");
             TranscriptPreviewUpdated?.Invoke(
                 this,
                 new TranscriptPreviewUpdate(
@@ -235,6 +262,16 @@ public class AudioCaptureDebugSession : IDisposable
         var finalText = transcription.Segments.LastOrDefault(segment => !segment.IsPartial)?.Text ?? string.Empty;
         var updatedAt = DateTimeOffset.Now;
         var diagnostics = _voskInputVerifier.Describe(normalizedChunk);
+
+        if (!string.IsNullOrWhiteSpace(finalText))
+        {
+            _logger.LogInformation("STT final. Len={Len}", finalText.Length);
+        }
+        else if (!string.IsNullOrWhiteSpace(partialText))
+        {
+            _logger.LogDebug("STT partial. Len={Len}", partialText.Length);
+        }
+
         PublishTranscriptEvents(partialText, finalText, updatedAt);
 
         ScheduleTranslation(partialText, finalText, updatedAt);
@@ -291,6 +328,7 @@ public class AudioCaptureDebugSession : IDisposable
     {
         if (!string.IsNullOrWhiteSpace(finalText))
         {
+            _logger.LogInformation("Schedule stable translation. Len={Len}", finalText.Length);
             var segmentId = BuildStableSegmentId(_stableSegmentIndex);
             PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
                 NextRealtimeTranscriptSequenceId(),
@@ -323,6 +361,8 @@ public class AudioCaptureDebugSession : IDisposable
         {
             return;
         }
+
+        _logger.LogDebug("Schedule draft translation. Len={Len}", partialText.Length);
 
         PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
             NextRealtimeTranscriptSequenceId(),
@@ -378,6 +418,17 @@ public class AudioCaptureDebugSession : IDisposable
         var diagnostics = completed.AttemptLog.Count == 0
             ? completed.ProviderName
             : string.Join(" | ", completed.AttemptLog);
+
+        if (!string.IsNullOrWhiteSpace(completed.TranslatedText))
+        {
+            _logger.LogDebug(
+                "Translation completed. Target={Target} Provider={Provider} Cache={CacheHit} SrcLen={SrcLen} DstLen={DstLen}",
+                completed.Target,
+                completed.ProviderName,
+                completed.IsCacheHit,
+                completed.SourceText.Length,
+                completed.TranslatedText.Length);
+        }
 
         PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
             NextRealtimeTranscriptSequenceId(),

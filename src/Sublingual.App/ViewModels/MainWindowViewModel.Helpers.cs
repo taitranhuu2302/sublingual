@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
@@ -98,7 +99,9 @@ public sealed partial class MainWindowViewModel
                         new LibreTranslateTranslationProvider(new HttpClient()),
                     ],
                     settingsStore
-                )));
+                )),
+            null,
+            NullLogger<AudioCaptureDebugSession>.Instance);
     }
 
     private static SpeechToTextModelCatalog CreateDesignTimeModelCatalog()

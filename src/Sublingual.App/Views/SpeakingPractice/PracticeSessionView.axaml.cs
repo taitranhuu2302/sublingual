@@ -63,11 +63,6 @@ public partial class PracticeSessionView : UserControl
             return;
         }
 
-        if (e.Key is not (Key.Enter or Key.Return))
-        {
-            return;
-        }
-
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             return;

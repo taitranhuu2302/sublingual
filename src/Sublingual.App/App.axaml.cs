@@ -3,8 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
+using Sublingual.App.Services.Logging;
 using Sublingual.App.ViewModels;
 using Sublingual.App.Views;
 using Sublingual.Desktop;
@@ -15,6 +17,8 @@ namespace Sublingual.App;
 public partial class App : Avalonia.Application
 {
     private AppBootstrapper? _bootstrapper;
+    private ILogger? _logger;
+    private ILoggerFactory? _earlyLoggerFactory;
     private MainWindow? _mainWindow;
     private OverlayWindow? _overlayWindow;
     private AppSettingsStore? _settingsStore;
@@ -32,9 +36,33 @@ public partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Initialize logging before building the rest of the app.
+            if (_logger is null)
+            {
+                var logDir = LoggingBootstrapper.ResolveLogDirectory();
+                _earlyLoggerFactory = LoggingBootstrapper.CreateLoggerFactory(logDir);
+                AppLog.Initialize(_earlyLoggerFactory);
+                _logger = _earlyLoggerFactory.CreateLogger("App");
+            }
+
+            _logger.LogInformation(
+                "App starting. OS={OS} ArgsCount={ArgsCount}",
+                OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "macOS" : "Other",
+                Program.LaunchArgs.Length);
+
             _bootstrapper = new AppBootstrapper();
+            _logger = _bootstrapper.Services.GetRequiredService<ILoggerFactory>().CreateLogger("App");
+
+            _earlyLoggerFactory?.Dispose();
+            _earlyLoggerFactory = null;
+
             _settingsStore = _bootstrapper.Services.GetRequiredService<AppSettingsStore>();
             _settings = _settingsStore.Load();
+
+            _logger.LogInformation(
+                "Settings loaded. OverlayTheme={OverlayTheme} TranslatePartials={TranslatePartials}",
+                _settings.Overlay.Theme,
+                _settings.Translation.TranslatePartials);
 
             var mainWindow = _bootstrapper.CreateMainWindow();
             _mainWindow = mainWindow;
@@ -116,6 +144,7 @@ public partial class App : Avalonia.Application
 
             if (ShouldRunDebugCapture())
             {
+                _logger.LogInformation("Starting macOS debug capture runner");
                 _ = MacOsDebugCaptureRunner.RunAsync();
             }
         }
@@ -125,6 +154,8 @@ public partial class App : Avalonia.Application
 
     private void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        _logger?.LogInformation("Desktop exit. ExitRequested={ExitRequested}", _isExitRequested);
+
         if (_mainWindow is not null)
         {
             _mainWindow.Closing -= OnMainWindowClosing;
@@ -147,6 +178,9 @@ public partial class App : Avalonia.Application
         _bootstrapper?.Dispose();
         _bootstrapper = null;
 
+        _earlyLoggerFactory?.Dispose();
+        _earlyLoggerFactory = null;
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
         {
             lifetime.ShutdownRequested -= OnDesktopShutdownRequested;
@@ -161,6 +195,7 @@ public partial class App : Avalonia.Application
             return;
         }
 
+        _logger?.LogInformation("macOS shutdown requested");
         _isExitRequested = true;
     }
 
@@ -194,6 +229,8 @@ public partial class App : Avalonia.Application
         {
             return;
         }
+
+        _logger?.LogInformation("Main window close intercepted; hiding to tray");
 
         e.Cancel = true;
 
@@ -235,16 +272,19 @@ public partial class App : Avalonia.Application
 
     private void OnTrayIconClicked(object? sender, EventArgs e)
     {
+        _logger?.LogDebug("Tray icon clicked");
         ShowMainWindow();
     }
 
     private void OnTrayOpenClicked(object? sender, EventArgs e)
     {
+        _logger?.LogDebug("Tray open clicked");
         ShowMainWindow();
     }
 
     private void OnTrayExitClicked(object? sender, EventArgs e)
     {
+        _logger?.LogInformation("Tray exit clicked");
         ExitApplication();
     }
 
@@ -276,6 +316,7 @@ public partial class App : Avalonia.Application
         }
 
         _isExitRequested = true;
+        _logger?.LogInformation("Application shutdown requested");
         desktop.Shutdown();
     }
 

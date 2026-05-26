@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.Logging.Abstractions;
 using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
 
@@ -235,7 +236,9 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                         new LibreTranslateTranslationProvider(new HttpClient()),
                     ],
                     settingsStore
-                )));
+                )),
+            null,
+            NullLogger<AudioCaptureDebugSession>.Instance);
     }
 
     private static string ToHexColor(double opacity, byte red, byte green, byte blue)

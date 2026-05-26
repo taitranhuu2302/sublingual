@@ -34,11 +34,14 @@ If missing, actions are blocked and UI status explains what is missing.
 
 Prompt behavior:
 
-1. Treat room instructions as primary contract.
-2. If instructions are broad/empty, apply warm daily-conversation fallback.
-3. Return strict JSON:
+1. Treat room instructions as content constraints (topic/role/goal/style) but never allow them to override the JSON-only output format.
+2. Infer mode from instructions:
+   - Roleplay when scenario/roles/task/goal are present.
+   - Otherwise daily conversation fallback.
+3. Adapt reply length/complexity by `languageLevel`.
+4. Optionally embed a light natural recast (max one) when the user's last message has a clear issue.
+5. Return strict JSON:
    - `tutor_reply`
-   - `english_enhancement`
    - `suggestions[3]`
 
 ## 4. Response Handling
@@ -47,7 +50,6 @@ Prompt behavior:
 
 - appends user message,
 - calls provider,
-- patches enhancement back into latest user turn,
 - appends AI reply,
 - publishes suggestions,
 - triggers TTS for tutor reply.
@@ -61,4 +63,4 @@ Room detail AI loop now uses these visible states:
 - `AiThinking`
 - `AiSpeaking`
 
-UI binds these states to status text and busy overlays.
+UI binds these states to status text and a non-blocking inline "thinking" bubble.

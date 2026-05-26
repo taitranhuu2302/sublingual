@@ -4,7 +4,7 @@ public interface IAiTutorService
 {
     /// <summary>
     /// Sends the conversation history and the user's latest transcribed text to the AI provider.
-    /// Returns a fully structured <see cref="TutorResponse"/> with a reply, enhancement tip, and suggestions.
+    /// Returns a fully structured <see cref="TutorResponse"/> with a reply and suggestions.
     /// </summary>
     Task<TutorResponse?> GetResponseAsync(
         string instructions,

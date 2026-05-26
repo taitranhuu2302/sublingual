@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Sublingual.Domain.SpeakingPractice;
 using Sublingual.Infrastructure.AI;
 
@@ -48,7 +49,7 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         string sentence,
         CancellationToken cancellationToken = default)
     {
-        var systemPrompt = "Correct the following sentence to make it natural and grammatically correct in English. Output ONLY the corrected sentence itself. Do not include any explanations, preambles, comments, context evaluations, or markdown formatting. If the sentence is already perfect, return the original sentence.";
+        var systemPrompt = SpeakingTutorPrompts.BuildDirectCorrectionSystemPrompt();
         var requestBody = new
         {
             model = _model,
@@ -92,7 +93,9 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         IReadOnlyList<PracticeMessage> history,
         int? historyTokenBudget)
     {
-        var systemPrompt = BuildSystemPrompt(TrimInstructions(instructions), languageLevel);
+        var systemPrompt = SpeakingTutorPrompts.BuildTutorSystemPrompt(
+            SpeakingTutorPrompts.TrimInstructions(instructions),
+            languageLevel);
         var messages = new List<object>
         {
             new { role = "system", content = systemPrompt },
@@ -106,48 +109,6 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         }
 
         return [.. messages];
-    }
-
-    private static string BuildSystemPrompt(string instructions, string languageLevel) => $$"""
-        You are a highly professional, encouraging, and strict English Language Tutor.
-        The user's room instructions are: '{{instructions}}'.
-        The user's language level is: '{{languageLevel}}'.
-
-        You MUST strictly follow ALL of these rules — no exceptions:
-        1. ROOM INSTRUCTIONS: Treat the room instructions as the main conversation contract. If they define a topic, role, vocabulary list, or speaking style, stay aligned with them for the whole conversation.
-        2. FALLBACK BEHAVIOR: If the room instructions are broad or effectively empty, have a warm daily conversation. Greet the user, ask about their day, work, feelings, family life, or everyday concerns, and offer gentle advice when it feels natural.
-        3. SPOKEN STYLE: Keep your 'tutor_reply' natural, warm, and conversational. Exactly 2 to 3 sentences maximum.
-        4. ENGAGEMENT: Always end your reply with an open-ended question that matches the room instructions or the fallback daily-conversation mode.
-        5. CONSTRUCTIVE ENHANCEMENT: Analyze the user's latest message carefully.
-           - If they made a grammar, vocabulary, word-choice, or collocation error: provide a gentle correction in 'english_enhancement'. Example: "Great try! Instead of 'I am agree', say 'I agree' — no verb needed."
-           - If their sentence was perfect: leave 'english_enhancement' as an empty string "".
-        6. SUGGESTIONS: Generate exactly 3 distinct and natural next-turn options in 'suggestions':
-           - Option 1 label "Direct Reply": short, simple sentence.
-           - Option 2 label "Elaborate": expanded with a reason or detail.
-           - Option 3 label "Ask Back": a follow-up question to keep the conversation going.
-        7. OUTPUT FORMAT: You MUST respond ONLY with this exact JSON structure. No extra text outside the JSON:
-        {
-          "tutor_reply": "...",
-          "english_enhancement": "...",
-          "suggestions": [
-            { "label": "Direct Reply", "text": "..." },
-            { "label": "Elaborate", "text": "..." },
-            { "label": "Ask Back", "text": "..." }
-          ]
-        }
-        """;
-
-    private static string TrimInstructions(string instructions)
-    {
-        if (string.IsNullOrWhiteSpace(instructions))
-        {
-            return string.Empty;
-        }
-
-        const int maxChars = 1200;
-        return instructions.Length <= maxChars
-            ? instructions
-            : instructions[..maxChars].TrimEnd() + "...";
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -220,12 +181,13 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
 
             var suggestions = parsed.Suggestions?
                 .Select(s => new SuggestionOption(s.Label ?? string.Empty, s.Text ?? string.Empty))
+                .Where(s => !string.IsNullOrWhiteSpace(s.Text))
                 .ToList()
                 ?? [];
 
             return new TutorResponse(
                 TutorReply: parsed.TutorReply ?? string.Empty,
-                EnglishEnhancement: parsed.EnglishEnhancement ?? string.Empty,
+                EnglishEnhancement: string.Empty,
                 Suggestions: suggestions
             );
         }
@@ -237,8 +199,10 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
 
     private sealed class TutorResponseDto
     {
+        [JsonPropertyName("tutor_reply")]
         public string? TutorReply { get; init; }
-        public string? EnglishEnhancement { get; init; }
+
+        [JsonPropertyName("suggestions")]
         public List<SuggestionOptionDto>? Suggestions { get; init; }
     }
 

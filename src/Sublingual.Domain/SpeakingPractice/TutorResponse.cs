@@ -9,8 +9,8 @@ public sealed record TutorResponse(
     string TutorReply,
 
     /// <summary>
-    /// Polite, constructive grammar or phrasing tip for the user's last turn.
-    /// Empty string means the user's sentence was flawless.
+    /// (Deprecated) Polite, constructive grammar or phrasing tip for the user's last turn.
+    /// This feature is not shown in the UI and is always returned as an empty string.
     /// </summary>
     string EnglishEnhancement,
 

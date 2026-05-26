@@ -17,7 +17,6 @@ The `Practice` tab now uses a room-based flow:
 Room list supports:
 
 - search by title/instructions,
-- duplicate room,
 - delete one room,
 - multi-select delete with confirm dialog.
 
@@ -25,7 +24,8 @@ Room list supports:
 
 - `PracticeSessionViewModel`
   - room list/detail state,
-  - create/edit/delete/duplicate room flows,
+  - create/edit/delete room flows,
+  - instruction builder + quick templates (create/edit dialogs),
   - manual microphone start/stop,
   - AI config validation guard,
   - message timeline + suggestions.
@@ -43,15 +43,15 @@ Room list supports:
 
 ## 3. Data Flow
 
-```text
-Room Detail
-  -> (Chat text OR manual mic transcript)
-  -> SpeakingSessionManager
-  -> IAiTutorService (Groq/Gemini)
-  -> TutorResponse (reply + enhancement + suggestions)
-  -> LocalSystemTtsService
-  -> UI timeline + persisted room history
-```
+ ```text
+ Room Detail
+   -> (Chat text OR manual mic transcript)
+   -> SpeakingSessionManager
+   -> IAiTutorService (Groq/Gemini)
+   -> TutorResponse (reply + suggestions)
+   -> LocalSystemTtsService
+   -> UI timeline + persisted room history
+ ```
 
 ## 4. Audio Behavior
 
@@ -72,12 +72,23 @@ AI providers receive:
 - language level,
 - recent room history.
 
-Prompt logic uses two modes:
+Prompt logic uses two inferred modes:
 
-1. Follow room instructions as the main contract.
-2. If instructions are broad/empty, use warm daily-conversation fallback behavior.
+1. Roleplay when room instructions define a scenario/roles/task/goal.
+2. Otherwise daily conversation fallback.
+
+Room instructions are treated as content constraints and must not override the strict JSON-only output format.
+
+The AI response is strict JSON. Speaking Practice UI only uses:
+
+- `tutor_reply`
+- `suggestions` (shown on-demand when user clicks Suggestions)
 
 ## 6. Current Gaps
 
 - AI provider config errors are now blocked in speaking runtime with explicit status text, but no dedicated settings shortcut is shown yet.
 - Speaking-practice docs are now aligned at high level; detailed sequence diagrams can be expanded later.
+
+## 7. Helpful Templates
+
+- `docs/speaking-practice/ROOM-INSTRUCTIONS-TEMPLATES.md`

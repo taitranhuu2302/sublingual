@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Sublingual.App.Models;
 using Sublingual.App.Services.Translation;
+using Sublingual.App.Services.Logging;
 using Sublingual.App.ViewModels;
 using Sublingual.App.ViewModels.SpeakingPractice;
 using Sublingual.App.Views;
@@ -21,6 +23,7 @@ namespace Sublingual.App.Services;
 public sealed class AppBootstrapper : IDisposable
 {
     private readonly ServiceProvider _serviceProvider;
+    private readonly ILogger<AppBootstrapper> _logger;
 
     public IServiceProvider Services => _serviceProvider;
 
@@ -29,6 +32,9 @@ public sealed class AppBootstrapper : IDisposable
         var services = new ServiceCollection();
         ConfigureServices(services);
         _serviceProvider = services.BuildServiceProvider();
+
+        _logger = _serviceProvider.GetRequiredService<ILogger<AppBootstrapper>>();
+        _logger.LogInformation("DI container built");
     }
 
     public MainWindow CreateMainWindow()
@@ -53,6 +59,7 @@ public sealed class AppBootstrapper : IDisposable
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing bootstrapper");
         if (_serviceProvider.GetService<MainWindowViewModel>() is IDisposable mainWindowViewModel)
         {
             mainWindowViewModel.Dispose();
@@ -64,10 +71,21 @@ public sealed class AppBootstrapper : IDisposable
         }
 
         _serviceProvider.Dispose();
+
+        if (AppLog.Factory is IDisposable disposableFactory)
+        {
+            disposableFactory.Dispose();
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        var logDir = LoggingBootstrapper.ResolveLogDirectory();
+        var loggerFactory = LoggingBootstrapper.CreateLoggerFactory(logDir);
+        AppLog.Initialize(loggerFactory);
+        services.AddSingleton(loggerFactory);
+        services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+
         services.AddSingleton<AppSettingsStore>();
         services.AddSingleton(provider =>
         {
@@ -76,7 +94,13 @@ public sealed class AppBootstrapper : IDisposable
             runtimeOptions.ApplyChunkPreset(settings.SpeechToText.RealtimeChunkPreset);
             return runtimeOptions;
         });
-        services.AddSingleton<IAudioCaptureService>(_ => CreateAudioCaptureService());
+        services.AddSingleton<IAudioCaptureService>(provider =>
+        {
+            var capture = CreateAudioCaptureService();
+            var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger("AudioCapture");
+            logger.LogInformation("Resolved capture service: {CaptureType}", capture.GetType().Name);
+            return capture;
+        });
         services.AddSingleton<IAudioChunkProcessor, FixedWindowAudioChunkProcessor>();
         services.AddSingleton<AudioFormatNormalizer>();
         services.AddSingleton<VoskInputVerifier>();
@@ -126,17 +150,20 @@ public sealed class AppBootstrapper : IDisposable
             svc.Configure(settings.GeminiApiKey, settings.GeminiModel);
             return svc;
         });
+        services.AddSingleton<ISpeakingPracticeAiTutorFactory, SpeakingPracticeAiTutorFactory>();
         services.AddSingleton<IAiTutorService, SpeakingPracticeDynamicAiTutorService>();
         services.AddSingleton<ITtsService, LocalSystemTtsService>();
         services.AddSingleton<IMicrophoneTranscriptionService>(provider =>
             new MicrophoneTranscriptionService(
                 CreateMicrophoneCaptureService(),
                 provider.GetRequiredService<ITranscriptionService>(),
-                provider.GetRequiredService<AudioFormatNormalizer>()));
+                provider.GetRequiredService<AudioFormatNormalizer>(),
+                provider.GetRequiredService<ILogger<MicrophoneTranscriptionService>>()));
         services.AddSingleton(provider =>
             new SpeakingSessionManager(
                 provider.GetRequiredService<IAiTutorService>(),
-                provider.GetRequiredService<ITtsService>()));
+                provider.GetRequiredService<ITtsService>(),
+                provider.GetRequiredService<ILogger<SpeakingSessionManager>>()));
         services.AddSingleton<PracticeSessionViewModel>();
     }
 
