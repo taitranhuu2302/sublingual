@@ -24,15 +24,15 @@ public static class SpeakingPreferenceMemory
             return Serialize(current);
         }
 
-        if (string.Equals(extracted.Value.Sentiment, "positive", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(extracted.Sentiment, "positive", StringComparison.OrdinalIgnoreCase))
         {
-            current.Likes = Upsert(current.Likes, extracted.Value.Topic);
-            current.Dislikes = Remove(current.Dislikes, extracted.Value.Topic);
+            current.Likes = Upsert(current.Likes, extracted.Topic);
+            current.Dislikes = Remove(current.Dislikes, extracted.Topic);
         }
         else
         {
-            current.Dislikes = Upsert(current.Dislikes, extracted.Value.Topic);
-            current.Likes = Remove(current.Likes, extracted.Value.Topic);
+            current.Dislikes = Upsert(current.Dislikes, extracted.Topic);
+            current.Likes = Remove(current.Likes, extracted.Topic);
         }
 
         return Serialize(current);
@@ -132,6 +132,19 @@ public static class SpeakingPreferenceMemory
     {
         list.RemoveAll(item => string.Equals(item, topic, StringComparison.OrdinalIgnoreCase));
         return list;
+    }
+
+    private static PracticeMessage? GetLastUserMessage(IReadOnlyList<PracticeMessage> history)
+    {
+        for (var i = history.Count - 1; i >= 0; i--)
+        {
+            if (history[i].Sender == MessageSender.User)
+            {
+                return history[i];
+            }
+        }
+
+        return null;
     }
 
     private sealed record PreferenceExtraction(string Sentiment, string Topic);
