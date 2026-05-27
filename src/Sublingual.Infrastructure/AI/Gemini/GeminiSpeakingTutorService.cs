@@ -35,13 +35,14 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync(instructions, languageLevel, history, null, cancellationToken);
+        var response = await SendAsync(instructions, languageLevel, history, preferencesJson, null, cancellationToken);
         if (IsContextLimitStatus(response.StatusCode))
         {
             response.Dispose();
-            response = await SendAsync(instructions, languageLevel, history, RetryHistoryTokenBudget, cancellationToken);
+            response = await SendAsync(instructions, languageLevel, history, preferencesJson, RetryHistoryTokenBudget, cancellationToken);
         }
 
         using (response)
@@ -98,14 +99,17 @@ public sealed class GeminiSpeakingTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         int? historyTokenBudget,
         CancellationToken cancellationToken)
     {
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
         var contents = BuildContents(history, historyTokenBudget);
+        var conversationStateJson = SpeakingConversationState.BuildJson(history, preferencesJson);
         var systemInstruction = SpeakingTutorPrompts.BuildTutorSystemPrompt(
             SpeakingTutorPrompts.TrimInstructions(instructions),
-            languageLevel);
+            languageLevel,
+            conversationStateJson);
 
         var requestBody = new
         {

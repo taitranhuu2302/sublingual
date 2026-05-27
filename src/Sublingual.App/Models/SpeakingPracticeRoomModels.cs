@@ -8,6 +8,7 @@ public sealed class SpeakingPracticeRoomRecord
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<SpeakingPracticeMessageRecord> Messages { get; set; } = [];
+    public SpeakingPracticeRoomMemoryRecord? Memory { get; set; }
 }
 
 public sealed class SpeakingPracticeMessageRecord
@@ -30,4 +31,10 @@ public sealed class SpeakingPracticeSuggestionOptionRecord
 public sealed class SpeakingPracticeRoomsDocument
 {
     public List<SpeakingPracticeRoomRecord> Rooms { get; set; } = [];
+}
+
+public sealed class SpeakingPracticeRoomMemoryRecord
+{
+    public string PreferencesJson { get; set; } = "{}";
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

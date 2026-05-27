@@ -28,13 +28,14 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync(instructions, languageLevel, history, null, cancellationToken);
+        var response = await SendAsync(instructions, languageLevel, history, preferencesJson, null, cancellationToken);
         if (IsContextLimitStatus(response.StatusCode))
         {
             response.Dispose();
-            response = await SendAsync(instructions, languageLevel, history, RetryHistoryTokenBudget, cancellationToken);
+            response = await SendAsync(instructions, languageLevel, history, preferencesJson, RetryHistoryTokenBudget, cancellationToken);
         }
 
         using (response)
@@ -91,11 +92,14 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         int? historyTokenBudget)
     {
+        var conversationStateJson = SpeakingConversationState.BuildJson(history, preferencesJson);
         var systemPrompt = SpeakingTutorPrompts.BuildTutorSystemPrompt(
             SpeakingTutorPrompts.TrimInstructions(instructions),
-            languageLevel);
+            languageLevel,
+            conversationStateJson);
         var messages = new List<object>
         {
             new { role = "system", content = systemPrompt },
@@ -115,10 +119,11 @@ public sealed class GroqSpeakingTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         int? historyTokenBudget,
         CancellationToken cancellationToken)
     {
-        var messages = BuildMessages(instructions, languageLevel, history, historyTokenBudget);
+        var messages = BuildMessages(instructions, languageLevel, history, preferencesJson, historyTokenBudget);
         var requestBody = new
         {
             model = _model,

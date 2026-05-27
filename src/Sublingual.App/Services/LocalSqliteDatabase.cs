@@ -67,6 +67,12 @@ public sealed class LocalSqliteDatabase
                 SetSchemaVersion(connection, tx, 2);
             }
 
+            if (version < 3)
+            {
+                ApplyMigrationV3(connection, tx);
+                SetSchemaVersion(connection, tx, 3);
+            }
+
             tx.Commit();
             _initialized = true;
         }
@@ -186,6 +192,21 @@ public sealed class LocalSqliteDatabase
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_capture_sessions_folder ON capture_sessions(folder_id);");
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_capture_sessions_created ON capture_sessions(created_at DESC);");
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_transcript_entries_session ON transcript_entries(session_id);");
+    }
+
+    private static void ApplyMigrationV3(SqliteConnection connection, SqliteTransaction tx)
+    {
+        // Speaking practice memory
+        ExecuteNonQuery(connection, tx, """
+            CREATE TABLE IF NOT EXISTS practice_room_memory (
+              room_id TEXT PRIMARY KEY,
+              preferences_json TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY(room_id) REFERENCES practice_rooms(id) ON DELETE CASCADE
+            );
+            """);
+
+        ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_practice_room_memory_updated ON practice_room_memory(updated_at);");
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, SqliteTransaction tx, string sql)

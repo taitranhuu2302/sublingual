@@ -194,7 +194,14 @@
                             <ToolTip.Tip>Edit room</ToolTip.Tip>
                             <i:Icon Value="fa-solid fa-pen" FontSize="14" />
                         </Button>
-                        <TextBlock Grid.Column="3"
+                        <Button Grid.Column="3" Classes="practice-icon-button"
+                                Command="{Binding OpenClearMemoryDialogCommand}"
+                                IsEnabled="{Binding HasRoomMemory}"
+                                VerticalAlignment="Center">
+                            <ToolTip.Tip>Clear memory</ToolTip.Tip>
+                            <i:Icon Value="fa-solid fa-eraser" FontSize="13" />
+                        </Button>
+                        <TextBlock Grid.Column="4"
                                    Text="{Binding StatusText}"
                                    FontSize="12"
                                    Opacity="0.58"
@@ -719,6 +726,46 @@
                     </suki:GlassCard>
                 </Grid>
             </ScrollViewer>
+        </Border>
+
+        <Border Grid.RowSpan="2"
+                IsVisible="{Binding IsClearMemoryDialogOpen}"
+                Background="#F0101828"
+                ZIndex="100"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="520"
+                  MaxWidth="520">
+                <suki:GlassCard Padding="18" Classes="surface-card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Clear Room Memory"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"
+                                   Foreground="#F0F4FF" />
+                        <TextBlock Text="This removes saved preferences like likes or dislikes for this room."
+                                   Foreground="#8BA3C7"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                            <TextBlock Text="You can build new memory by chatting again."
+                                       Foreground="#64748B"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Classes="action-button neutral-action"
+                                    Command="{Binding CloseClearMemoryDialogCommand}"
+                                    Content="Cancel" />
+                            <Button Grid.Column="2"
+                                    Classes="action-button primary-action"
+                                    Command="{Binding ClearRoomMemoryCommand}"
+                                    Content="Clear"
+                                    IsEnabled="{Binding !IsRoomActionBusy}" />
+                        </Grid>
+                    </StackPanel>
+                </suki:GlassCard>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

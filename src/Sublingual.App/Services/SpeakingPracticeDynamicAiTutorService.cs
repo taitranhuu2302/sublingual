@@ -19,11 +19,12 @@ public sealed class SpeakingPracticeDynamicAiTutorService : IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         CancellationToken cancellationToken = default)
     {
         var settings = _settingsStore.Load().SpeakingPractice;
         var tutor = _aiTutorFactory.Create(settings);
-        return tutor.GetResponseAsync(instructions, languageLevel, history, cancellationToken);
+        return tutor.GetResponseAsync(instructions, languageLevel, history, preferencesJson, cancellationToken);
     }
 
     public Task<string> GetDirectCorrectionAsync(

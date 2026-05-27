@@ -24,6 +24,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     private readonly HashSet<string> _spokenMessageIds = [];
     private readonly List<string> _recordingSegments = [];
     private readonly List<string> _pendingDeleteRoomIds = [];
+    private string _roomPreferencesJson = "{}";
     private CancellationTokenSource? _recordingCts;
     private bool _disposed;
     public Action? OpenSettingsAction { get; set; }
@@ -32,6 +33,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     [ObservableProperty] private bool _isCreateRoomDialogOpen;
     [ObservableProperty] private bool _isEditRoomDialogOpen;
     [ObservableProperty] private bool _isDeleteRoomsDialogOpen;
+    [ObservableProperty] private bool _isClearMemoryDialogOpen;
     [ObservableProperty] private string _deleteRoomsDialogMessage = string.Empty;
     [ObservableProperty] private string _roomSearchText = string.Empty;
     [ObservableProperty] private string _newRoomTitle = string.Empty;
@@ -152,6 +154,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
     public bool HasRecordingTranscriptPreview => !string.IsNullOrWhiteSpace(RecordingTranscriptPreview);
     public bool HasStatusText => !string.IsNullOrWhiteSpace(StatusText);
     public bool ShowOpenSettingsForAi => !IsAiConfigured && HasSelectedRoom;
+    public bool HasRoomMemory => !string.IsNullOrWhiteSpace(_roomPreferencesJson)
+        && !string.Equals(_roomPreferencesJson, "{}", StringComparison.Ordinal);
     public string AiActionHint => IsAiConfigured ? "" : "Configure AI provider key/model in Settings.";
     public string ActiveAiProviderLabel { get; private set; } = "Groq";
     public string ActiveAiModelLabel { get; private set; } = "qwen/qwen3-32b";
@@ -469,6 +473,35 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         IsDeleteRoomsDialogOpen = false;
         DeleteRoomsDialogMessage = string.Empty;
         _pendingDeleteRoomIds.Clear();
+    }
+
+    [RelayCommand]
+    private void OpenClearMemoryDialog()
+    {
+        if (IsRoomActionBusy)
+        {
+            return;
+        }
+
+        if (SelectedRoom is null)
+        {
+            StatusText = "Open a room first.";
+            return;
+        }
+
+        if (!HasRoomMemory)
+        {
+            StatusText = "No memory to clear.";
+            return;
+        }
+
+        IsClearMemoryDialogOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseClearMemoryDialog()
+    {
+        IsClearMemoryDialogOpen = false;
     }
 
     [RelayCommand(CanExecute = nameof(CanCreateRoom))]
@@ -1054,7 +1087,20 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
 
         var beforeIds = _sessionManager.History.Select(message => message.Id).ToHashSet(StringComparer.Ordinal);
         var beforeCount = _sessionManager.History.Count;
-        await _sessionManager.HandleUserTranscriptAsync(text);
+        await _sessionManager.HandleUserTranscriptAsync(text, _roomPreferencesJson);
+
+        var mergedPreferences = Sublingual.Infrastructure.AI.SpeakingPreferenceMemory.MergePreferencesJson(
+            _roomPreferencesJson,
+            _sessionManager.History);
+        if (!string.Equals(mergedPreferences, _roomPreferencesJson, StringComparison.Ordinal))
+        {
+            _roomPreferencesJson = mergedPreferences;
+            if (SelectedRoom is not null)
+            {
+                _roomStore.UpsertRoomMemory(SelectedRoom.Id, _roomPreferencesJson);
+            }
+            OnPropertyChanged(nameof(HasRoomMemory));
+        }
 
         // If AI returned an empty/unparseable reply, SessionManager will not publish an AI message.
         // Surface a user-visible status instead of showing an empty bubble.
@@ -1150,6 +1196,8 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
                 room.Messages.Count);
         RoomTitle = room.Name;
         RoomInstructions = string.IsNullOrWhiteSpace(room.Instructions) ? DefaultInstructions : room.Instructions;
+        _roomPreferencesJson = room.Memory?.PreferencesJson ?? "{}";
+        OnPropertyChanged(nameof(HasRoomMemory));
         RefreshAiConfigurationStatus();
 
         foreach (var messageRecord in room.Messages.OrderBy(message => message.Timestamp))
@@ -1190,7 +1238,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
                 {
                     StatusText = $"Starting via {ActiveAiRuntimeLabel}...";
                     var beforeCount = _sessionManager.History.Count;
-                    await _sessionManager.HandleTutorKickoffAsync();
+                    await _sessionManager.HandleTutorKickoffAsync(_roomPreferencesJson);
 
                     // If AI returned an empty/unparseable reply, SessionManager will not publish an AI message.
                     if (_sessionManager.History.Count == beforeCount)
@@ -1225,10 +1273,33 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
         SelectedRoom = null;
         RoomTitle = string.Empty;
         RoomInstructions = string.Empty;
+        _roomPreferencesJson = "{}";
+        OnPropertyChanged(nameof(HasRoomMemory));
         AiConfigurationError = string.Empty;
         IsAiConfigured = true;
         ActivePage = "list";
         _sessionManager.StopSession();
+    }
+
+    [RelayCommand]
+    private void ClearRoomMemory()
+    {
+        if (IsRoomActionBusy)
+        {
+            return;
+        }
+
+        if (SelectedRoom is null)
+        {
+            StatusText = "Open a room first.";
+            return;
+        }
+
+        _roomPreferencesJson = "{}";
+        _roomStore.UpsertRoomMemory(SelectedRoom.Id, _roomPreferencesJson);
+        StatusText = "Room memory cleared.";
+        IsClearMemoryDialogOpen = false;
+        OnPropertyChanged(nameof(HasRoomMemory));
     }
 
     private void RefreshAiConfigurationStatus()
@@ -1344,6 +1415,7 @@ public sealed partial class PracticeSessionViewModel : ViewModelBase, IDisposabl
             string instructions,
             string languageLevel,
             IReadOnlyList<PracticeMessage> history,
+            string? preferencesJson,
             CancellationToken cancellationToken = default)
             => Task.FromResult<TutorResponse?>(null);
 

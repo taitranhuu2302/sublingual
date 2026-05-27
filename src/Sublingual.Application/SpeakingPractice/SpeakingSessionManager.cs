@@ -72,7 +72,7 @@ public sealed class SpeakingSessionManager : IDisposable
     /// Called by the ViewModel when Vosk finalises a transcript.
     /// Adds the user's message and kicks off the AI → TTS pipeline.
     /// </summary>
-    public async Task HandleUserTranscriptAsync(string transcript, CancellationToken cancellationToken = default)
+    public async Task HandleUserTranscriptAsync(string transcript, string? preferencesJson, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -109,6 +109,7 @@ public sealed class SpeakingSessionManager : IDisposable
                 Instructions,
                 LanguageLevel,
                 _history,
+                preferencesJson,
                 linkedToken
             );
         }
@@ -175,7 +176,7 @@ public sealed class SpeakingSessionManager : IDisposable
     /// Starts the conversation with an AI opening message when the room has no messages yet.
     /// Safe to call multiple times; it will no-op once history is non-empty.
     /// </summary>
-    public async Task HandleTutorKickoffAsync(CancellationToken cancellationToken = default)
+    public async Task HandleTutorKickoffAsync(string? preferencesJson, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -199,6 +200,7 @@ public sealed class SpeakingSessionManager : IDisposable
                 Instructions,
                 LanguageLevel,
                 _history,
+                preferencesJson,
                 linkedToken
             );
         }

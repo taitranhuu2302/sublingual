@@ -145,6 +145,50 @@ public sealed class SpeakingPracticeRoomStore
         }
     }
 
+    public SpeakingPracticeRoomMemoryRecord? GetRoomMemory(string roomId)
+    {
+        lock (_gate)
+        {
+            EnsureMigratedFromJsonIfNeeded();
+            using var connection = _db.OpenConnection();
+            return LoadRoomMemory(connection, roomId);
+        }
+    }
+
+    public void UpsertRoomMemory(string roomId, string preferencesJson)
+    {
+        if (string.IsNullOrWhiteSpace(roomId))
+        {
+            return;
+        }
+
+        var payload = string.IsNullOrWhiteSpace(preferencesJson) ? "{}" : preferencesJson.Trim();
+
+        lock (_gate)
+        {
+            EnsureMigratedFromJsonIfNeeded();
+            using var connection = _db.OpenConnection();
+            using var tx = connection.BeginTransaction();
+
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = """
+                    INSERT INTO practice_room_memory(room_id, preferences_json, updated_at)
+                    VALUES ($room_id, $preferences_json, $updated_at)
+                    ON CONFLICT(room_id)
+                    DO UPDATE SET preferences_json = $preferences_json, updated_at = $updated_at;
+                    """;
+                cmd.Parameters.AddWithValue("$room_id", roomId);
+                cmd.Parameters.AddWithValue("$preferences_json", payload);
+                cmd.Parameters.AddWithValue("$updated_at", ToDbTime(DateTimeOffset.UtcNow));
+                cmd.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+        }
+    }
+
     public SpeakingPracticeRoomRecord? UpdateRoom(string roomId, string title, string instructions)
     {
         var normalizedTitle = title.Trim();
@@ -502,6 +546,7 @@ public sealed class SpeakingPracticeRoomStore
     private static IReadOnlyList<SpeakingPracticeRoomRecord> LoadRooms(SqliteConnection connection)
     {
         var rooms = new List<SpeakingPracticeRoomRecord>();
+        var memoryLookup = LoadRoomMemories(connection);
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
             SELECT id, name, instructions, created_at, updated_at
@@ -519,6 +564,7 @@ public sealed class SpeakingPracticeRoomStore
                 CreatedAt = ParseDbTime(reader.GetString(3)),
                 UpdatedAt = ParseDbTime(reader.GetString(4)),
                 Messages = [],
+                Memory = memoryLookup.TryGetValue(reader.GetString(0), out var memory) ? memory : null,
             };
 
             room.Messages = LoadMessagesForRoom(connection, room.Id);
@@ -526,6 +572,28 @@ public sealed class SpeakingPracticeRoomStore
         }
 
         return rooms;
+    }
+
+    private static Dictionary<string, SpeakingPracticeRoomMemoryRecord> LoadRoomMemories(SqliteConnection connection)
+    {
+        var memories = new Dictionary<string, SpeakingPracticeRoomMemoryRecord>(StringComparer.Ordinal);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT room_id, preferences_json, updated_at
+            FROM practice_room_memory;
+            """;
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var roomId = reader.GetString(0);
+            memories[roomId] = new SpeakingPracticeRoomMemoryRecord
+            {
+                PreferencesJson = reader.GetString(1),
+                UpdatedAt = ParseDbTime(reader.GetString(2)),
+            };
+        }
+
+        return memories;
     }
 
     private static SpeakingPracticeRoomRecord? LoadRoom(SqliteConnection connection, string roomId)
@@ -552,8 +620,32 @@ public sealed class SpeakingPracticeRoomStore
             CreatedAt = ParseDbTime(reader.GetString(3)),
             UpdatedAt = ParseDbTime(reader.GetString(4)),
             Messages = LoadMessagesForRoom(connection, roomId),
+            Memory = LoadRoomMemory(connection, roomId),
         };
         return room;
+    }
+
+    private static SpeakingPracticeRoomMemoryRecord? LoadRoomMemory(SqliteConnection connection, string roomId)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT preferences_json, updated_at
+            FROM practice_room_memory
+            WHERE room_id = $room_id
+            LIMIT 1;
+            """;
+        cmd.Parameters.AddWithValue("$room_id", roomId);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return new SpeakingPracticeRoomMemoryRecord
+        {
+            PreferencesJson = reader.GetString(0),
+            UpdatedAt = ParseDbTime(reader.GetString(1)),
+        };
     }
 
     private static List<SpeakingPracticeMessageRecord> LoadMessagesForRoom(SqliteConnection connection, string roomId)

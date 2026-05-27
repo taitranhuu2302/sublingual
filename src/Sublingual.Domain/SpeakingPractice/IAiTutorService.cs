@@ -10,6 +10,7 @@ public interface IAiTutorService
         string instructions,
         string languageLevel,
         IReadOnlyList<PracticeMessage> history,
+        string? preferencesJson,
         CancellationToken cancellationToken = default
     );
 
