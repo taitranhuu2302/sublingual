@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Sublingual.App.Models;
 using Sublingual.App.Services;
 using Sublingual.App.Services.Translation;
-using Sublingual.App.ViewModels.SpeakingPractice;
 using Sublingual.Domain.Audio;
 using Sublingual.Domain.Transcription;
 using Sublingual.Infrastructure.Audio.Processing;
@@ -78,11 +77,6 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty] private bool libreTranslateEnabled = true;
     [ObservableProperty] private string libreTranslateEndpoint = "https://libretranslate.com/translate";
     [ObservableProperty] private string libreTranslateApiKey = string.Empty;
-    [ObservableProperty] private string speakingPracticeAiProvider = SpeakingPracticeProviders.Groq;
-    [ObservableProperty] private string speakingPracticeGroqApiKey = string.Empty;
-    [ObservableProperty] private string speakingPracticeGroqModel = "qwen/qwen3-32b";
-    [ObservableProperty] private string speakingPracticeGeminiApiKey = string.Empty;
-    [ObservableProperty] private string speakingPracticeGeminiModel = "gemini-2.5-flash";
     [ObservableProperty] private bool translatePartials;
     [ObservableProperty] private string translationStatus = string.Empty;
     [ObservableProperty] private string translationRuntimeStatus = "No translation activity yet.";
@@ -132,10 +126,7 @@ public sealed partial class MainWindowViewModel
     public bool IsCaptureTabActive => string.Equals(ActiveTab, "capture", StringComparison.OrdinalIgnoreCase);
     public bool IsSessionsTabActive => string.Equals(ActiveTab, "sessions", StringComparison.OrdinalIgnoreCase);
     public bool IsSettingsTabActive => string.Equals(ActiveTab, "settings", StringComparison.OrdinalIgnoreCase);
-    public bool IsSpeakingTabActive => string.Equals(ActiveTab, "speaking", StringComparison.OrdinalIgnoreCase);
 
-    // Injected speaking practice VM, bound via ContentControl in MainWindow
-    public PracticeSessionViewModel? SpeakingPractice { get; internal set; }
     public bool IsGeneralSettingsTabActive => string.Equals(ActiveSettingsTab, "general", StringComparison.OrdinalIgnoreCase);
     public bool IsSpeechSettingsTabActive => string.Equals(ActiveSettingsTab, "speech", StringComparison.OrdinalIgnoreCase);
     public bool IsTranslationSettingsTabActive => string.Equals(ActiveSettingsTab, "translation", StringComparison.OrdinalIgnoreCase);

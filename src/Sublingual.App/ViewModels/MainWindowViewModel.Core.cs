@@ -177,12 +177,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void SelectSettingsTab(string tab) => ActiveSettingsTab = tab;
 
-    public void OpenSpeakingPracticeSettings()
-    {
-        ActiveTab = "settings";
-        ActiveSettingsTab = "translation";
-    }
-
     public void Dispose()
     {
         if (_disposed) return;

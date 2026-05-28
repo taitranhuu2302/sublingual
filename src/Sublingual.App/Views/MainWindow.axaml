@@ -51,7 +51,7 @@
                 </StackPanel>
 
                 <!-- Nav items -->
-                <StackPanel Grid.Row="1" Spacing="6" Margin="10,0">
+                 <StackPanel Grid.Row="1" Spacing="6" Margin="10,0">
                      <Button Classes="nav-item nav-item-active"
                              HorizontalAlignment="Stretch"
                              HorizontalContentAlignment="Left"
@@ -66,15 +66,6 @@
                              HorizontalContentAlignment="Left"
                              Command="{Binding SelectTabCommand}"
                              CommandParameter="capture"
-                             IsVisible="{Binding IsSettingsTabActive}">
-                        <ToolTip.Tip>Capture</ToolTip.Tip>
-                        <TextBlock Text="Record" VerticalAlignment="Center" />
-                    </Button>
-                     <Button Classes="nav-item"
-                             HorizontalAlignment="Stretch"
-                             HorizontalContentAlignment="Left"
-                             Command="{Binding SelectTabCommand}"
-                             CommandParameter="capture"
                              IsVisible="{Binding IsSessionsTabActive}">
                         <ToolTip.Tip>Capture</ToolTip.Tip>
                         <TextBlock Text="Record" VerticalAlignment="Center" />
@@ -84,29 +75,29 @@
                              HorizontalContentAlignment="Left"
                              Command="{Binding SelectTabCommand}"
                              CommandParameter="capture"
-                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
+                             IsVisible="{Binding IsSettingsTabActive}">
                         <ToolTip.Tip>Capture</ToolTip.Tip>
                         <TextBlock Text="Record" VerticalAlignment="Center" />
                      </Button>
 
-                    <Button Classes="nav-item nav-item-active"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="sessions"
-                            IsVisible="{Binding IsSessionsTabActive}">
+                     <Button Classes="nav-item nav-item-active"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="sessions"
+                             IsVisible="{Binding IsSessionsTabActive}">
                         <ToolTip.Tip>Sessions</ToolTip.Tip>
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
-                    </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="sessions"
-                            IsVisible="{Binding IsCaptureTabActive}">
+                     </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="sessions"
+                             IsVisible="{Binding IsCaptureTabActive}">
                         <ToolTip.Tip>Sessions</ToolTip.Tip>
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
-                    </Button>
+                     </Button>
                      <Button Classes="nav-item"
                              HorizontalAlignment="Stretch"
                              HorizontalContentAlignment="Left"
@@ -115,54 +106,8 @@
                              IsVisible="{Binding IsSettingsTabActive}">
                         <ToolTip.Tip>Sessions</ToolTip.Tip>
                         <TextBlock Text="Sessions" VerticalAlignment="Center" />
-                      </Button>
-                     <Button Classes="nav-item"
-                             HorizontalAlignment="Stretch"
-                             HorizontalContentAlignment="Left"
-                             Command="{Binding SelectTabCommand}"
-                             CommandParameter="sessions"
-                             IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
-                        <ToolTip.Tip>Sessions</ToolTip.Tip>
-                        <TextBlock Text="Sessions" VerticalAlignment="Center" />
                      </Button>
 
-                     <!-- Speaking Practice nav -->
-                      <Button Classes="nav-item nav-item-active"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Left"
-                              Command="{Binding SelectTabCommand}"
-                              CommandParameter="speaking"
-                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
-                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
-                          <TextBlock Text="Practice" VerticalAlignment="Center" />
-                      </Button>
-                      <Button Classes="nav-item"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Left"
-                              Command="{Binding SelectTabCommand}"
-                              CommandParameter="speaking"
-                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
-                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
-                          <TextBlock Text="Practice" VerticalAlignment="Center" />
-                      </Button>
-                      <Button Classes="nav-item"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Left"
-                              Command="{Binding SelectTabCommand}"
-                              CommandParameter="speaking"
-                              IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=sessions}">
-                          <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
-                          <TextBlock Text="Practice" VerticalAlignment="Center" />
-                      </Button>
-                       <Button Classes="nav-item"
-                               HorizontalAlignment="Stretch"
-                               HorizontalContentAlignment="Left"
-                               Command="{Binding SelectTabCommand}"
-                               CommandParameter="speaking"
-                               IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=settings}">
-                           <ToolTip.Tip>Speaking Practice</ToolTip.Tip>
-                           <TextBlock Text="Practice" VerticalAlignment="Center" />
-                       </Button>
 
                     <!-- Settings nav (kept at bottom of nav list) -->
                     <Button Classes="nav-item nav-item-active"
@@ -183,24 +128,15 @@
                         <ToolTip.Tip>Settings</ToolTip.Tip>
                         <TextBlock Text="Settings" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="settings"
-                            IsVisible="{Binding IsSessionsTabActive}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </Button>
-                    <Button Classes="nav-item"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left"
-                            Command="{Binding SelectTabCommand}"
-                            CommandParameter="settings"
-                            IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}">
-                        <ToolTip.Tip>Settings</ToolTip.Tip>
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </Button>
+                     <Button Classes="nav-item"
+                             HorizontalAlignment="Stretch"
+                             HorizontalContentAlignment="Left"
+                             Command="{Binding SelectTabCommand}"
+                             CommandParameter="settings"
+                             IsVisible="{Binding IsSessionsTabActive}">
+                         <ToolTip.Tip>Settings</ToolTip.Tip>
+                         <TextBlock Text="Settings" VerticalAlignment="Center" />
+                     </Button>
                   </StackPanel>
 
                 <!-- Status at bottom -->
@@ -222,14 +158,10 @@
                        BusyText="{Binding StatusMessage}">
             <Grid>
 
-            <!-- TAB: Speaking Practice -->
-            <ContentControl
-                IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=speaking}"
-                Content="{Binding SpeakingPractice}" />
-            <!-- TAB: Capture -->
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                          VerticalScrollBarVisibility="Auto"
-                          IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
+             <!-- TAB: Capture -->
+             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                           VerticalScrollBarVisibility="Auto"
+                           IsVisible="{Binding ActiveTab, Converter={StaticResource StringEquals}, ConverterParameter=capture}">
                 <StackPanel Margin="28,24" Spacing="16">
 
                     <!-- Device picker -->
@@ -1051,62 +983,6 @@
                                             <TextBox Text="{Binding LibreTranslateApiKey}"
                                                      Watermark="Optional API key"
                                                      HorizontalAlignment="Stretch" />
-                                         </StackPanel>
-                                     </suki:GlassCard>
-
-                                     <suki:GlassCard Background="#0D1F38"
-                                                     CornerRadius="10"
-                                                     Padding="14">
-                                         <StackPanel Spacing="12">
-                                             <StackPanel Spacing="3">
-                                                 <TextBlock Text="Speaking Practice AI"
-                                                            FontWeight="SemiBold"
-                                                            Foreground="#F0F4FF" />
-                                                 <TextBlock Text="Used by the Practice tab rooms."
-                                                            Foreground="#8BA3C7"
-                                                            FontSize="12" />
-                                             </StackPanel>
-
-                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                                 <TextBlock Text="Provider"
-                                                            VerticalAlignment="Center"
-                                                            Foreground="#8BA3C7" />
-                                                 <ComboBox Grid.Column="1"
-                                                           SelectedItem="{Binding SpeakingPracticeAiProvider}">
-                                                     <x:String>Groq</x:String>
-                                                     <x:String>Gemini</x:String>
-                                                 </ComboBox>
-                                             </Grid>
-
-                                             <TextBlock Text="Groq API Key"
-                                                        Foreground="#8BA3C7"
-                                                        FontSize="12" />
-                                             <TextBox Text="{Binding SpeakingPracticeGroqApiKey}"
-                                                      PasswordChar="*"
-                                                      Watermark="gsk_..."
-                                                      HorizontalAlignment="Stretch" />
-
-                                             <TextBlock Text="Groq Model"
-                                                        Foreground="#8BA3C7"
-                                                        FontSize="12" />
-                                             <TextBox Text="{Binding SpeakingPracticeGroqModel}"
-                                                      Watermark="qwen/qwen3-32b"
-                                                      HorizontalAlignment="Stretch" />
-
-                                             <TextBlock Text="Gemini API Key"
-                                                        Foreground="#8BA3C7"
-                                                        FontSize="12" />
-                                             <TextBox Text="{Binding SpeakingPracticeGeminiApiKey}"
-                                                      PasswordChar="*"
-                                                      Watermark="AIza..."
-                                                      HorizontalAlignment="Stretch" />
-
-                                             <TextBlock Text="Gemini Model"
-                                                        Foreground="#8BA3C7"
-                                                        FontSize="12" />
-                                             <TextBox Text="{Binding SpeakingPracticeGeminiModel}"
-                                                      Watermark="gemini-2.5-flash"
-                                                      HorizontalAlignment="Stretch" />
                                          </StackPanel>
                                      </suki:GlassCard>
 

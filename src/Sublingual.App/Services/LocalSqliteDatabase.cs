@@ -57,7 +57,6 @@ public sealed class LocalSqliteDatabase
             var version = GetSchemaVersion(connection, tx);
             if (version < 1)
             {
-                ApplyMigrationV1(connection, tx);
                 SetSchemaVersion(connection, tx, 1);
             }
 
@@ -69,7 +68,7 @@ public sealed class LocalSqliteDatabase
 
             if (version < 3)
             {
-                ApplyMigrationV3(connection, tx);
+                // Speaking Practice (v3) removed. Keep version bump for existing installs.
                 SetSchemaVersion(connection, tx, 3);
             }
 
@@ -102,46 +101,6 @@ public sealed class LocalSqliteDatabase
         cmd.CommandText = "INSERT INTO schema_migrations(version) VALUES ($version);";
         cmd.Parameters.AddWithValue("$version", version);
         cmd.ExecuteNonQuery();
-    }
-
-    private static void ApplyMigrationV1(SqliteConnection connection, SqliteTransaction tx)
-    {
-        // Speaking Practice
-        ExecuteNonQuery(connection, tx, """
-            CREATE TABLE IF NOT EXISTS practice_rooms (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              instructions TEXT NOT NULL,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            );
-            """);
-
-        ExecuteNonQuery(connection, tx, """
-            CREATE TABLE IF NOT EXISTS practice_messages (
-              id TEXT PRIMARY KEY,
-              room_id TEXT NOT NULL,
-              sender TEXT NOT NULL,
-              text TEXT NOT NULL,
-              timestamp TEXT NOT NULL,
-              is_spoken INTEGER NOT NULL,
-              enhancement_advice TEXT NULL,
-              FOREIGN KEY(room_id) REFERENCES practice_rooms(id) ON DELETE CASCADE
-            );
-            """);
-
-        ExecuteNonQuery(connection, tx, """
-            CREATE TABLE IF NOT EXISTS practice_suggestions (
-              message_id TEXT NOT NULL,
-              label TEXT NOT NULL,
-              text TEXT NOT NULL,
-              FOREIGN KEY(message_id) REFERENCES practice_messages(id) ON DELETE CASCADE
-            );
-            """);
-
-        ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_practice_rooms_updated_at ON practice_rooms(updated_at);");
-        ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_practice_messages_room_ts ON practice_messages(room_id, timestamp);");
-        ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_practice_suggestions_message ON practice_suggestions(message_id);");
     }
 
     private static void ApplyMigrationV2(SqliteConnection connection, SqliteTransaction tx)
@@ -192,21 +151,6 @@ public sealed class LocalSqliteDatabase
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_capture_sessions_folder ON capture_sessions(folder_id);");
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_capture_sessions_created ON capture_sessions(created_at DESC);");
         ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_transcript_entries_session ON transcript_entries(session_id);");
-    }
-
-    private static void ApplyMigrationV3(SqliteConnection connection, SqliteTransaction tx)
-    {
-        // Speaking practice memory
-        ExecuteNonQuery(connection, tx, """
-            CREATE TABLE IF NOT EXISTS practice_room_memory (
-              room_id TEXT PRIMARY KEY,
-              preferences_json TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              FOREIGN KEY(room_id) REFERENCES practice_rooms(id) ON DELETE CASCADE
-            );
-            """);
-
-        ExecuteNonQuery(connection, tx, "CREATE INDEX IF NOT EXISTS idx_practice_room_memory_updated ON practice_room_memory(updated_at);");
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, SqliteTransaction tx, string sql)

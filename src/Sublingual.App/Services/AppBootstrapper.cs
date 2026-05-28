@@ -4,19 +4,13 @@ using Sublingual.App.Models;
 using Sublingual.App.Services.Translation;
 using Sublingual.App.Services.Logging;
 using Sublingual.App.ViewModels;
-using Sublingual.App.ViewModels.SpeakingPractice;
 using Sublingual.App.Views;
-using Sublingual.Application.SpeakingPractice;
 using Sublingual.Domain.Audio;
-using Sublingual.Domain.SpeakingPractice;
 using Sublingual.Domain.Transcription;
-using Sublingual.Infrastructure.AI.Gemini;
-using Sublingual.Infrastructure.AI.Groq;
 using Sublingual.Infrastructure.Audio;
 using Sublingual.Infrastructure.Audio.Processing;
 using Sublingual.Infrastructure.Audio.Windows;
 using Sublingual.Infrastructure.Audio.macOS;
-using Sublingual.Infrastructure.TTS;
 
 namespace Sublingual.App.Services;
 
@@ -40,9 +34,6 @@ public sealed class AppBootstrapper : IDisposable
     public MainWindow CreateMainWindow()
     {
         var vm = _serviceProvider.GetRequiredService<MainWindowViewModel>();
-        var speakingPractice = _serviceProvider.GetRequiredService<PracticeSessionViewModel>();
-        speakingPractice.OpenSettingsAction = vm.OpenSpeakingPracticeSettings;
-        vm.SpeakingPractice = speakingPractice;
         return new MainWindow
         {
             DataContext = vm,
@@ -132,43 +123,7 @@ public sealed class AppBootstrapper : IDisposable
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<OverlayWindowViewModel>();
 
-        // Speaking Practice
-        services.AddSingleton<SpeakingPracticeRoomStore>(provider =>
-            new SpeakingPracticeRoomStore(provider.GetRequiredService<LocalSqliteDatabase>()));
-        services.AddSingleton<GroqSpeakingTutorService>(provider =>
-        {
-            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
-            var http = new HttpClient();
-            var svc = new GroqSpeakingTutorService(http);
-            if (!string.IsNullOrWhiteSpace(settings.GroqApiKey))
-            {
-                svc.ConfigureApiKey(settings.GroqApiKey);
-            }
-            svc.ConfigureModel(settings.GroqModel);
-            return svc;
-        });
-        services.AddSingleton<GeminiSpeakingTutorService>(provider =>
-        {
-            var settings = provider.GetRequiredService<AppSettingsStore>().Load().SpeakingPractice;
-            var svc = new GeminiSpeakingTutorService(new HttpClient());
-            svc.Configure(settings.GeminiApiKey, settings.GeminiModel);
-            return svc;
-        });
-        services.AddSingleton<ISpeakingPracticeAiTutorFactory, SpeakingPracticeAiTutorFactory>();
-        services.AddSingleton<IAiTutorService, SpeakingPracticeDynamicAiTutorService>();
-        services.AddSingleton<ITtsService, LocalSystemTtsService>();
-        services.AddSingleton<IMicrophoneTranscriptionService>(provider =>
-            new MicrophoneTranscriptionService(
-                CreateMicrophoneCaptureService(),
-                provider.GetRequiredService<ITranscriptionService>(),
-                provider.GetRequiredService<AudioFormatNormalizer>(),
-                provider.GetRequiredService<ILogger<MicrophoneTranscriptionService>>()));
-        services.AddSingleton(provider =>
-            new SpeakingSessionManager(
-                provider.GetRequiredService<IAiTutorService>(),
-                provider.GetRequiredService<ITtsService>(),
-                provider.GetRequiredService<ILogger<SpeakingSessionManager>>()));
-        services.AddSingleton<PracticeSessionViewModel>();
+        // Speaking Practice feature removed.
     }
 
     private static IAudioCaptureService CreateAudioCaptureService()

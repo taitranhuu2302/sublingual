@@ -7,25 +7,6 @@ public sealed class AppSettings
     public OverlaySettings Overlay { get; set; } = new();
     public SpeechToTextSettings SpeechToText { get; set; } = new();
     public TranslationSettings Translation { get; set; } = new();
-    public SpeakingPracticeSettings SpeakingPractice { get; set; } = new();
-}
-
-public sealed class SpeakingPracticeSettings
-{
-    public string AiProvider { get; set; } = SpeakingPracticeProviders.Groq;
-    public string GroqApiKey { get; set; } = string.Empty;
-    public string GroqModel { get; set; } = "qwen/qwen3-32b";
-    public string GeminiApiKey { get; set; } = string.Empty;
-    public string GeminiModel { get; set; } = "gemini-2.5-flash";
-    public string LanguageLevel { get; set; } = "Intermediate";
-    public double VadSilenceThresholdSeconds { get; set; } = 1.2;
-    public string TtsVoice { get; set; } = string.Empty;
-}
-
-public static class SpeakingPracticeProviders
-{
-    public const string Groq = "Groq";
-    public const string Gemini = "Gemini";
 }
 
 public sealed class UiSettings

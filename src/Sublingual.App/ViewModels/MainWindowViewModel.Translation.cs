@@ -111,15 +111,6 @@ public sealed partial class MainWindowViewModel
             ? "https://libretranslate.com/translate"
             : settings.LibreTranslate.Endpoint;
         LibreTranslateApiKey = settings.LibreTranslate.ApiKey ?? string.Empty;
-        SpeakingPracticeAiProvider = appSettings.SpeakingPractice.AiProvider;
-        SpeakingPracticeGroqApiKey = appSettings.SpeakingPractice.GroqApiKey ?? string.Empty;
-        SpeakingPracticeGroqModel = string.IsNullOrWhiteSpace(appSettings.SpeakingPractice.GroqModel)
-            ? "qwen/qwen3-32b"
-            : appSettings.SpeakingPractice.GroqModel;
-        SpeakingPracticeGeminiApiKey = appSettings.SpeakingPractice.GeminiApiKey ?? string.Empty;
-        SpeakingPracticeGeminiModel = string.IsNullOrWhiteSpace(appSettings.SpeakingPractice.GeminiModel)
-            ? "gemini-2.5-flash"
-            : appSettings.SpeakingPractice.GeminiModel;
         TranslatePartials = settings.TranslatePartials;
 
         TranslationStatus = BuildTranslationStatus();
@@ -141,17 +132,6 @@ public sealed partial class MainWindowViewModel
         settings.Translation.LibreTranslate.Enabled = LibreTranslateEnabled;
         settings.Translation.LibreTranslate.Endpoint = LibreTranslateEndpoint.Trim();
         settings.Translation.LibreTranslate.ApiKey = LibreTranslateApiKey.Trim();
-        settings.SpeakingPractice.AiProvider = string.Equals(SpeakingPracticeAiProvider, SpeakingPracticeProviders.Gemini, StringComparison.OrdinalIgnoreCase)
-            ? SpeakingPracticeProviders.Gemini
-            : SpeakingPracticeProviders.Groq;
-        settings.SpeakingPractice.GroqApiKey = SpeakingPracticeGroqApiKey.Trim();
-        settings.SpeakingPractice.GroqModel = string.IsNullOrWhiteSpace(SpeakingPracticeGroqModel)
-            ? "qwen/qwen3-32b"
-            : SpeakingPracticeGroqModel.Trim();
-        settings.SpeakingPractice.GeminiApiKey = SpeakingPracticeGeminiApiKey.Trim();
-        settings.SpeakingPractice.GeminiModel = string.IsNullOrWhiteSpace(SpeakingPracticeGeminiModel)
-            ? "gemini-2.5-flash"
-            : SpeakingPracticeGeminiModel.Trim();
         settings.Translation.TranslatePartials = TranslatePartials;
         _settingsStore.Save(settings);
         TranslationStatus = BuildTranslationStatus();
