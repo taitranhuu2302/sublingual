@@ -8,16 +8,27 @@ namespace Sublingual.App.Services;
 
 public sealed class RealtimeTranslationScheduler : IDisposable
 {
-    private static readonly TimeSpan DraftDebounce = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan DraftDebounceMin = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan DraftDebounceMax = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan DraftDebounceDefault = TimeSpan.FromMilliseconds(500);
+    private const int MaxStableQueueCapacity = 100;
+    private const int MinDraftTextLength = 15;
+    private const int MaxStableConcurrency = 2;
+    private const int LatencyWindowSize = 10;
 
     private readonly ITranslationExecutionService _translationService;
     private readonly ILogger _logger;
     private readonly ConcurrentQueue<StableTranslationRequest> _stableQueue = new();
     private readonly SemaphoreSlim _stableSignal = new(0);
+    private readonly SemaphoreSlim _stableConcurrencyGate = new(MaxStableConcurrency);
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly Task _stableWorkerTask;
     private readonly object _draftLock = new();
+    private readonly object _latencyLock = new();
+    private readonly double[] _recentLatencies = new double[LatencyWindowSize];
+    private int _latencyIndex;
 
+    private TimeSpan _currentDraftDebounce = DraftDebounceDefault;
     private DraftTranslationRequest? _latestDraft;
     private CancellationTokenSource? _draftRequestCts;
     private Task? _draftWorkerTask;
@@ -34,6 +45,15 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
     public void EnqueueDraft(DraftTranslationRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.SourceText) || request.SourceText.Length < MinDraftTextLength)
+        {
+            _logger.LogDebug(
+                "Skip short draft translation. Len={Len} Min={Min}",
+                request.SourceText?.Length ?? 0,
+                MinDraftTextLength);
+            return;
+        }
+
         _logger.LogDebug(
             "Enqueue draft translation. Session={SessionId} Segment={SegmentId} Seq={Seq} Final={IsFinal} Len={Len}",
             request.SessionId,
@@ -58,6 +78,16 @@ public sealed class RealtimeTranslationScheduler : IDisposable
 
     public void EnqueueStable(StableTranslationRequest request)
     {
+        if (_stableQueue.Count >= MaxStableQueueCapacity)
+        {
+            _logger.LogWarning(
+                "Stable queue full ({Capacity}), dropping oldest. Session={SessionId} Segment={SegmentId}",
+                MaxStableQueueCapacity,
+                request.SessionId,
+                request.SegmentId);
+            _stableQueue.TryDequeue(out _);
+        }
+
         _logger.LogInformation(
             "Enqueue stable translation. Session={SessionId} Segment={SegmentId} Seq={Seq} Len={Len}",
             request.SessionId,
@@ -122,7 +152,13 @@ public sealed class RealtimeTranslationScheduler : IDisposable
                 return;
             }
 
-            await Task.Delay(DraftDebounce, cancellationToken);
+            TimeSpan effectiveDebounce;
+            lock (_draftLock)
+            {
+                effectiveDebounce = _currentDraftDebounce;
+            }
+
+            await Task.Delay(effectiveDebounce, cancellationToken);
 
             lock (_draftLock)
             {
@@ -134,6 +170,7 @@ public sealed class RealtimeTranslationScheduler : IDisposable
                 _latestDraft = null;
             }
 
+            var started = DateTimeOffset.UtcNow;
             var result = await TranslateAsync(
                 request.SessionGeneration,
                 request.SessionId,
@@ -144,13 +181,18 @@ public sealed class RealtimeTranslationScheduler : IDisposable
                 request.SourceLanguage,
                 request.TargetLanguage,
                 request.IsFinal,
+                request.ContextBefore,
                 cancellationToken);
             if (result is not null)
             {
+                var latencyMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+                RecordLatency(latencyMs);
+
                 _logger.LogDebug(
-                    "Draft translated. Provider={Provider} Cache={CacheHit} Session={SessionId} Segment={SegmentId}",
+                    "Draft translated. Provider={Provider} Cache={CacheHit} LatencyMs={LatencyMs:F0} Session={SessionId} Segment={SegmentId}",
                     result.ProviderName,
                     result.IsCacheHit,
+                    latencyMs,
                     result.SessionId,
                     result.SegmentId);
                 TranslationCompleted?.Invoke(this, result);
@@ -164,30 +206,82 @@ public sealed class RealtimeTranslationScheduler : IDisposable
         {
             await _stableSignal.WaitAsync(_disposeCts.Token);
 
+            var batch = new List<StableTranslationRequest>();
             while (_stableQueue.TryDequeue(out var request))
             {
-                var result = await TranslateAsync(
-                    request.SessionGeneration,
-                    request.SessionId,
-                    request.SegmentId,
-                    request.SequenceId,
-                    TranscriptTranslationTarget.StableSegment,
-                    request.SourceText,
-                    request.SourceLanguage,
-                    request.TargetLanguage,
-                    request.IsFinal,
-                    _disposeCts.Token);
-                if (result is not null)
-                {
-                    _logger.LogInformation(
-                        "Stable translated. Provider={Provider} Cache={CacheHit} Session={SessionId} Segment={SegmentId}",
-                        result.ProviderName,
-                        result.IsCacheHit,
-                        result.SessionId,
-                        result.SegmentId);
-                    TranslationCompleted?.Invoke(this, result);
-                }
+                batch.Add(request);
+                if (batch.Count >= MaxStableConcurrency * 2)
+                    break;
             }
+
+            if (batch.Count == 0)
+                continue;
+
+            var tasks = batch.Select(request => ProcessSingleStableAsync(request));
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    private async Task ProcessSingleStableAsync(StableTranslationRequest request)
+    {
+        await _stableConcurrencyGate.WaitAsync(_disposeCts.Token);
+        try
+        {
+            var started = DateTimeOffset.UtcNow;
+            var result = await TranslateAsync(
+                request.SessionGeneration,
+                request.SessionId,
+                request.SegmentId,
+                request.SequenceId,
+                TranscriptTranslationTarget.StableSegment,
+                request.SourceText,
+                request.SourceLanguage,
+                request.TargetLanguage,
+                request.IsFinal,
+                request.ContextBefore,
+                _disposeCts.Token);
+            if (result is not null)
+            {
+                var latencyMs = (DateTimeOffset.UtcNow - started).TotalMilliseconds;
+                RecordLatency(latencyMs);
+
+                _logger.LogInformation(
+                    "Stable translated. Provider={Provider} Cache={CacheHit} LatencyMs={LatencyMs:F0} Session={SessionId} Segment={SegmentId}",
+                    result.ProviderName,
+                    result.IsCacheHit,
+                    latencyMs,
+                    result.SessionId,
+                    result.SegmentId);
+                TranslationCompleted?.Invoke(this, result);
+            }
+        }
+        finally
+        {
+            _stableConcurrencyGate.Release();
+        }
+    }
+
+    private void RecordLatency(double latencyMs)
+    {
+        lock (_latencyLock)
+        {
+            _recentLatencies[_latencyIndex % LatencyWindowSize] = latencyMs;
+            _latencyIndex++;
+
+            var count = Math.Min(_latencyIndex, LatencyWindowSize);
+            var sum = 0.0;
+            for (var i = 0; i < count; i++)
+                sum += _recentLatencies[i];
+
+            var avg = sum / count;
+            var targetMs = Math.Clamp(avg * 2, DraftDebounceMin.TotalMilliseconds, DraftDebounceMax.TotalMilliseconds);
+            _currentDraftDebounce = TimeSpan.FromMilliseconds(targetMs);
+
+            _logger.LogDebug(
+                "Translation latency updated. Avg={Avg:F0}ms Debounce={Debounce}ms Count={Count}",
+                avg,
+                _currentDraftDebounce.TotalMilliseconds,
+                count);
         }
     }
 
@@ -201,7 +295,8 @@ public sealed class RealtimeTranslationScheduler : IDisposable
         string sourceLanguage,
         string targetLanguage,
         bool isFinal,
-        CancellationToken cancellationToken)
+        string? contextBefore = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(sourceText))
         {
@@ -230,7 +325,7 @@ public sealed class RealtimeTranslationScheduler : IDisposable
         }
 
         var translation = await _translationService.TranslateWithDiagnosticsAsync(
-            new TranslationRequest(sourceText, sourceLanguage, targetLanguage),
+            new TranslationRequest(sourceText, sourceLanguage, targetLanguage, contextBefore),
             new RealtimeTranslationContext(sessionId, segmentId, sequenceId, target, isFinal),
             cancellationToken);
 
@@ -266,7 +361,8 @@ public sealed record DraftTranslationRequest(
     string SourceText,
     string SourceLanguage,
     string TargetLanguage,
-    bool IsFinal
+    bool IsFinal,
+    string? ContextBefore = null
 );
 
 public sealed record StableTranslationRequest(
@@ -277,7 +373,8 @@ public sealed record StableTranslationRequest(
     string SourceText,
     string SourceLanguage,
     string TargetLanguage,
-    bool IsFinal
+    bool IsFinal,
+    string? ContextBefore = null
 );
 
 public sealed record RealtimeTranslationCompleted(

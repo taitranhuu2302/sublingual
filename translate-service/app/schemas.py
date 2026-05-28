@@ -77,13 +77,17 @@ class TranslateRequest(BaseModel):
     text: str = Field(min_length=1)
     source_lang: str = Field(default="en", min_length=2)
     target_lang: str = Field(default="vi", min_length=2)
+    context_before: str = Field(default="", description="Previous text for context-aware translation")
+    quality: bool = Field(default=False, description="Use higher quality model (slower but more accurate)")
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "text": "Hello everyone, welcome to today's meeting.",
+                "text": "welcome to today's meeting.",
                 "source_lang": "en",
                 "target_lang": "vi",
+                "context_before": "Hello everyone.",
+                "quality": False,
             }
         }
     }
@@ -171,11 +175,13 @@ class RealtimeTranslateRequest(BaseModel):
     sequence_id: int = Field(default=0, ge=0)
     kind: str = Field(default="draft", min_length=1)
     force: bool = False
+    context_before: str = Field(default="", description="Previous text for context-aware translation")
+    quality: bool = Field(default=False, description="Use higher quality model (slower but more accurate)")
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "text": "hello everyone welcome to",
+                "text": "welcome to",
                 "source_lang": "en",
                 "target_lang": "vi",
                 "is_final": False,
@@ -184,6 +190,8 @@ class RealtimeTranslateRequest(BaseModel):
                 "sequence_id": 108,
                 "kind": "draft",
                 "force": False,
+                "context_before": "Hello everyone.",
+                "quality": False,
             }
         }
     }
@@ -203,6 +211,7 @@ class RealtimeTranslateResponse(BaseModel):
     skip_reason: str | None = None
     normalized_text: str
     cache_hit: bool = False
+    partial: bool = False
 
     model_config = {
         "json_schema_extra": {

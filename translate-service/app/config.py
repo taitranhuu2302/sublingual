@@ -21,12 +21,19 @@ class Settings(BaseSettings):
     )
     inter_threads: int = Field(default=1, alias="INTER_THREADS")
     intra_threads: int = Field(default=4, alias="INTRA_THREADS")
+
     default_source_lang: str = Field(default="en", alias="DEFAULT_SOURCE_LANG")
     default_target_lang: str = Field(default="vi", alias="DEFAULT_TARGET_LANG")
-    min_realtime_chars: int = Field(default=8, alias="MIN_REALTIME_CHARS")
+
+    min_realtime_chars: int = Field(default=15, alias="MIN_REALTIME_CHARS")
     max_text_chars: int = Field(default=1000, alias="MAX_TEXT_CHARS")
     session_cache_ttl_sec: int = Field(default=300, alias="SESSION_CACHE_TTL_SEC")
+
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    quality_beam_size: int = Field(default=4, alias="QUALITY_BEAM_SIZE")
+    quality_compute_type: str = Field(default="int8", alias="QUALITY_COMPUTE_TYPE")
+    quality_model_suffix: str = Field(default="-quality", alias="QUALITY_MODEL_SUFFIX")
 
     @property
     def resolved_model_base_dir(self) -> Path:

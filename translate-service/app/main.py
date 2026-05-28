@@ -1,8 +1,12 @@
+import asyncio
+import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import time
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
 from app.schemas import (
@@ -44,9 +48,11 @@ UNPROCESSABLE_ENTITY_RESPONSE = {
     "description": "Validation error in request payload.",
 }
 
+_executor = ThreadPoolExecutor(max_workers=2)
+
 
 class RealtimeSessionCache:
-    def __init__(self, ttl_sec: int = 300, min_realtime_chars: int = 8):
+    def __init__(self, ttl_sec: int = 300, min_realtime_chars: int = 15):
         self.ttl_sec = ttl_sec
         self.min_realtime_chars = min_realtime_chars
         self.sessions: dict[str, dict[str, object]] = {}
@@ -116,6 +122,9 @@ model_manager = TranslationModelManager(
     compute_type=settings.translation_compute_type,
     inter_threads=settings.inter_threads,
     intra_threads=settings.intra_threads,
+    quality_beam_size=settings.quality_beam_size,
+    quality_compute_type=settings.quality_compute_type,
+    quality_model_suffix=settings.quality_model_suffix,
 )
 realtime_session_cache = RealtimeSessionCache(
     ttl_sec=settings.session_cache_ttl_sec,
@@ -165,6 +174,12 @@ def warmup_default_model() -> None:
         )
     except HTTPException as exc:
         logger.warning("default model warmup skipped: %s", exc.detail)
+
+
+def _build_input_with_context(text: str, context_before: str) -> str:
+    if context_before:
+        return f"{context_before.rstrip()} {text}"
+    return text
 
 
 def _prepare_text(text: str) -> str:
@@ -229,19 +244,23 @@ def list_models() -> ModelsResponse:
     description="Translates one text segment using the requested source and target language pair.",
     responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
 )
-def translate(request: TranslateRequest) -> TranslateResponse:
+async def translate(request: TranslateRequest) -> TranslateResponse:
     started = time.perf_counter()
     source_text = _prepare_text(request.text)
-    translator = model_manager.get_translator(request.source_lang, request.target_lang)
-    translated_text = translator.translate(source_text)
+    input_with_context = _build_input_with_context(source_text, request.context_before)
+    translator = model_manager.get_translator(request.source_lang, request.target_lang, quality=request.quality)
+    loop = asyncio.get_event_loop()
+    translated_text = await loop.run_in_executor(_executor, translator.translate, input_with_context)
     latency_ms = (time.perf_counter() - started) * 1000
     model = model_manager.get_pair(request.source_lang, request.target_lang)
 
     logger.info(
-        "translate pair=%s latency_ms=%.2f chars=%d",
+        "translate pair=%s latency_ms=%.2f chars=%d context=%s quality=%s",
         model,
         latency_ms,
         len(source_text),
+        bool(request.context_before),
+        request.quality,
     )
 
     return TranslateResponse(
@@ -262,11 +281,12 @@ def translate(request: TranslateRequest) -> TranslateResponse:
     description="Translates multiple text segments in one request to improve throughput.",
     responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
 )
-def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
+async def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
     started = time.perf_counter()
     source_texts = _prepare_texts(request.texts)
     translator = model_manager.get_translator(request.source_lang, request.target_lang)
-    translated_texts = translator.translate_batch(source_texts)
+    loop = asyncio.get_event_loop()
+    translated_texts = await loop.run_in_executor(_executor, translator.translate_batch, source_texts)
     latency_ms = (time.perf_counter() - started) * 1000
     model = model_manager.get_pair(request.source_lang, request.target_lang)
 
@@ -302,7 +322,7 @@ def translate_batch(request: BatchTranslateRequest) -> BatchTranslateResponse:
     ),
     responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
 )
-def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateResponse:
+async def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateResponse:
     realtime_session_cache.cleanup_expired()
     source_text = _prepare_realtime_text(request.text)
     model = model_manager.get_pair(request.source_lang, request.target_lang)
@@ -331,8 +351,10 @@ def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateRe
         )
 
     started = time.perf_counter()
-    translator = model_manager.get_translator(request.source_lang, request.target_lang)
-    translated_text = translator.translate(source_text)
+    input_with_context = _build_input_with_context(source_text, request.context_before)
+    translator = model_manager.get_translator(request.source_lang, request.target_lang, quality=request.quality)
+    loop = asyncio.get_event_loop()
+    translated_text = await loop.run_in_executor(_executor, translator.translate, input_with_context)
     latency_ms = (time.perf_counter() - started) * 1000
 
     session = realtime_session_cache.get(request.session_id)
@@ -370,6 +392,96 @@ def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateRe
 
 
 @app.post(
+    "/translate/realtime/stream",
+    tags=["realtime"],
+    summary="Translate realtime text with word-by-word streaming",
+    description="Same as /translate/realtime but returns translated text word-by-word via SSE for smooth UI.",
+    responses={400: BAD_REQUEST_RESPONSE, 422: UNPROCESSABLE_ENTITY_RESPONSE},
+)
+async def translate_realtime_stream(request: RealtimeTranslateRequest):
+    realtime_session_cache.cleanup_expired()
+    source_text = _prepare_realtime_text(request.text)
+    model = model_manager.get_pair(request.source_lang, request.target_lang)
+
+    should_translate, skip_reason = realtime_session_cache.should_translate(
+        request.session_id, source_text, request.is_final, request.force,
+    )
+    if not should_translate:
+        skip = RealtimeTranslateResponse(
+            translated_text="", should_display=False, is_final=request.is_final,
+            latency_ms=0, model=model, session_id=request.session_id,
+            segment_id=request.segment_id, sequence_id=request.sequence_id,
+            kind=request.kind, was_skipped=True, skip_reason=skip_reason,
+            normalized_text=source_text, cache_hit=False,
+        )
+        return StreamingResponse(
+            iter([f"data: {json.dumps(skip.model_dump())}\n\n"]),
+            media_type="text/event-stream",
+        )
+
+    started = time.perf_counter()
+    input_with_context = _build_input_with_context(source_text, request.context_before)
+    translator = model_manager.get_translator(request.source_lang, request.target_lang, quality=request.quality)
+    loop = asyncio.get_event_loop()
+    translated_text = await loop.run_in_executor(_executor, translator.translate, input_with_context)
+    latency_ms = (time.perf_counter() - started) * 1000
+
+    session = realtime_session_cache.get(request.session_id)
+    last_translated_text = str(session.get("last_translated_text", "")) if session else ""
+    should_display = bool(translated_text)
+    if not request.is_final and translated_text == last_translated_text:
+        should_display = False
+
+    realtime_session_cache.update(request.session_id, source_text, translated_text)
+
+    async def event_stream():
+        words = translated_text.split()
+        accumulated = ""
+
+        if should_display:
+            for i, word in enumerate(words):
+                sep = " " if i > 0 else ""
+                accumulated += f"{sep}{word}"
+                payload = {
+                    "translated_text": accumulated,
+                    "should_display": True,
+                    "is_final": False,
+                    "latency_ms": 0,
+                    "model": model,
+                    "session_id": request.session_id,
+                    "segment_id": request.segment_id,
+                    "sequence_id": request.sequence_id,
+                    "kind": request.kind,
+                    "was_skipped": False,
+                    "normalized_text": source_text,
+                    "cache_hit": False,
+                    "partial": True,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                await asyncio.sleep(0)
+
+        final_payload = {
+            "translated_text": translated_text if should_display else "",
+            "should_display": should_display,
+            "is_final": request.is_final,
+            "latency_ms": latency_ms,
+            "model": model,
+            "session_id": request.session_id,
+            "segment_id": request.segment_id,
+            "sequence_id": request.sequence_id,
+            "kind": request.kind,
+            "was_skipped": False,
+            "skip_reason": "duplicate_translation" if not request.is_final and not should_display else None,
+            "normalized_text": source_text,
+            "cache_hit": False,
+            "partial": False,
+        }
+        yield f"data: {json.dumps(final_payload)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post(
     "/translate/realtime/reset",
     response_model=RealtimeSessionResetResponse,
     tags=["realtime"],
@@ -377,6 +489,6 @@ def translate_realtime(request: RealtimeTranslateRequest) -> RealtimeTranslateRe
     description="Clears cached realtime state for the given session id.",
     responses={422: UNPROCESSABLE_ENTITY_RESPONSE},
 )
-def reset_realtime_session(request: RealtimeSessionResetRequest) -> RealtimeSessionResetResponse:
+async def reset_realtime_session(request: RealtimeSessionResetRequest) -> RealtimeSessionResetResponse:
     cleared = realtime_session_cache.reset(request.session_id)
     return RealtimeSessionResetResponse(session_id=request.session_id, cleared=cleared)

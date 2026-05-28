@@ -6,4 +6,8 @@ public sealed record RealtimeTranslationContext(
     long SequenceId,
     TranscriptTranslationTarget Target,
     bool IsFinal
-);
+)
+{
+    public bool UseQualityModel =>
+        Target == TranscriptTranslationTarget.StableSegment;
+}

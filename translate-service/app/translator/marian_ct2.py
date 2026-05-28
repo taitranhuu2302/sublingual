@@ -14,12 +14,14 @@ class MarianCT2Translator:
         compute_type: str = "int8",
         inter_threads: int = 4,
         intra_threads: int = 4,
+        beam_size: int = 1,
     ):
         self.model_path = str(Path(model_path))
         self.device = device
         self.compute_type = compute_type
         self.inter_threads = inter_threads
         self.intra_threads = intra_threads
+        self.beam_size = beam_size
         self.translator = ctranslate2.Translator(
             self.model_path,
             device=self.device,
@@ -33,7 +35,8 @@ class MarianCT2Translator:
         translations = self.translate_batch([text])
         return translations[0] if translations else ""
 
-    def translate_batch(self, texts: list[str]) -> list[str]:
+    def translate_batch(self, texts: list[str], beam_size: int | None = None) -> list[str]:
+        effective_beam = beam_size if beam_size is not None else self.beam_size
         normalized_texts = [normalize_text(text) for text in texts]
         translated_texts = ["" for _ in normalized_texts]
 
@@ -48,7 +51,7 @@ class MarianCT2Translator:
             return_attention_mask=False,
         )
         batch_tokens = [self.tokenizer.convert_ids_to_tokens(token_ids) for token_ids in encoded.input_ids]
-        results = self.translator.translate_batch(batch_tokens, beam_size=1)
+        results = self.translator.translate_batch(batch_tokens, beam_size=effective_beam)
 
         for (index, _), result in zip(indexed_texts, results):
             output_tokens = result.hypotheses[0] if result.hypotheses else []
@@ -59,3 +62,14 @@ class MarianCT2Translator:
             ).strip()
 
         return translated_texts
+
+    def translate_stream(self, text: str):
+        full = self.translate(text)
+        if not full:
+            yield ""
+            return
+
+        words = full.split()
+        for i, word in enumerate(words):
+            sep = " " if i > 0 else ""
+            yield f"{sep}{word}"

@@ -22,6 +22,30 @@ public sealed class ConfigurableTranslationService(
     private readonly Queue<string> _cacheOrder = new();
     private readonly Lock _cacheLock = new();
 
+    public event EventHandler<TranslateServiceLocalTranslationProvider.TranslationPartialEventArgs>? TranslationPartial
+    {
+        add
+        {
+            foreach (var provider in _providers.Values)
+            {
+                if (provider is TranslateServiceLocalTranslationProvider local)
+                {
+                    local.TranslationPartial += value;
+                }
+            }
+        }
+        remove
+        {
+            foreach (var provider in _providers.Values)
+            {
+                if (provider is TranslateServiceLocalTranslationProvider local)
+                {
+                    local.TranslationPartial -= value;
+                }
+            }
+        }
+    }
+
     public void ClearCache()
     {
         lock (_cacheLock)
@@ -231,7 +255,9 @@ public sealed class ConfigurableTranslationService(
             return string.Empty;
         }
 
-        return string.Join(' ', value
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        var lowered = value.ToLowerInvariant();
+        return string.Join(' ', lowered
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .TrimEnd('.', ',', '!', '?', ';', ':');
     }
 }

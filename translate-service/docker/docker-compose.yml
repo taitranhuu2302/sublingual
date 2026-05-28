@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        UVICORN_WORKERS: 2
     restart: unless-stopped
     ports:
       - "3333:3333"
@@ -10,3 +12,5 @@ services:
       - ../models:/app/models
     env_file:
       - ../.env
+    environment:
+      - UVICORN_WORKERS=2

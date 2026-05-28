@@ -39,6 +39,8 @@ public class AudioCaptureDebugSession : IDisposable
     private string _translationSessionId = Guid.NewGuid().ToString("N");
     private readonly Lock _translationStateLock = new();
     private readonly Dictionary<string, string> _pendingStableTranslations = new(StringComparer.Ordinal);
+    private string _previousStableText = string.Empty;
+    private readonly AdaptiveVad _vad = new();
     private bool _disposed;
 
     public AudioCaptureDebugSession(
@@ -72,6 +74,11 @@ public class AudioCaptureDebugSession : IDisposable
 
         _audioCaptureService.AudioChunkCaptured += OnAudioChunkCaptured;
         _translationScheduler.TranslationCompleted += OnTranslationCompleted;
+
+        if (_translationService is ITranslationExecutionService executionService)
+        {
+            executionService.TranslationPartial += OnTranslationPartial;
+        }
     }
 
     public AudioCaptureState State => _audioCaptureService.State;
@@ -124,6 +131,8 @@ public class AudioCaptureDebugSession : IDisposable
         _stableSegmentIndex = 0;
         _currentDraftSegmentId = CreateDraftSegmentId();
         _currentDraftSourceText = string.Empty;
+        _previousStableText = string.Empty;
+        _vad.Reset();
         _translationSessionId = Guid.NewGuid().ToString("N");
         lock (_translationStateLock)
         {
@@ -199,6 +208,12 @@ public class AudioCaptureDebugSession : IDisposable
 
         _audioCaptureService.AudioChunkCaptured -= OnAudioChunkCaptured;
         _translationScheduler.TranslationCompleted -= OnTranslationCompleted;
+
+        if (_translationService is ITranslationExecutionService executionService)
+        {
+            executionService.TranslationPartial -= OnTranslationPartial;
+        }
+
         DisposeVerifier();
 
         if (_audioCaptureService is IDisposable disposableCaptureService)
@@ -217,16 +232,28 @@ public class AudioCaptureDebugSession : IDisposable
 
     private async Task ProcessChunkAsync(AudioChunk inputChunk)
     {
+        List<TranscriptEventData>? pendingEvents = null;
+
         await _pipelineGate.WaitAsync();
         try
         {
             var processedChunks = _processAudioChunkUseCase.Execute(inputChunk);
+            if (processedChunks.Count == 0)
+                return;
+
+            pendingEvents = new List<TranscriptEventData>(processedChunks.Count);
+
             foreach (var chunk in processedChunks)
             {
                 _captureVerifier?.Append(chunk);
                 _capturedDurationSeconds += chunk.Duration.TotalSeconds;
                 ChunkObserved?.Invoke(this, chunk);
-                await ProcessTranscriptAsync(chunk);
+
+                var eventData = await TranscribeAsync(chunk);
+                if (eventData is not null)
+                {
+                    pendingEvents.Add(eventData);
+                }
             }
         }
         catch (Exception ex)
@@ -248,12 +275,48 @@ public class AudioCaptureDebugSession : IDisposable
         {
             _pipelineGate.Release();
         }
+
+        if (pendingEvents is null || pendingEvents.Count == 0)
+            return;
+
+        foreach (var ev in pendingEvents)
+        {
+            PublishTranscriptEvents(ev.PartialText, ev.FinalText, ev.UpdatedAt);
+            ScheduleTranslation(ev.PartialText, ev.FinalText, ev.UpdatedAt);
+
+            if (string.IsNullOrWhiteSpace(ev.FinalText) && !_translatePartials)
+            {
+                PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+                    NextRealtimeTranscriptSequenceId(),
+                    _currentDraftSegmentId,
+                    TranscriptTranslationTarget.Draft,
+                    ev.PartialText,
+                    string.Empty,
+                    false,
+                    "SkippedNoTranslationTarget",
+                    false,
+                    ev.UpdatedAt));
+                EmitTranscriptPreviewUpdate(ev.PartialText, string.Empty, ev.FinalText, string.Empty, "SkippedNoTranslationTarget", ev.Diagnostics, false, ev.UpdatedAt);
+            }
+        }
     }
 
-    private async Task ProcessTranscriptAsync(AudioChunk chunk)
+    private sealed record TranscriptEventData(
+        string PartialText,
+        string FinalText,
+        DateTimeOffset UpdatedAt,
+        string Diagnostics
+    );
+
+    private async Task<TranscriptEventData?> TranscribeAsync(AudioChunk chunk)
     {
         var normalizedChunk = _audioFormatNormalizer.NormalizeForSpeechRecognition(chunk);
         _voskInputVerifier.Verify(normalizedChunk);
+
+        if (!_vad.ProcessFrame(normalizedChunk))
+        {
+            return null;
+        }
 
         var transcription = await _transcribeAudioChunkUseCase.ExecuteAsync(
             new TranscriptionRequest(normalizedChunk, _currentSourceLanguage));
@@ -272,23 +335,7 @@ public class AudioCaptureDebugSession : IDisposable
             _logger.LogDebug("STT partial. Len={Len}", partialText.Length);
         }
 
-        PublishTranscriptEvents(partialText, finalText, updatedAt);
-
-        ScheduleTranslation(partialText, finalText, updatedAt);
-        if (string.IsNullOrWhiteSpace(finalText) && !_translatePartials)
-        {
-            PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
-                NextRealtimeTranscriptSequenceId(),
-                _currentDraftSegmentId,
-                TranscriptTranslationTarget.Draft,
-                partialText,
-                string.Empty,
-                false,
-                "SkippedNoTranslationTarget",
-                false,
-                updatedAt));
-            EmitTranscriptPreviewUpdate(partialText, string.Empty, finalText, string.Empty, "SkippedNoTranslationTarget", diagnostics, false, updatedAt);
-        }
+        return new TranscriptEventData(partialText, finalText, updatedAt, diagnostics);
     }
 
     private void PublishTranscriptEvents(string partialText, string finalText, DateTimeOffset updatedAt)
@@ -349,7 +396,8 @@ public class AudioCaptureDebugSession : IDisposable
                 finalText,
                 _currentSourceLanguage,
                 _currentTargetLanguage,
-                true));
+                true,
+                _previousStableText));
             lock (_translationStateLock)
             {
                 _pendingStableTranslations[segmentId] = finalText;
@@ -383,7 +431,22 @@ public class AudioCaptureDebugSession : IDisposable
             partialText,
             _currentSourceLanguage,
             _currentTargetLanguage,
-            false));
+            false,
+            _previousStableText));
+    }
+
+    private void OnTranslationPartial(object? sender, TranslateServiceLocalTranslationProvider.TranslationPartialEventArgs args)
+    {
+        PublishRealtimeTranscriptEvent(new TranscriptTranslationChanged(
+            NextRealtimeTranscriptSequenceId(),
+            args.SegmentId,
+            args.Target,
+            string.Empty,
+            args.PartialText,
+            false,
+            "Streaming",
+            false,
+            DateTimeOffset.Now));
     }
 
     private void OnTranslationCompleted(object? sender, RealtimeTranslationCompleted completed)
@@ -466,6 +529,11 @@ public class AudioCaptureDebugSession : IDisposable
             diagnostics,
             completed.IsCacheHit,
             completed.UpdatedAt);
+
+        if (!string.IsNullOrWhiteSpace(completed.TranslatedText))
+        {
+            _previousStableText = completed.SourceText;
+        }
     }
 
     private void EmitTranscriptPreviewUpdate(

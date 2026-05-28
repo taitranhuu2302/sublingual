@@ -1,16 +1,54 @@
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using Sublingual.App.Models;
 using Sublingual.Domain.Transcription;
 
 namespace Sublingual.App.Services.Translation;
 
-public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClient) : IRealtimeTranslationProvider
+public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslationProvider, IDisposable
 {
+    private const int BatchMaxSize = 8;
+    private const int MaxStableQueueCapacity = 100;
+    private static readonly TimeSpan BatchFlushInterval = TimeSpan.FromMilliseconds(150);
+
+    private readonly HttpClient _httpClient;
+    private readonly Channel<BatchItem> _batchChannel;
+    private readonly ILogger? _logger;
+    private readonly CancellationTokenSource _disposeCts;
+    private readonly Task _batchWorkerTask;
+    private bool _disposed;
+
+    public event EventHandler<TranslationPartialEventArgs>? TranslationPartial;
+
+    public TranslateServiceLocalTranslationProvider(HttpClient httpClient, ILogger<TranslateServiceLocalTranslationProvider>? logger = null)
+    {
+        _httpClient = httpClient;
+        _logger = logger;
+        _disposeCts = new CancellationTokenSource();
+        _batchChannel = Channel.CreateBounded<BatchItem>(new BoundedChannelOptions(MaxStableQueueCapacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+        });
+
+        _batchWorkerTask = Task.Run(() => ProcessBatchQueueAsync(_disposeCts.Token));
+    }
+
     public string Name => TranslationProviders.TranslateServiceLocal;
 
     public bool IsEnabled(TranslationSettings settings) => settings.TranslateServiceLocal.Enabled;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _disposeCts.Cancel();
+        _batchChannel.Writer.TryComplete();
+        try { _batchWorkerTask.Wait(); } catch { }
+        _disposeCts.Dispose();
+    }
 
     public async Task<TranslationResult?> TranslateAsync(
         TranslationRequest request,
@@ -40,73 +78,333 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
             && (realtimeContext.Target == TranscriptTranslationTarget.Draft
                 || settings.TranslateServiceLocal.UseRealtimeEndpointForFinals);
 
-        var endpoint = useRealtimeEndpoint
-            ? BuildEndpoint(baseUrl, "/translate/realtime")
-            : BuildEndpoint(baseUrl, "/translate");
-
         if (!useRealtimeEndpoint)
         {
-            using var content = new StringContent(
-                JsonSerializer.Serialize(new TranslatePayload(
-                    request.SourceText,
-                    request.SourceLanguage,
-                    request.TargetLanguage
-                )),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            using var response = await httpClient.PostAsync(endpoint, content, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var payload = await JsonSerializer.DeserializeAsync<TranslateResponsePayload>(stream, cancellationToken: cancellationToken);
-            return string.IsNullOrWhiteSpace(payload?.TranslatedText)
-                ? null
-                : new ProviderTranslationResponse(
-                    new TranslationResult(request.SourceText, payload.TranslatedText, request.TargetLanguage),
-                    [$"{Name}: success"],
-                    false
-                );
+            return await TranslateStandardAsync(request, baseUrl, cancellationToken);
         }
 
+        return await TranslateRealtimeAsync(request, realtimeContext!, baseUrl, cancellationToken);
+    }
+
+    private async Task<ProviderTranslationResponse> TranslateStandardAsync(
+        TranslationRequest request,
+        string baseUrl,
+        CancellationToken cancellationToken)
+    {
+        var tcs = new TaskCompletionSource<ProviderTranslationResponse?>();
+        var item = new BatchItem(
+            request.SourceText,
+            request.SourceLanguage,
+            request.TargetLanguage,
+            request.ContextBefore,
+            tcs);
+
+        await _batchChannel.Writer.WriteAsync(item, cancellationToken);
+
+        var result = await tcs.Task.WaitAsync(cancellationToken);
+        if (result is not null)
+        {
+            return result;
+        }
+
+        return new ProviderTranslationResponse(
+            new TranslationResult(request.SourceText, string.Empty, request.TargetLanguage),
+            [$"{Name}: empty batch response"],
+            false);
+    }
+
+    private async Task<ProviderTranslationResponse> TranslateRealtimeAsync(
+        TranslationRequest request,
+        RealtimeTranslationContext realtimeContext,
+        string baseUrl,
+        CancellationToken cancellationToken)
+    {
         var realtimePayload = new RealtimeTranslatePayload(
             request.SourceText,
             request.SourceLanguage,
             request.TargetLanguage,
-            realtimeContext!.IsFinal,
+            realtimeContext.IsFinal,
             realtimeContext.SessionId,
             realtimeContext.SegmentId,
             realtimeContext.SequenceId,
             realtimeContext.Target == TranscriptTranslationTarget.Draft ? "draft" : "stable",
-            false
-        );
+            false,
+            request.ContextBefore,
+            realtimeContext.UseQualityModel);
 
         using var realtimeContent = new StringContent(
             JsonSerializer.Serialize(realtimePayload),
             Encoding.UTF8,
-            "application/json"
-        );
+            "application/json");
 
-        using var realtimeResponse = await httpClient.PostAsync(endpoint, realtimeContent, cancellationToken);
-        realtimeResponse.EnsureSuccessStatusCode();
-
-        await using var realtimeStream = await realtimeResponse.Content.ReadAsStreamAsync(cancellationToken);
-        var payloadRealtime = await JsonSerializer.DeserializeAsync<RealtimeTranslateResponsePayload>(realtimeStream, cancellationToken: cancellationToken);
-        if (payloadRealtime is null)
+        try
         {
-            return null;
+            return await StreamTranslateAsync(realtimePayload, realtimeContext, baseUrl, realtimeContent, cancellationToken);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Fallback: server doesn't support streaming endpoint
         }
 
-        var diagnostics = payloadRealtime.WasSkipped
-            ? new[] { $"{Name}: skipped ({payloadRealtime.SkipReason ?? "unknown"})" }
-            : new[] { $"{Name}: success", $"{Name}: realtime kind={payloadRealtime.Kind} seq={payloadRealtime.SequenceId}" };
+        return await FallbackTranslateAsync(request, realtimePayload, baseUrl, cancellationToken);
+    }
+
+    private async Task<ProviderTranslationResponse> StreamTranslateAsync(
+        RealtimeTranslatePayload payload,
+        RealtimeTranslationContext context,
+        string baseUrl,
+        StringContent content,
+        CancellationToken ct)
+    {
+        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, BuildEndpoint(baseUrl, "/translate/realtime/stream"))
+        {
+            Content = content,
+        };
+
+        using var response = await _httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var reader = new StreamReader(stream);
+
+        RealtimeTranslateResponsePayload? finalPayload = null;
+        while (await reader.ReadLineAsync(ct) is { } line)
+        {
+            if (!line.StartsWith("data: "))
+                continue;
+
+            var json = line[6..];
+            var partialPayload = JsonSerializer.Deserialize<RealtimeTranslateResponsePayload>(json);
+            if (partialPayload is null)
+                continue;
+
+            if (partialPayload.IsPartial)
+            {
+                FirePartial(context, partialPayload);
+            }
+            else
+            {
+                finalPayload = partialPayload;
+            }
+        }
+
+        if (finalPayload is null)
+        {
+            return new ProviderTranslationResponse(
+                new TranslationResult(payload.Text, string.Empty, payload.TargetLang),
+                [$"{Name}: null streaming response"],
+                false);
+        }
+
+        var diagnostics = finalPayload.WasSkipped
+            ? new[] { $"{Name}: skipped ({finalPayload.SkipReason ?? "unknown"})" }
+            : new[] { $"{Name}: success", $"{Name}: realtime kind={finalPayload.Kind} seq={finalPayload.SequenceId}" };
 
         return new ProviderTranslationResponse(
-            new TranslationResult(request.SourceText, payloadRealtime.TranslatedText ?? string.Empty, request.TargetLanguage),
+            new TranslationResult(payload.Text, finalPayload.TranslatedText ?? string.Empty, payload.TargetLang),
             diagnostics,
-            payloadRealtime.CacheHit
-        );
+            finalPayload.CacheHit);
+    }
+
+    private async Task<ProviderTranslationResponse> FallbackTranslateAsync(
+        TranslationRequest request,
+        RealtimeTranslatePayload payload,
+        string baseUrl,
+        CancellationToken ct)
+    {
+        using var fallbackContent = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await _httpClient.PostAsync(
+            BuildEndpoint(baseUrl, "/translate/realtime"),
+            fallbackContent,
+            ct);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        var finalPayload = await JsonSerializer.DeserializeAsync<RealtimeTranslateResponsePayload>(stream, cancellationToken: ct);
+
+        if (finalPayload is null)
+        {
+            return new ProviderTranslationResponse(
+                new TranslationResult(request.SourceText, string.Empty, request.TargetLanguage),
+                [$"{Name}: null realtime response"],
+                false);
+        }
+
+        var diagnostics = finalPayload.WasSkipped
+            ? new[] { $"{Name}: skipped ({finalPayload.SkipReason ?? "unknown"})" }
+            : new[] { $"{Name}: success" };
+
+        return new ProviderTranslationResponse(
+            new TranslationResult(request.SourceText, finalPayload.TranslatedText ?? string.Empty, request.TargetLanguage),
+            diagnostics,
+            finalPayload.CacheHit);
+    }
+
+    private void FirePartial(RealtimeTranslationContext context, RealtimeTranslateResponsePayload payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload.TranslatedText))
+            return;
+
+        TranslationPartial?.Invoke(this, new TranslationPartialEventArgs(
+            context.SessionId,
+            context.SegmentId,
+            context.SequenceId,
+            context.Target,
+            payload.TranslatedText));
+    }
+
+    private async Task ProcessBatchQueueAsync(CancellationToken ct)
+    {
+        var batch = new List<BatchItem>();
+
+        while (!ct.IsCancellationRequested)
+        {
+            batch.Clear();
+
+            try
+            {
+                var first = await _batchChannel.Reader.ReadAsync(ct);
+                batch.Add(first);
+
+                var batchTimer = Task.Delay(BatchFlushInterval, ct);
+                while (!batchTimer.IsCompleted)
+                {
+                    var waitTask = await Task.WhenAny(batchTimer, _batchChannel.Reader.WaitToReadAsync(ct).AsTask());
+                    if (waitTask == batchTimer)
+                    {
+                        break;
+                    }
+
+                    while (_batchChannel.Reader.TryRead(out var item))
+                    {
+                        batch.Add(item);
+                        if (batch.Count >= BatchMaxSize)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (batch.Count >= BatchMaxSize)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (ChannelClosedException)
+            {
+                return;
+            }
+
+            if (batch.Count == 0)
+            {
+                continue;
+            }
+
+            await FlushBatchAsync(batch, ct);
+        }
+    }
+
+    private async Task FlushBatchAsync(List<BatchItem> batch, CancellationToken ct)
+    {
+        if (batch.Count == 1)
+        {
+            var single = batch[0];
+            try
+            {
+                using var content = new StringContent(
+                    JsonSerializer.Serialize(new TranslatePayload(
+                        single.Text,
+                        single.SourceLang,
+                        single.TargetLang,
+                        single.ContextBefore)),
+                    Encoding.UTF8,
+                    "application/json");
+
+                using var response = await _httpClient.PostAsync(
+                    BuildEndpoint(NormalizeBaseUrl(null), "/translate"),
+                    content,
+                    ct);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                var payload = await JsonSerializer.DeserializeAsync<TranslateResponsePayload>(stream, cancellationToken: ct);
+                var result = !string.IsNullOrWhiteSpace(payload?.TranslatedText)
+                    ? new TranslationResult(single.Text, payload.TranslatedText, single.TargetLang)
+                    : null;
+
+                single.Tcs.TrySetResult(result is not null
+                    ? new ProviderTranslationResponse(result, [$"{Name}: success"], false)
+                    : null);
+            }
+            catch (Exception ex)
+            {
+                single.Tcs.TrySetException(ex);
+            }
+            return;
+        }
+
+        try
+        {
+            var texts = batch.Select(item => item.Text).ToList();
+            using var content = new StringContent(
+                JsonSerializer.Serialize(new BatchTranslatePayload(
+                    texts,
+                    batch[0].SourceLang,
+                    batch[0].TargetLang)),
+                Encoding.UTF8,
+                "application/json");
+
+            using var response = await _httpClient.PostAsync(
+                BuildEndpoint(NormalizeBaseUrl(null), "/translate/batch"),
+                content,
+                ct);
+            response.EnsureSuccessStatusCode();
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            var batchResponse = await JsonSerializer.DeserializeAsync<BatchTranslateResponsePayload>(stream, cancellationToken: ct);
+
+            if (batchResponse?.Translations is null)
+            {
+                foreach (var item in batch)
+                {
+                    item.Tcs.TrySetResult(null);
+                }
+                return;
+            }
+
+            for (var i = 0; i < batch.Count && i < batchResponse.Translations.Count; i++)
+            {
+                var item = batch[i];
+                var translation = batchResponse.Translations[i];
+                var result = !string.IsNullOrWhiteSpace(translation.TranslatedText)
+                    ? new TranslationResult(item.Text, translation.TranslatedText, item.TargetLang)
+                    : null;
+
+                item.Tcs.TrySetResult(result is not null
+                    ? new ProviderTranslationResponse(result, [$"{Name}: batch"], false)
+                    : null);
+            }
+
+            for (var i = batchResponse.Translations.Count; i < batch.Count; i++)
+            {
+                batch[i].Tcs.TrySetResult(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            foreach (var item in batch)
+            {
+                item.Tcs.TrySetException(ex);
+            }
+        }
     }
 
     public async Task ResetSessionAsync(TranslationSettings settings, string sessionId, CancellationToken cancellationToken = default)
@@ -120,10 +418,9 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
         using var content = new StringContent(
             JsonSerializer.Serialize(new RealtimeSessionResetPayload(sessionId)),
             Encoding.UTF8,
-            "application/json"
-        );
+            "application/json");
 
-        using var response = await httpClient.PostAsync(BuildEndpoint(baseUrl, "/translate/realtime/reset"), content, cancellationToken);
+        using var response = await _httpClient.PostAsync(BuildEndpoint(baseUrl, "/translate/realtime/reset"), content, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -170,11 +467,19 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
         [JsonPropertyName("target_lang")]
         public string TargetLang { get; init; }
 
-        public TranslatePayload(string text, string sourceLang, string targetLang)
+        [JsonPropertyName("context_before")]
+        public string? ContextBefore { get; init; }
+
+        [JsonPropertyName("quality")]
+        public bool Quality { get; init; }
+
+        public TranslatePayload(string text, string sourceLang, string targetLang, string? contextBefore = null, bool quality = false)
         {
             Text = text;
             SourceLang = sourceLang;
             TargetLang = targetLang;
+            ContextBefore = contextBefore;
+            Quality = quality;
         }
     }
 
@@ -207,6 +512,12 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
         [JsonPropertyName("force")]
         public bool Force { get; init; }
 
+        [JsonPropertyName("context_before")]
+        public string? ContextBefore { get; init; }
+
+        [JsonPropertyName("quality")]
+        public bool Quality { get; init; }
+
         public RealtimeTranslatePayload(
             string text,
             string sourceLang,
@@ -216,7 +527,9 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
             string segmentId,
             long sequenceId,
             string kind,
-            bool force)
+            bool force,
+            string? contextBefore = null,
+            bool quality = false)
         {
             Text = text;
             SourceLang = sourceLang;
@@ -227,6 +540,8 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
             SequenceId = sequenceId;
             Kind = kind;
             Force = force;
+            ContextBefore = contextBefore;
+            Quality = quality;
         }
     }
 
@@ -266,5 +581,58 @@ public sealed class TranslateServiceLocalTranslationProvider(HttpClient httpClie
 
         [JsonPropertyName("cache_hit")]
         public bool CacheHit { get; set; }
+
+        [JsonPropertyName("partial")]
+        public bool IsPartial { get; set; }
+    }
+
+    public sealed record TranslationPartialEventArgs(
+        string SessionId,
+        string SegmentId,
+        long SequenceId,
+        TranscriptTranslationTarget Target,
+        string PartialText
+    );
+
+    private sealed record BatchItem(
+        string Text,
+        string SourceLang,
+        string TargetLang,
+        string? ContextBefore,
+        TaskCompletionSource<ProviderTranslationResponse?> Tcs
+    );
+
+    private sealed class BatchTranslatePayload
+    {
+        [JsonPropertyName("texts")]
+        public List<string> Texts { get; init; }
+
+        [JsonPropertyName("source_lang")]
+        public string SourceLang { get; init; }
+
+        [JsonPropertyName("target_lang")]
+        public string TargetLang { get; init; }
+
+        public BatchTranslatePayload(List<string> texts, string sourceLang, string targetLang)
+        {
+            Texts = texts;
+            SourceLang = sourceLang;
+            TargetLang = targetLang;
+        }
+    }
+
+    private sealed class BatchTranslateResponsePayload
+    {
+        [JsonPropertyName("translations")]
+        public List<BatchTranslationItemPayload>? Translations { get; set; }
+    }
+
+    private sealed class BatchTranslationItemPayload
+    {
+        [JsonPropertyName("source_text")]
+        public string SourceText { get; set; } = string.Empty;
+
+        [JsonPropertyName("translated_text")]
+        public string TranslatedText { get; set; } = string.Empty;
     }
 }
