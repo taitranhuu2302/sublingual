@@ -1,6 +1,7 @@
 import { app } from "electron";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { getSettings, setSettings } from "../settings/settings-store";
 
 export interface WhisperModel {
@@ -11,7 +12,7 @@ export interface WhisperModel {
   downloaded: boolean;
 }
 
-const MODELS_DIR = path.join(app.getPath("userData"), "models");
+const MODELS_DIR = path.join(os.homedir(), ".sublingual", "models");
 
 // Known whisper.cpp model catalog
 const MODEL_CATALOG: Array<{ id: string; name: string; size: string; filename: string }> = [
