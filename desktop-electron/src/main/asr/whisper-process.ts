@@ -14,24 +14,14 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
   if (whisperProcess) return;
 
   const binaryPath = getWhisperBinaryPath();
-  
-  console.log("[whisper] Starting whisper with:", {
-    binaryPath,
-    modelPath: config.modelPath,
-    language: config.language,
-  });
 
   whisperProcess = spawn(binaryPath, [
     "--model", config.modelPath,
     "--language", config.language,
     "--threads", String(config.threads ?? 4),
     "--output-json",
-    "-", // read from stdin
+    "-",
   ]);
-
-  whisperProcess.stderr?.on("data", (chunk: Buffer) => {
-    console.log("[whisper stderr]", chunk.toString());
-  });
 
   let buffer = "";
 
@@ -50,18 +40,19 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
           timestamp: segment.t0,
         });
       } catch {
-        // skip non-JSON lines
-        console.log("[whisper stdout]", line);
+        // Check if it's a text output line (not JSON)
+        if (line.trim() && !line.startsWith("whisper") && !line.startsWith("ggml")) {
+          mainWindow.webContents.send("asr:transcript", {
+            text: line.trim(),
+            isFinal: true,
+            timestamp: Date.now(),
+          });
+        }
       }
     }
   });
 
-  whisperProcess.on("error", (err) => {
-    console.error("[whisper] Process error:", err);
-  });
-
-  whisperProcess.on("exit", (code) => {
-    console.log("[whisper] Process exited with code:", code);
+  whisperProcess.on("exit", () => {
     whisperProcess = null;
   });
 }
