@@ -2,18 +2,18 @@ import { ipcMain, BrowserWindow } from "electron";
 import { getSettings, setSettings } from "./settings/settings-store";
 import { getModelManager } from "./models/model-manager";
 import { startWhisper, stopWhisper } from "./asr/whisper-process";
+import { getAudioSources, startAudioCapture, stopAudioCapture } from "./audio/audio-capture";
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Audio
   ipcMain.handle("audio:get-sources", async () => {
-    // TODO: Task 3
-    return [];
+    return getAudioSources();
   });
   ipcMain.handle("audio:start-capture", async (_event, sourceId: string) => {
-    // TODO: Task 3
+    startAudioCapture(sourceId, mainWindow);
   });
   ipcMain.handle("audio:stop-capture", async () => {
-    // TODO: Task 3
+    stopAudioCapture();
   });
 
   // ASR
