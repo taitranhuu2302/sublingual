@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
 import path from "path";
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import { WhisperConfig, WhisperSegment } from "./whisper-types";
 
 let whisperProcess: ChildProcess | null = null;
@@ -14,6 +14,12 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
   if (whisperProcess) return;
 
   const binaryPath = getWhisperBinaryPath();
+  
+  console.log("[whisper] Starting whisper with:", {
+    binaryPath,
+    modelPath: config.modelPath,
+    language: config.language,
+  });
 
   whisperProcess = spawn(binaryPath, [
     "--model", config.modelPath,
@@ -23,6 +29,10 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
     "--no-timestamps", "false",
     "-", // read from stdin
   ]);
+
+  whisperProcess.stderr?.on("data", (chunk: Buffer) => {
+    console.log("[whisper stderr]", chunk.toString());
+  });
 
   let buffer = "";
 
@@ -42,11 +52,17 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
         });
       } catch {
         // skip non-JSON lines
+        console.log("[whisper stdout]", line);
       }
     }
   });
 
-  whisperProcess.on("exit", () => {
+  whisperProcess.on("error", (err) => {
+    console.error("[whisper] Process error:", err);
+  });
+
+  whisperProcess.on("exit", (code) => {
+    console.log("[whisper] Process exited with code:", code);
     whisperProcess = null;
   });
 }
@@ -68,5 +84,14 @@ export function stopWhisper() {
 function getWhisperBinaryPath(): string {
   // Platform-specific binary location
   const binName = process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli";
-  return path.join(__dirname, "../../bin", binName);
+  
+  // In development, use the project bin directory
+  // In production, use the app resources directory
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "bin", binName);
+  } else {
+    // Development - find bin relative to project root
+    return path.join(app.getAppPath(), "bin", binName);
+  }
 }
+
