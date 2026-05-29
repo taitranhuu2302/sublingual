@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { getSettings, setSettings } from "./settings/settings-store";
 import { getModelManager } from "./models/model-manager";
+import { startWhisper, stopWhisper } from "./asr/whisper-process";
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Audio
@@ -23,10 +24,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     getModelManager().selectModel(modelId);
   });
   ipcMain.handle("asr:start-transcription", async () => {
-    // TODO: Task 4
+    const mm = getModelManager();
+    const model = mm.getSelectedModel();
+    if (!model) throw new Error("No model selected");
+    const settings = getSettings();
+    startWhisper({ modelPath: model.path, language: settings.language }, mainWindow);
   });
   ipcMain.handle("asr:stop-transcription", async () => {
-    // TODO: Task 4
+    stopWhisper();
   });
 
   // Settings
