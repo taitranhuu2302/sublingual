@@ -12,6 +12,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     private readonly AudioCaptureDebugSession _session;
     private readonly Dictionary<string, OverlayTranscriptLineViewModel> _stableLinesBySegmentId = new(StringComparer.Ordinal);
     private bool _disposed;
+    private CancellationTokenSource? _wordRevealCts;
 
     [ObservableProperty] private string partialOriginalText = string.Empty;
     [ObservableProperty] private string partialTranslatedText = string.Empty;
@@ -37,6 +38,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
     public bool HasDraftTranslation => PartialTranslatedWords.Count > 0 || !string.IsNullOrWhiteSpace(PartialTranslatedText);
     public bool HasDraftTranslationLine => OverlayShowTranslation && (IsDraftTranslating || HasDraftTranslation);
+    public bool ShowDraftLoadingDots => IsDraftTranslating && PartialTranslatedWords.Count == 0;
     public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
     public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
     public bool HasCaption => TranscriptLines.Count > 0 || HasPartial;
@@ -67,6 +69,8 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
+        _wordRevealCts?.Cancel();
+        _wordRevealCts?.Dispose();
         _session.RealtimeTranscriptEventPublished -= OnRealtimeTranscriptEventPublished;
         _disposed = true;
     }
@@ -116,9 +120,13 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 
     partial void OnPartialTranslatedTextChanged(string value)
     {
-        SyncPartialTranslatedWords(value);
+        if (!_animatingDraftWords)
+        {
+            SyncPartialTranslatedWords(value);
+        }
         OnPropertyChanged(nameof(HasDraftTranslation));
         OnPropertyChanged(nameof(HasDraftTranslationLine));
+        OnPropertyChanged(nameof(ShowDraftLoadingDots));
     }
 
     private void SyncPartialTranslatedWords(string newFullText)
@@ -156,9 +164,50 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private bool _animatingDraftWords;
+
+    private void AnimateDraftWords(string fullText)
+    {
+        _wordRevealCts?.Cancel();
+        _wordRevealCts?.Dispose();
+        _wordRevealCts = new CancellationTokenSource();
+        var ct = _wordRevealCts.Token;
+
+        _animatingDraftWords = true;
+        PartialTranslatedWords.Clear();
+
+        if (string.IsNullOrEmpty(fullText))
+        {
+            _animatingDraftWords = false;
+            PartialTranslatedText = string.Empty;
+            return;
+        }
+
+        PartialTranslatedText = fullText;
+        _animatingDraftWords = false;
+
+        var words = fullText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        _ = RevealWordsAsync(words, ct);
+    }
+
+    private async Task RevealWordsAsync(string[] words, CancellationToken ct)
+    {
+        var delayMs = Math.Clamp(1200 / words.Length, 15, 80);
+        for (var i = 0; i < words.Length; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Dispatcher.UIThread.InvokeAsync(() => PartialTranslatedWords.Add(words[i]));
+            if (i < words.Length - 1)
+            {
+                await Task.Delay(delayMs, ct);
+            }
+        }
+    }
+
     partial void OnIsDraftTranslatingChanged(bool value)
     {
         OnPropertyChanged(nameof(HasDraftTranslationLine));
+        OnPropertyChanged(nameof(ShowDraftLoadingDots));
     }
 
     partial void OnOverlayShowTranslationChanged(bool value)
@@ -176,6 +225,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
             switch (transcriptEvent)
             {
                 case TranscriptOverlayReset reset:
+                    _wordRevealCts?.Cancel();
                     TranscriptLines.Clear();
                     _stableLinesBySegmentId.Clear();
                     PartialOriginalText = string.Empty;
@@ -189,6 +239,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                     StatusText = $"Updated {draft.UpdatedAt:HH:mm:ss}";
                     break;
                 case StableTranscriptCommitted stable:
+                    _wordRevealCts?.Cancel();
                     var line = new OverlayTranscriptLineViewModel(stable.SegmentId, stable.OriginalText, string.Empty, stable.UpdatedAt);
                     TranscriptLines.Add(line);
                     _stableLinesBySegmentId[stable.SegmentId] = line;
@@ -208,13 +259,29 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                 case TranscriptTranslationChanged translation when translation.Target == TranscriptTranslationTarget.Draft:
                     if (translation.IsPending)
                     {
-                        PartialTranslatedText = "...";
                         IsDraftTranslating = true;
+                        if (PartialTranslatedWords.Count == 0)
+                        {
+                            PartialTranslatedText = "...";
+                        }
                     }
                     else
                     {
-                        PartialTranslatedText = translation.TranslatedText ?? string.Empty;
+                        var newText = translation.TranslatedText ?? string.Empty;
                         IsDraftTranslating = false;
+
+                        var isStreaming = string.Equals(translation.ProviderName, "Streaming", StringComparison.OrdinalIgnoreCase);
+                        var alreadyRendered = PartialTranslatedWords.Count > 0
+                            && string.Equals(PartialTranslatedText, newText, StringComparison.Ordinal);
+
+                        if (isStreaming || alreadyRendered)
+                        {
+                            PartialTranslatedText = newText;
+                        }
+                        else
+                        {
+                            AnimateDraftWords(newText);
+                        }
                     }
 
                     StatusText = $"Updated {translation.UpdatedAt:HH:mm:ss}";

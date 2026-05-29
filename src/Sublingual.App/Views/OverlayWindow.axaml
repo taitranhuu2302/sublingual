@@ -77,6 +77,12 @@
                                       Foreground="#FFFFFF"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
+                        <SelectableTextBlock Text="..."
+                                    FontSize="{Binding OverlayTranslationFontSize}"
+                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
+                                      Foreground="#94A3B8"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding ShowDraftLoadingDots}" />
                         <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
                                       IsVisible="{Binding HasDraftTranslationLine}">
                             <ItemsControl.ItemsPanel>
@@ -90,7 +96,8 @@
                                                 FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
                                                 LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
                                                 Foreground="#E2E8F0"
-                                                TextWrapping="Wrap" />
+                                                TextWrapping="Wrap"
+                                                Margin="0,0,5,0" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -172,6 +179,12 @@
                                       Foreground="#0F172A"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
+                        <SelectableTextBlock Text="..."
+                                    FontSize="{Binding OverlayTranslationFontSize}"
+                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
+                                      Foreground="#94A3B8"
+                                      TextWrapping="Wrap"
+                                      IsVisible="{Binding ShowDraftLoadingDots}" />
                         <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
                                       IsVisible="{Binding HasDraftTranslationLine}">
                             <ItemsControl.ItemsPanel>
@@ -185,7 +198,8 @@
                                                 FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
                                                 LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
                                                 Foreground="#475569"
-                                                TextWrapping="Wrap" />
+                                                TextWrapping="Wrap"
+                                                Margin="0,0,5,0" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
