@@ -11,9 +11,9 @@ let sessionCreated = false;
 // Load the library
 const lib = koffi.load(LIB_PATH);
 
-// Define callback type using koffi.types
+// Define callback type string - koffi 3.x uses string format directly
 // Signature: void callback(const float* samples, int frameCount, int channels, double timestamp, void* context)
-const AudioCallbackType = koffi.types("void AudioCallback(float *, int, int, double, void *)");
+const AudioCallbackType = "void(float *, int, int, double, void *)";
 
 // Define C function signatures
 const sc_create_session = lib.func("sc_create_session", "int", [AudioCallbackType, "void *"]);
@@ -44,7 +44,7 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
     // Store the callback to keep it alive
     registeredCallback = jsCallback;
 
-    // Create session with callback
+    // Create session with callback - koffi automatically wraps JS functions
     const status = sc_create_session(jsCallback, null);
     if (status !== 0) {
       console.error("[screencapture-mac] sc_create_session failed:", sc_get_last_error_message());
