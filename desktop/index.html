@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://deep-translator-api.azurewebsites.net http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*" />
+    <title>NextG Sublingual</title>
+  </head>
+  <body class="h-full min-h-0 overflow-hidden antialiased">
+    <div id="root" class="h-full min-h-0">
+      <div id="app-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#ffffff;gap:16px;z-index:9999">
+        <img src="/logo.png" width="144" height="144" style="animation:splash-pulse 1.6s ease-in-out infinite" />
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;animation:splash-dot 1.2s ease-in-out infinite"></span>
+          <span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;animation:splash-dot 1.2s ease-in-out .2s infinite"></span>
+          <span style="width:7px;height:7px;border-radius:50%;background:#3b82f6;animation:splash-dot 1.2s ease-in-out .4s infinite"></span>
+        </div>
+        <style>
+          @keyframes splash-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.8;transform:scale(.93)}}
+          @keyframes splash-dot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+        </style>
+      </div>
+    </div>
+    <script type="module" src="/src/renderer.tsx"></script>
+  </body>
+</html>

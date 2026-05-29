@@ -2,13 +2,13 @@
 
 ### Objective
 
-Update `translate-service` so it supports Sublingual's realtime subtitle workflow more directly.
+Update `translate` so it supports Sublingual's realtime subtitle workflow more directly.
 
 The service should help the app translate partial transcript updates with low perceived latency while keeping final segment meaning correct and stable.
 
 ### Current Constraints
 
-Current `translate-service` behavior:
+Current `translate` behavior:
 
 - `POST /translate` translates a single text
 - `POST /translate/batch` translates multiple texts

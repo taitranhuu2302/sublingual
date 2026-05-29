@@ -2,7 +2,7 @@
 
 ### Objective
 
-Integrate the local `translate-service` into Sublingual as a dedicated provider for local realtime translation.
+Integrate the local `translate` into Sublingual as a dedicated provider for local realtime translation.
 
 The integration should make partial translation feel near-realtime without forcing the app to wait for a full sentence.
 

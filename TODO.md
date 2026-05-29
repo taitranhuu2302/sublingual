@@ -344,7 +344,7 @@ This section tracks the new self-hosted translation microservice for the existin
 
 ### Priority 1. Service Skeleton
 
-- [ ] Create `translate-service/` project structure
+- [ ] Create `translate/` project structure
   - Add `app/`, `scripts/`, `models/`, `docker/`, `requirements.txt`, `README.md`, and `.env.example`
   - Keep the service isolated from the current desktop app so the Vosk pipeline can call it over HTTP
 
@@ -435,7 +435,7 @@ This section tracks the new self-hosted translation microservice for the existin
 
 ### Suggested Execution Order For This Service
 
-- [ ] 1. Create the isolated `translate-service/` skeleton and config/schema foundation
+- [ ] 1. Create the isolated `translate/` skeleton and config/schema foundation
 - [ ] 2. Implement Marian + CTranslate2 runtime and model manager
 - [ ] 3. Expose `/health`, `/models`, `/translate`, and `/translate/batch`
 - [ ] 4. Add realtime partial/final optimization and session cache
