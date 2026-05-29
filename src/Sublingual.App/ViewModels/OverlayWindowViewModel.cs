@@ -7,17 +7,24 @@ using Sublingual.App.Services.Translation;
 
 namespace Sublingual.App.ViewModels;
 
+/// <summary>
+/// Drives the overlay window.
+///
+/// Model is intentionally simple:
+///   - <see cref="Lines"/> = list of committed (stable) caption pairs + one optional live draft at tail
+///   - The draft slot is always the last item and is replaced/mutated in-place
+///   - We never map UI lines to backend SegmentIds after commit — avoids stale-event trash
+/// </summary>
 public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AudioCaptureDebugSession _session;
-    private readonly Dictionary<string, OverlayTranscriptLineViewModel> _stableLinesBySegmentId = new(StringComparer.Ordinal);
     private bool _disposed;
-    private CancellationTokenSource? _wordRevealCts;
 
-    [ObservableProperty] private string partialOriginalText = string.Empty;
-    [ObservableProperty] private string partialTranslatedText = string.Empty;
-    public ObservableCollection<string> PartialTranslatedWords { get; } = [];
-    [ObservableProperty] private bool isDraftTranslating;
+    // Tracks which backend segmentId owns the *current* draft translation slot.
+    // Streaming chunks are only accepted if they match this id.
+    private string? _draftTranslationSegmentId;
+
+    // ── Display settings ──────────────────────────────────────────────────────
     [ObservableProperty] private string statusText = "Overlay ready.";
     [ObservableProperty] private double overlayFontSize = 26;
     [ObservableProperty] private double overlayLineHeight = 1.35;
@@ -29,27 +36,24 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private bool isFixedToBottom = true;
     [ObservableProperty] private int scrollRequestVersion;
 
-    public ObservableCollection<OverlayTranscriptLineViewModel> TranscriptLines { get; } = [];
+    // ── Caption lines ─────────────────────────────────────────────────────────
+    /// <summary>All visible lines. Last item is the live draft (if any).</summary>
+    public ObservableCollection<OverlayCaptionLine> Lines { get; } = [];
 
+    // ── Derived display properties ────────────────────────────────────────────
     public double OverlayTranslationFontSize => Math.Max(14, OverlayFontSize - 4);
     public double EffectiveOverlayLineHeight => OverlayShowTranslation ? OverlayLineHeight : Math.Max(0.90, OverlayLineHeight - 0.18);
     public double OverlayPrimaryLineHeight => OverlayFontSize * EffectiveOverlayLineHeight;
     public double OverlaySecondaryLineHeight => OverlayTranslationFontSize * EffectiveOverlayLineHeight;
-    public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
-    public bool HasDraftTranslation => PartialTranslatedWords.Count > 0 || !string.IsNullOrWhiteSpace(PartialTranslatedText);
-    public bool HasDraftTranslationLine => OverlayShowTranslation && (IsDraftTranslating || HasDraftTranslation);
-    public bool ShowDraftLoadingDots => IsDraftTranslating && PartialTranslatedWords.Count == 0;
+    public bool ShowPlaceholder => Lines.Count == 0;
     public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
     public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
-    public bool HasCaption => TranscriptLines.Count > 0 || HasPartial;
-    public bool ShowPlaceholder => TranscriptLines.Count == 0 && !HasPartial;
     public string OverlayFollowButtonTooltip => IsFixedToBottom ? "Following newest lines" : "Jump to bottom and follow";
     public double OverlayShadowOpacity => Math.Clamp(0.18 + (OverlayOpacity * 0.32), 0.18, 0.5);
 
     public string DarkOverlayBackground => ToHexColor(OverlayOpacity, 14, 19, 28);
     public string DarkOverlayBorder => ToHexColor(Math.Clamp(OverlayOpacity + 0.08, 0.35, 1.0), 56, 70, 92);
     public string DarkOverlayCloseBackground => ToHexColor(Math.Clamp(OverlayOpacity + 0.02, 0.35, 1.0), 28, 40, 55);
-
     public string LightOverlayBackground => ToHexColor(Math.Clamp(0.80 + (OverlayOpacity * 0.18), 0.80, 0.98), 245, 247, 250);
     public string LightOverlayBorder => ToHexColor(Math.Clamp(0.70 + (OverlayOpacity * 0.20), 0.70, 1.0), 210, 218, 229);
     public string LightOverlayCloseBackground => ToHexColor(Math.Clamp(0.72 + (OverlayOpacity * 0.16), 0.72, 1.0), 229, 234, 241);
@@ -60,20 +64,22 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         _session.RealtimeTranscriptEventPublished += OnRealtimeTranscriptEventPublished;
     }
 
-    // Design-time constructor
-    public OverlayWindowViewModel()
-        : this(CreateDesignTimeSession())
-    {
-    }
+    public OverlayWindowViewModel() : this(CreateDesignTimeSession()) { }
 
     public void Dispose()
     {
         if (_disposed) return;
-        _wordRevealCts?.Cancel();
-        _wordRevealCts?.Dispose();
         _session.RealtimeTranscriptEventPublished -= OnRealtimeTranscriptEventPublished;
         _disposed = true;
     }
+
+    public void FollowToBottom()
+    {
+        IsFixedToBottom = true;
+        ScrollRequestVersion += 1;
+    }
+
+    // ── Property change side-effects ──────────────────────────────────────────
 
     partial void OnOverlayFontSizeChanged(double value)
     {
@@ -111,204 +117,143 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(OverlayFollowButtonTooltip));
     }
 
-    partial void OnPartialOriginalTextChanged(string value)
-    {
-        OnPropertyChanged(nameof(ShowPlaceholder));
-        OnPropertyChanged(nameof(HasCaption));
-        OnPropertyChanged(nameof(HasPartial));
-    }
-
-    partial void OnPartialTranslatedTextChanged(string value)
-    {
-        if (!_animatingDraftWords)
-        {
-            SyncPartialTranslatedWords(value);
-        }
-        OnPropertyChanged(nameof(HasDraftTranslation));
-        OnPropertyChanged(nameof(HasDraftTranslationLine));
-        OnPropertyChanged(nameof(ShowDraftLoadingDots));
-    }
-
-    private void SyncPartialTranslatedWords(string newFullText)
-    {
-        if (string.IsNullOrEmpty(newFullText))
-        {
-            PartialTranslatedWords.Clear();
-            return;
-        }
-
-        var words = newFullText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var existingCount = PartialTranslatedWords.Count;
-
-        if (words.Length > existingCount)
-        {
-            for (var i = existingCount; i < words.Length; i++)
-            {
-                PartialTranslatedWords.Add(words[i]);
-            }
-        }
-        else if (words.Length < existingCount)
-        {
-            while (PartialTranslatedWords.Count > words.Length)
-            {
-                PartialTranslatedWords.RemoveAt(PartialTranslatedWords.Count - 1);
-            }
-        }
-
-        for (var i = 0; i < words.Length; i++)
-        {
-            if (i < PartialTranslatedWords.Count)
-            {
-                PartialTranslatedWords[i] = words[i];
-            }
-        }
-    }
-
-    private bool _animatingDraftWords;
-
-    private void AnimateDraftWords(string fullText)
-    {
-        _wordRevealCts?.Cancel();
-        _wordRevealCts?.Dispose();
-        _wordRevealCts = new CancellationTokenSource();
-        var ct = _wordRevealCts.Token;
-
-        _animatingDraftWords = true;
-        PartialTranslatedWords.Clear();
-
-        if (string.IsNullOrEmpty(fullText))
-        {
-            _animatingDraftWords = false;
-            PartialTranslatedText = string.Empty;
-            return;
-        }
-
-        PartialTranslatedText = fullText;
-        _animatingDraftWords = false;
-
-        var words = fullText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        _ = RevealWordsAsync(words, ct);
-    }
-
-    private async Task RevealWordsAsync(string[] words, CancellationToken ct)
-    {
-        var delayMs = Math.Clamp(1200 / words.Length, 15, 80);
-        for (var i = 0; i < words.Length; i++)
-        {
-            ct.ThrowIfCancellationRequested();
-            await Dispatcher.UIThread.InvokeAsync(() => PartialTranslatedWords.Add(words[i]));
-            if (i < words.Length - 1)
-            {
-                await Task.Delay(delayMs, ct);
-            }
-        }
-    }
-
-    partial void OnIsDraftTranslatingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(HasDraftTranslationLine));
-        OnPropertyChanged(nameof(ShowDraftLoadingDots));
-    }
-
     partial void OnOverlayShowTranslationChanged(bool value)
     {
         OnPropertyChanged(nameof(EffectiveOverlayLineHeight));
         OnPropertyChanged(nameof(OverlayPrimaryLineHeight));
         OnPropertyChanged(nameof(OverlaySecondaryLineHeight));
-        OnPropertyChanged(nameof(HasDraftTranslationLine));
     }
 
-    private void OnRealtimeTranscriptEventPublished(object? sender, RealtimeTranscriptEvent transcriptEvent)
+    // ── Event handling ────────────────────────────────────────────────────────
+
+    private void OnRealtimeTranscriptEventPublished(object? sender, RealtimeTranscriptEvent evt)
     {
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            switch (transcriptEvent)
+            switch (evt)
             {
                 case TranscriptOverlayReset reset:
-                    _wordRevealCts?.Cancel();
-                    TranscriptLines.Clear();
-                    _stableLinesBySegmentId.Clear();
-                    PartialOriginalText = string.Empty;
-                    PartialTranslatedText = string.Empty;
-                    PartialTranslatedWords.Clear();
-                    IsDraftTranslating = false;
+                    Lines.Clear();
+                    _draftTranslationSegmentId = null;
                     StatusText = $"Updated {reset.UpdatedAt:HH:mm:ss}";
                     break;
+
                 case DraftTranscriptChanged draft:
-                    PartialOriginalText = draft.OriginalText;
+                    // Always update/create the draft slot (last line, not committed)
+                    EnsureDraftLine().OriginalText = draft.OriginalText;
                     StatusText = $"Updated {draft.UpdatedAt:HH:mm:ss}";
                     break;
-                case StableTranscriptCommitted stable:
-                    _wordRevealCts?.Cancel();
-                    var line = new OverlayTranscriptLineViewModel(stable.SegmentId, stable.OriginalText, string.Empty, stable.UpdatedAt);
-                    TranscriptLines.Add(line);
-                    _stableLinesBySegmentId[stable.SegmentId] = line;
-                    while (TranscriptLines.Count > 80)
-                    {
-                        var removedLine = TranscriptLines[0];
-                        TranscriptLines.RemoveAt(0);
-                        _stableLinesBySegmentId.Remove(removedLine.SegmentId);
-                    }
 
-                    PartialOriginalText = string.Empty;
-                    PartialTranslatedText = string.Empty;
-                    PartialTranslatedWords.Clear();
-                    IsDraftTranslating = false;
+                case StableTranscriptCommitted stable:
+                    // Commit the draft line: freeze its text and clear translation slot
+                    var draftLine = EnsureDraftLine();
+                    draftLine.OriginalText = stable.OriginalText;
+                    draftLine.IsCommitted = true;
+                    _draftTranslationSegmentId = null;
+
+                    // Trim to 80 lines
+                    while (Lines.Count > 80)
+                        Lines.RemoveAt(0);
+
                     StatusText = $"Updated {stable.UpdatedAt:HH:mm:ss}";
                     break;
-                case TranscriptTranslationChanged translation when translation.Target == TranscriptTranslationTarget.Draft:
-                    if (translation.IsPending)
-                    {
-                        IsDraftTranslating = true;
-                        if (PartialTranslatedWords.Count == 0)
-                        {
-                            PartialTranslatedText = "...";
-                        }
-                    }
-                    else
-                    {
-                        var newText = translation.TranslatedText ?? string.Empty;
-                        IsDraftTranslating = false;
 
-                        var isStreaming = string.Equals(translation.ProviderName, "Streaming", StringComparison.OrdinalIgnoreCase);
-                        var alreadyRendered = PartialTranslatedWords.Count > 0
-                            && string.Equals(PartialTranslatedText, newText, StringComparison.Ordinal);
-
-                        if (isStreaming || alreadyRendered)
-                        {
-                            PartialTranslatedText = newText;
-                        }
-                        else
-                        {
-                            AnimateDraftWords(newText);
-                        }
-                    }
-
-                    StatusText = $"Updated {translation.UpdatedAt:HH:mm:ss}";
+                case TranscriptTranslationChanged { Target: TranscriptTranslationTarget.Draft } t:
+                    HandleDraftTranslation(t);
                     break;
-                case TranscriptTranslationChanged translation when _stableLinesBySegmentId.TryGetValue(translation.SegmentId, out var stableLine):
-                    stableLine.TranslatedText = translation.IsPending
-                        ? "..."
-                        : translation.TranslatedText ?? string.Empty;
-                    stableLine.UpdatedAt = translation.UpdatedAt;
-                    StatusText = $"Updated {translation.UpdatedAt:HH:mm:ss}";
+
+                case TranscriptTranslationChanged { Target: TranscriptTranslationTarget.StableSegment } t:
+                    HandleStableTranslation(t);
                     break;
             }
 
-            if (IsFixedToBottom)
-            {
-                ScrollRequestVersion += 1;
-            }
-
-            OnPropertyChanged(nameof(HasCaption));
             OnPropertyChanged(nameof(ShowPlaceholder));
+            if (IsFixedToBottom)
+                ScrollRequestVersion += 1;
         });
     }
 
-    public void FollowToBottom()
+    private void HandleDraftTranslation(TranscriptTranslationChanged t)
     {
-        IsFixedToBottom = true;
-        ScrollRequestVersion += 1;
+        if (t.IsPending)
+        {
+            // A new draft translation is starting — register which segment owns the slot
+            _draftTranslationSegmentId = t.SegmentId;
+            var line = EnsureDraftLine();
+            // Only show loading dots if translation area is empty
+            if (string.IsNullOrEmpty(line.TranslatedText))
+                line.TranslatedText = "...";
+            return;
+        }
+
+        // Final or streaming chunk — only accept if segmentId matches current draft slot
+        if (t.SegmentId != _draftTranslationSegmentId)
+            return;
+
+        var draft = EnsureDraftLine();
+        var isStreamingChunk = string.Equals(t.ProviderName, "Streaming", StringComparison.OrdinalIgnoreCase);
+
+        if (isStreamingChunk)
+        {
+            // Replace "..." placeholder then append
+            if (draft.TranslatedText == "...")
+                draft.TranslatedText = string.Empty;
+            draft.TranslatedText += t.TranslatedText;
+        }
+        else
+        {
+            // Final result — replace
+            draft.TranslatedText = t.TranslatedText ?? string.Empty;
+        }
+
+        StatusText = $"Updated {t.UpdatedAt:HH:mm:ss}";
+    }
+
+    private void HandleStableTranslation(TranscriptTranslationChanged t)
+    {
+        if (t.IsPending) return;
+
+        // Find the committed line that matches this segment's *original text*
+        // We match by OriginalText because SegmentId is not stored on committed lines
+        var translated = t.TranslatedText ?? string.Empty;
+        if (string.IsNullOrEmpty(translated)) return;
+
+        // Walk from tail (most recent) to find the first committed line that
+        // has matching SourceText and no translation yet
+        for (var i = Lines.Count - 1; i >= 0; i--)
+        {
+            var line = Lines[i];
+            if (!line.IsCommitted) continue;
+            if (!string.Equals(line.OriginalText, t.SourceText, StringComparison.Ordinal)) continue;
+            if (!string.IsNullOrEmpty(line.TranslatedText)) continue;
+
+            line.TranslatedText = translated;
+            break;
+        }
+
+        StatusText = $"Updated {t.UpdatedAt:HH:mm:ss}";
+    }
+
+    /// <summary>
+    /// Returns the current draft line (last line that is not committed).
+    /// Creates one if it does not exist.
+    /// </summary>
+    private OverlayCaptionLine EnsureDraftLine()
+    {
+        if (Lines.Count > 0 && !Lines[^1].IsCommitted)
+            return Lines[^1];
+
+        var line = new OverlayCaptionLine();
+        Lines.Add(line);
+        return line;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string ToHexColor(double opacity, byte red, byte green, byte blue)
+    {
+        var alpha = (byte)Math.Clamp((int)Math.Round(opacity * 255), 0, 255);
+        return $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
     }
 
     private static AudioCaptureDebugSession CreateDesignTimeSession()
@@ -345,35 +290,5 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                 )),
             null,
             NullLogger<AudioCaptureDebugSession>.Instance);
-    }
-
-    private static string ToHexColor(double opacity, byte red, byte green, byte blue)
-    {
-        var alpha = (byte)Math.Clamp((int)Math.Round(opacity * 255), 0, 255);
-        return $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
-    }
-}
-
-public sealed partial class OverlayTranscriptLineViewModel : ObservableObject
-{
-    public OverlayTranscriptLineViewModel(string segmentId, string originalText, string translatedText, DateTimeOffset updatedAt)
-    {
-        SegmentId = segmentId;
-        this.originalText = originalText;
-        this.translatedText = translatedText ?? string.Empty;
-        this.updatedAt = updatedAt;
-    }
-
-    public string SegmentId { get; }
-
-    [ObservableProperty] private string originalText = string.Empty;
-    [ObservableProperty] private string translatedText = string.Empty;
-    [ObservableProperty] private DateTimeOffset updatedAt;
-
-    public bool HasTranslation => !string.IsNullOrWhiteSpace(TranslatedText);
-
-    partial void OnTranslatedTextChanged(string value)
-    {
-        OnPropertyChanged(nameof(HasTranslation));
     }
 }

@@ -25,11 +25,10 @@
     </Design.DataContext>
 
     <Grid Margin="0">
-        <Border Margin="0"
-                HorizontalAlignment="Stretch"
+
+        <!-- ── Dark theme ── -->
+        <Border HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
-                Padding="0"
-                ClipToBounds="False"
                 Background="{Binding DarkOverlayBackground}"
                 BorderBrush="{Binding DarkOverlayBorder}"
                 BorderThickness="1"
@@ -37,101 +36,68 @@
                 IsVisible="{Binding IsDarkTheme}">
             <Grid>
                 <ScrollViewer x:Name="DarkTranscriptScrollViewer"
-                              Margin="18,12,18,12"
+                              Margin="18,12,44,12"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Spacing="8">
-                        <ItemsControl ItemsSource="{Binding TranscriptLines}">
+                    <StackPanel Spacing="0">
+
+                        <TextBlock Text="Listening for live speech..."
+                                   FontSize="{Binding OverlayFontSize}"
+                                   FontWeight="SemiBold"
+                                   LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                   Foreground="#CBD5E1"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding ShowPlaceholder}" />
+
+                        <ItemsControl ItemsSource="{Binding Lines}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:OverlayTranscriptLineViewModel">
-                                    <StackPanel Spacing="4">
+                                <DataTemplate x:DataType="vm:OverlayCaptionLine">
+                                    <StackPanel Spacing="1" Margin="0,0,0,8">
+                                        <!-- Original: bright when committed, dim when still being spoken -->
                                         <SelectableTextBlock Text="{Binding OriginalText}"
-                                                   FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
-                                                    FontWeight="Bold"
-                                                    LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
-                                                    Foreground="#FFFFFF"
-                                                   TextWrapping="Wrap" />
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
+                                                             FontWeight="Bold"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                             Foreground="#FFFFFF"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding IsCommitted}" />
+                                        <SelectableTextBlock Text="{Binding OriginalText}"
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
+                                                             FontWeight="Bold"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                             Foreground="#CBD5E1"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding !IsCommitted}" />
+                                        <!-- Translation text -->
                                         <SelectableTextBlock Text="{Binding TranslatedText}"
-                                                   FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                    LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                    Foreground="#E2E8F0"
-                                                   TextWrapping="Wrap"
-                                                   IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                             Foreground="#E2E8F0"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <SelectableTextBlock Text="Listening for live speech..."
-                                   FontSize="{Binding OverlayFontSize}"
-                                     FontWeight="SemiBold"
-                                    LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                    Foreground="#CBD5E1"
-                                     TextWrapping="Wrap"
-                                    IsVisible="{Binding ShowPlaceholder}" />
-
-                        <SelectableTextBlock Text="{Binding PartialOriginalText}"
-                                    FontSize="{Binding OverlayFontSize}"
-                                      FontWeight="Bold"
-                                      LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                      Foreground="#FFFFFF"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding HasPartial}" />
-                        <SelectableTextBlock Text="..."
-                                    FontSize="{Binding OverlayTranslationFontSize}"
-                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
-                                      Foreground="#94A3B8"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding ShowDraftLoadingDots}" />
-                        <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
-                                      IsVisible="{Binding HasDraftTranslationLine}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <SelectableTextBlock Text="{Binding}"
-                                                FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                Foreground="#E2E8F0"
-                                                TextWrapping="Wrap"
-                                                Margin="0,0,5,0" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
 
-                <ToggleButton Width="28"
-                              Height="28"
-                              Padding="0"
+                <ToggleButton Width="28" Height="28" Padding="0"
                               IsChecked="{Binding IsFixedToBottom}"
-                              Background="Transparent"
-                              BorderBrush="Transparent"
-                              BorderThickness="0"
-                              HorizontalAlignment="Right"
-                              VerticalAlignment="Top"
-                              Margin="0,8,12,0"
-                              ZIndex="10">
-                    <ToolTip.Tip>
-                        <TextBlock Text="{Binding OverlayFollowButtonTooltip}" />
-                    </ToolTip.Tip>
-                    <i:Icon Value="fa-solid fa-angles-down"
-                            FontSize="12"
-                            Foreground="#A0AEC0"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center" />
+                              Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                              HorizontalAlignment="Right" VerticalAlignment="Top"
+                              Margin="0,8,12,0" ZIndex="10">
+                    <ToolTip.Tip><TextBlock Text="{Binding OverlayFollowButtonTooltip}" /></ToolTip.Tip>
+                    <i:Icon Value="fa-solid fa-angles-down" FontSize="12" Foreground="#A0AEC0"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </ToggleButton>
             </Grid>
         </Border>
 
-        <Border Margin="0"
-                HorizontalAlignment="Stretch"
+        <!-- ── Light theme ── -->
+        <Border HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
-                Padding="0"
-                ClipToBounds="False"
                 Background="{Binding LightOverlayBackground}"
                 BorderBrush="{Binding LightOverlayBorder}"
                 BorderThickness="1"
@@ -139,92 +105,59 @@
                 IsVisible="{Binding IsLightTheme}">
             <Grid>
                 <ScrollViewer x:Name="LightTranscriptScrollViewer"
-                              Margin="18,12,18,12"
+                              Margin="18,12,44,12"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Spacing="8">
-                        <ItemsControl ItemsSource="{Binding TranscriptLines}">
+                    <StackPanel Spacing="0">
+
+                        <TextBlock Text="Listening for live speech..."
+                                   FontSize="{Binding OverlayFontSize}"
+                                   FontWeight="SemiBold"
+                                   LineHeight="{Binding OverlayPrimaryLineHeight}"
+                                   Foreground="#475569"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding ShowPlaceholder}" />
+
+                        <ItemsControl ItemsSource="{Binding Lines}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:OverlayTranscriptLineViewModel">
-                                    <StackPanel Spacing="4">
+                                <DataTemplate x:DataType="vm:OverlayCaptionLine">
+                                    <StackPanel Spacing="1" Margin="0,0,0,8">
                                         <SelectableTextBlock Text="{Binding OriginalText}"
-                                                   FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
-                                                    FontWeight="Bold"
-                                                    LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
-                                                    Foreground="#0F172A"
-                                                   TextWrapping="Wrap" />
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
+                                                             FontWeight="Bold"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                             Foreground="#0F172A"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding IsCommitted}" />
+                                        <SelectableTextBlock Text="{Binding OriginalText}"
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayFontSize}"
+                                                             FontWeight="Bold"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlayPrimaryLineHeight}"
+                                                             Foreground="#64748B"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding !IsCommitted}" />
                                         <SelectableTextBlock Text="{Binding TranslatedText}"
-                                                   FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                    LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                    Foreground="#475569"
-                                                   TextWrapping="Wrap"
-                                                   IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
+                                                             FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
+                                                             LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                             Foreground="#475569"
+                                                             TextWrapping="Wrap"
+                                                             IsVisible="{Binding $parent[Window].DataContext.OverlayShowTranslation}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <SelectableTextBlock Text="Listening for live speech..."
-                                   FontSize="{Binding OverlayFontSize}"
-                                     FontWeight="SemiBold"
-                                    LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                    Foreground="#475569"
-                                    TextWrapping="Wrap"
-                                    IsVisible="{Binding ShowPlaceholder}" />
-
-                        <SelectableTextBlock Text="{Binding PartialOriginalText}"
-                                    FontSize="{Binding OverlayFontSize}"
-                                      FontWeight="Bold"
-                                      LineHeight="{Binding OverlayPrimaryLineHeight}"
-                                      Foreground="#0F172A"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding HasPartial}" />
-                        <SelectableTextBlock Text="..."
-                                    FontSize="{Binding OverlayTranslationFontSize}"
-                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
-                                      Foreground="#94A3B8"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding ShowDraftLoadingDots}" />
-                        <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
-                                      IsVisible="{Binding HasDraftTranslationLine}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <SelectableTextBlock Text="{Binding}"
-                                                FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
-                                                LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
-                                                Foreground="#475569"
-                                                TextWrapping="Wrap"
-                                                Margin="0,0,5,0" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
 
-                <ToggleButton Width="28"
-                              Height="28"
-                              Padding="0"
+                <ToggleButton Width="28" Height="28" Padding="0"
                               IsChecked="{Binding IsFixedToBottom}"
-                              Background="Transparent"
-                              BorderBrush="Transparent"
-                              BorderThickness="0"
-                              HorizontalAlignment="Right"
-                              VerticalAlignment="Top"
-                              Margin="0,8,12,0"
-                              ZIndex="10">
-                    <ToolTip.Tip>
-                        <TextBlock Text="{Binding OverlayFollowButtonTooltip}" />
-                    </ToolTip.Tip>
-                    <i:Icon Value="fa-solid fa-angles-down"
-                            FontSize="12"
-                            Foreground="#64748B"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center" />
+                              Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                              HorizontalAlignment="Right" VerticalAlignment="Top"
+                              Margin="0,8,12,0" ZIndex="10">
+                    <ToolTip.Tip><TextBlock Text="{Binding OverlayFollowButtonTooltip}" /></ToolTip.Tip>
+                    <i:Icon Value="fa-solid fa-angles-down" FontSize="12" Foreground="#64748B"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </ToggleButton>
             </Grid>
         </Border>
