@@ -46,6 +46,7 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.2.6",
     "@tailwindcss/vite": "^4.3.0",
     "@vitejs/plugin-react": "^4.4.1",
     "class-variance-authority": "^0.7.1",
