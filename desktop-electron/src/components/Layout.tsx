@@ -8,7 +8,7 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-function Layout() {
+export function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <nav className="flex items-center gap-1 border-b bg-background px-4 py-2">
@@ -32,5 +32,3 @@ function Layout() {
     </div>
   );
 }
-
-export default Layout;

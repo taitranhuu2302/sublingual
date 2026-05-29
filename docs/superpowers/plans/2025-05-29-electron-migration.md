@@ -69,12 +69,18 @@ desktop-electron/src/
 **Native addons (separate build):**
 ```
 desktop-electron/native/
-├── wasapi-capture/
+├── wasapi-capture/                  — Windows WASAPI (node-addon-api)
 │   ├── binding.gyp
-│   ├── src/wasapi_capture.cc       — WASAPI loopback/mic capture, streams PCM via N-API callback
-│   └── index.d.ts                  — TypeScript declarations
+│   ├── src/wasapi_capture.cc
+│   └── index.d.ts
+├── screencapture-mac/               — macOS ScreenCaptureKit (copy/symlink of existing build)
+│   └── libScreenCaptureKitBridge.dylib
 └── README.md
 ```
+
+> **macOS native build exists at:** `native/macos/ScreenCaptureKitBridge/` (repo root).
+> Build output: `native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib`
+> Copy or symlink it to `desktop-electron/native/screencapture-mac/libScreenCaptureKitBridge.dylib` after build.
 
 ---
 
@@ -394,7 +400,10 @@ export function getAudioSources(): AudioSource[] {
       type: d.isLoopback ? "system" as const : "microphone" as const,
     }));
   }
-  // macOS: Task 3b (separate)
+  if (process.platform === "darwin") {
+    // The dylib captures default system output — no device enumeration
+    return [{ id: "system-default", name: "System Audio", type: "system" }];
+  }
   return [];
 }
 
@@ -463,64 +472,187 @@ git add -A && git commit -m "feat: WASAPI native addon for audio capture (Window
 - Create: `src/main/audio/screencapture-mac.ts`
 - Modify: `src/main/audio/audio-capture.ts`
 
+**Existing native build:** `native/macos/ScreenCaptureKitBridge/` — already built at repo root.
+You do **not** need to build anything; the `.dylib` is ready at:
+`native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib`
+
+**C API exposed by the dylib:**
+```c
+typedef void (*audio_callback_t)(const float* samples, int frame_count, int channels, double timestamp, void* context);
+
+int sc_create_session(audio_callback_t callback, void* context);
+int sc_start_capture(void);
+int sc_stop_capture(void);
+int sc_destroy_session(void);
+const char* sc_get_last_error_message(void);
+```
+
+No device enumeration — it captures the default system audio output via ScreenCaptureKit.
+Audio format: **48kHz stereo float** (callback-based, not polling).
+
 - [ ] **Step 1: Implement ScreenCaptureKit bridge**
 
 ```ts
 // src/main/audio/screencapture-mac.ts
-// Uses ffi-napi to call a pre-compiled .dylib that wraps ScreenCaptureKit
-// The .dylib exposes: sc_get_devices(), sc_start_capture(device_id, sample_rate, callback), sc_stop_capture()
+// Uses ffi-napi to call the pre-built libScreenCaptureKitBridge.dylib
+// The dylib uses a callback-based API — no polling needed.
 import ffi from "ffi-napi";
-import ref from "ref-napi";
 import path from "path";
 
-const libPath = path.join(__dirname, "../../native/screencapture-mac/libscreencapture.dylib");
+const LIB_PATH = path.join(
+  __dirname,
+  "../../../native/screencapture-mac/libScreenCaptureKitBridge.dylib"
+);
 
-const lib = ffi.Library(libPath, {
-  sc_get_devices: ["string", []], // returns JSON array
-  sc_start_capture: ["int", ["string", "int"]], // device_id, sample_rate -> 0 on success
-  sc_stop_capture: ["int", []], // -> 0 on success
-  sc_read_buffer: ["int", [ref.refType("float"), "int"]], // out buffer, max_samples -> samples_read
+type AudioCallback = (
+  samples: Buffer,
+  frameCount: number,
+  channels: number,
+  timestamp: number,
+  context: Buffer
+) => void;
+
+let sessionCreated = false;
+
+// ffi-napi callback type: void(float*, int, int, double, void*)
+const AudioCallbackPtr = ffi.Callback(
+  "void",
+  ["pointer", "int", "int", "double", "pointer"],
+  (samples: Buffer, frameCount: number, channels: number, timestamp: number, _context: Buffer) => {
+    // Reinterpret the float* pointer as Float32Array
+    const floatArray = new Float32Array(samples.buffer, samples.byteOffset, frameCount * channels);
+    // Forward to the registered JS handler
+    globalThis.__macAudioCallback?.(floatArray, frameCount, channels, timestamp);
+  }
+);
+
+const lib = ffi.Library(LIB_PATH, {
+  sc_create_session: ["int", ["pointer", "pointer"]],
+  sc_start_capture: ["int", []],
+  sc_stop_capture: ["int", []],
+  sc_destroy_session: ["int", []],
+  sc_get_last_error_message: ["string", []],
 });
 
-export function getMacAudioSources() {
-  const json = lib.sc_get_devices();
-  return JSON.parse(json) as Array<{ id: string; name: string; type: "microphone" | "system" }>;
+export function initMacCapture(onAudio: (samples: Float32Array, frameCount: number, channels: number, timestamp: number) => void): boolean {
+  if (sessionCreated) return true;
+
+  // Store callback globally so ffi-napi can call it
+  globalThis.__macAudioCallback = onAudio;
+
+  // We pass null for context (not needed)
+  const status = lib.sc_create_session(AudioCallbackPtr, ffi.NULL);
+  if (status !== 0) {
+    console.error("[screencapture-mac] sc_create_session failed:", lib.sc_get_last_error_message());
+    return false;
+  }
+  sessionCreated = true;
+  return true;
 }
 
-export function startMacCapture(deviceId: string, sampleRate: number): void {
-  lib.sc_start_capture(deviceId, sampleRate);
+export function startMacCapture(): boolean {
+  if (!sessionCreated) return false;
+  const status = lib.sc_start_capture();
+  if (status !== 0) {
+    console.error("[screencapture-mac] sc_start_capture failed:", lib.sc_get_last_error_message());
+    return false;
+  }
+  return true;
 }
 
-export function stopMacCapture(): void {
-  lib.sc_stop_capture();
+export function stopMacCapture(): boolean {
+  const status = lib.sc_stop_capture();
+  return status === 0;
 }
 
-// Polling-based read (called on interval from audio-capture.ts)
-export function readMacBuffer(maxSamples: number): Float32Array | null {
-  const buf = Buffer.alloc(maxSamples * 4);
-  const samplesRead = lib.sc_read_buffer(buf, maxSamples);
-  if (samplesRead <= 0) return null;
-  return new Float32Array(buf.buffer, 0, samplesRead);
+export function destroyMacCapture(): void {
+  lib.sc_destroy_session();
+  sessionCreated = false;
+  globalThis.__macAudioCallback = undefined;
 }
 ```
+
+> **Note:** The dylib delivers 48kHz stereo float audio. Whisper expects 16kHz mono.
+> You will need to **downmix stereo→mono and resample 48k→16k** before feeding to ASR.
+> Consider using a simple resampling utility (e.g. `speex-resampler` WASM or a lightweight inline sinc resampler). Alternatively, the dylib could be modified to do this — but for now, handle it in JS/TS.
 
 - [ ] **Step 2: Update audio-capture.ts for macOS path**
 
-Add macOS branches to `getAudioSources`, `startAudioCapture`, `stopAudioCapture` that use the functions from `screencapture-mac.ts`. For streaming, use a `setInterval` polling `readMacBuffer` and sending via `mainWindow.webContents.send`.
+```ts
+// Inside audio-capture.ts, macOS branch:
 
-- [ ] **Step 3: Add ffi-napi and ref-napi dependencies**
+import { initMacCapture, startMacCapture, stopMacCapture, destroyMacCapture } from "./screencapture-mac";
 
-```bash
-pnpm add ffi-napi ref-napi
+// In startAudioCapture, macOS case:
+if (process.platform === "darwin") {
+  const audioQueue: Float32Array[] = [];
+  let sampleRate = 48000; // native rate from dylib
+
+  // Convert 48k stereo float → 16k mono float
+  function downmixAndResample(samples: Float32Array, frameCount: number, channels: number, timestamp: number) {
+    // Simple downmix: average channels
+    let mono: Float32Array;
+    if (channels === 2) {
+      mono = new Float32Array(frameCount);
+      for (let i = 0; i < frameCount; i++) {
+        mono[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;
+      }
+    } else {
+      mono = samples;
+    }
+
+    // Simple linear resample 48k → 16k (every 3rd sample)
+    const ratio = 48000 / 16000; // 3
+    const outLen = Math.floor(mono.length / ratio);
+    const resampled = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      resampled[i] = mono[Math.floor(i * ratio)];
+    }
+
+    // Send to renderer and feed to ASR
+    mainWindow.webContents.send("audio:data", resampled);
+    feedAudio(Buffer.from(resampled.buffer));
+  }
+
+  const ok = initMacCapture(downmixAndResample);
+  if (ok) startMacCapture();
+}
 ```
 
-- [ ] **Step 4: Commit**
-
-```bash
-git add -A && git commit -m "feat: macOS ScreenCaptureKit audio capture via ffi-napi"
+In `stopAudioCapture`, macOS case:
+```ts
+if (process.platform === "darwin") {
+  stopMacCapture();
+  destroyMacCapture();
+}
 ```
 
-> **Note:** The actual `.dylib` must be built separately (Swift/ObjC). This task sets up the JS bridge; building the dylib is a separate native task.
+Remove the `getMacAudioSources` / `readMacBuffer` polling approach from the previous plan — the existing dylib is callback-based and does not enumerate devices.
+
+- [ ] **Step 3: Add ffi-napi dependency**
+
+`ref-napi` is **no longer needed** (no polling buffer to allocate). Just `ffi-napi`:
+
+```bash
+pnpm add ffi-napi
+```
+
+> **Note:** `ffi-napi` requires native compilation (node-gyp). On macOS you need Xcode Command Line Tools.
+
+- [ ] **Step 4: Copy the dylib to desktop-electron**
+
+```bash
+mkdir -p desktop-electron/native/screencapture-mac
+cp native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib desktop-electron/native/screencapture-mac/libScreenCaptureKitBridge.dylib
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A && git commit -m "feat: macOS ScreenCaptureKit audio capture via callback-based dylib"
+```
+
+> **Note:** The existing dylib was already built. You only need to rebuild if modifying the native code at `native/macos/ScreenCaptureKitBridge/` (run `./build.sh` there).
 
 ---
 
@@ -1190,13 +1322,14 @@ git add -A && git commit -m "feat: settings page with model/source/language conf
 
 ## Dependency Summary
 
+### npm packages
+
 Add to `package.json`:
 
 ```json
 {
   "dependencies": {
-    "ffi-napi": "^4.0.3",
-    "ref-napi": "^3.0.3"
+    "ffi-napi": "^4.0.3"
   },
   "devDependencies": {
     "node-addon-api": "^7.1.0",
@@ -1205,7 +1338,25 @@ Add to `package.json`:
 }
 ```
 
-Also needed (not npm): whisper.cpp binary placed in `bin/` directory.
+> `ref-napi` was removed in the macOS rewrite — no longer needed (callback-based API, not polling).
+
+### Manual downloads (not auto-installed)
+
+These must be downloaded/placed manually:
+
+1. **whisper.cpp binary** — Place in `desktop-electron/bin/`:
+   - macOS: `whisper-cli` (compiled from [whisper.cpp](https://github.com/ggerganov/whisper.cpp))
+   - Windows: `whisper-cli.exe`
+   - Compile it yourself or download a pre-built release
+
+2. **Whisper model files** — Place in the app's `userData/models/` directory (or configure path via settings):
+   - Download from Hugging Face: https://huggingface.co/ggerganov/whisper.cpp
+   - Models: `ggml-tiny.bin`, `ggml-base.bin`, `ggml-small.bin`, `ggml-medium.bin`, `ggml-large-v3.bin`
+   - They are **not** auto-downloaded by the app
+
+3. **macOS dylib** — Already built at `native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib`
+   - Copy to `desktop-electron/native/screencapture-mac/` (see Task 3b)
+   - Only rebuild if modifying native code: run `./build.sh` in that directory
 
 ---
 
