@@ -1,4 +1,6 @@
 import { ipcMain, BrowserWindow } from "electron";
+import { getSettings, setSettings } from "./settings/settings-store";
+import { getModelManager } from "./models/model-manager";
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Audio
@@ -15,11 +17,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // ASR
   ipcMain.handle("asr:get-models", async () => {
-    // TODO: Task 4
-    return [];
+    return getModelManager().listModels();
   });
   ipcMain.handle("asr:select-model", async (_event, modelId: string) => {
-    // TODO: Task 4
+    getModelManager().selectModel(modelId);
   });
   ipcMain.handle("asr:start-transcription", async () => {
     // TODO: Task 4
@@ -30,10 +31,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // Settings
   ipcMain.handle("settings:get", async () => {
-    // TODO: Task 5
-    return { language: "en", modelId: "", audioSourceId: "" };
+    return getSettings();
   });
   ipcMain.handle("settings:set", async (_event, settings: Record<string, unknown>) => {
-    // TODO: Task 5
+    setSettings(settings);
   });
 }
