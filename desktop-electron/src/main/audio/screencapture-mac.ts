@@ -12,34 +12,36 @@ let sessionCreated = false;
 const lib = koffi.load(LIB_PATH);
 
 // Define callback type: void(float*, int, int, double, void*)
-const AudioCallbackType = koffi.proto("void AudioCallbackProto(_Out_ float *samples, int frameCount, int channels, double timestamp, _Out_ void *context)");
+// Use correct koffi syntax for callback pointer
+const AudioCallbackType = koffi.proto("void AudioCallbackProto(float *samples, int frameCount, int channels, double timestamp, void *context)");
 
 let callbackPtr: any = null;
 
 export function initMacCapture(onAudio: (samples: Float32Array, frameCount: number, channels: number, timestamp: number) => void): boolean {
   if (sessionCreated) return true;
 
-  // Create callback
-  const callback = koffi.register((samples: koffi.IKoffiCType, frameCount: number, channels: number, timestamp: number, _context: koffi.IKoffiCType) => {
+  // Create callback function
+  const callback = (samples: any, frameCount: number, channels: number, timestamp: number, _context: any) => {
     try {
-      // Read the float array from memory  
+      // Read the float array from memory
       const totalSamples = frameCount * channels;
-      const floatArray = koffi.decode(samples, koffi.types.float, totalSamples);
+      const floatArray = koffi.decode(samples, "float", totalSamples);
       const typedArray = new Float32Array(floatArray);
       onAudio(typedArray, frameCount, channels, timestamp);
     } catch (err) {
       console.error("[screencapture-mac] Callback error:", err);
     }
-  }, AudioCallbackType);
+  };
 
-  callbackPtr = callback;
+  // Register the callback
+  callbackPtr = koffi.register(callback, AudioCallbackType);
 
   // Define C function signatures
   const sc_create_session = lib.func("sc_create_session", "int", [koffi.pointer(AudioCallbackType), "void *"]);
   const sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
 
   // Create session with callback
-  const status = sc_create_session(callback, null);
+  const status = sc_create_session(callbackPtr, null);
   if (status !== 0) {
     console.error("[screencapture-mac] sc_create_session failed:", sc_get_last_error_message());
     return false;
