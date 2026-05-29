@@ -50,6 +50,58 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
         _disposeCts.Dispose();
     }
 
+    public async Task<ProviderTranslationResponse?> TranslateStandardDirectAsync(
+        TranslationRequest request,
+        TranslationSettings settings,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var baseUrl = NormalizeBaseUrl(settings.TranslateServiceLocal.BaseUrl);
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return null;
+        }
+
+        using var content = new StringContent(
+            JsonSerializer.Serialize(new TranslatePayload(
+                request.SourceText,
+                request.SourceLanguage,
+                request.TargetLanguage,
+                request.ContextBefore)),
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await _httpClient.PostAsync(
+            BuildEndpoint(baseUrl, "/translate"),
+            content,
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            using var errStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var errReader = new System.IO.StreamReader(errStream);
+            var detail = await errReader.ReadToEndAsync(cancellationToken);
+            _logger?.LogWarning("TranslateServiceLocal standard HTTP {Status}: {Body}",
+                (int)response.StatusCode, detail);
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {detail}", null, response.StatusCode);
+        }
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var payload = await JsonSerializer.DeserializeAsync<TranslateResponsePayload>(stream, cancellationToken: cancellationToken);
+        if (payload is null)
+        {
+            return new ProviderTranslationResponse(
+                new TranslationResult(request.SourceText, string.Empty, request.TargetLanguage),
+                [$"{Name}: null response"], false);
+        }
+
+        return !string.IsNullOrWhiteSpace(payload.TranslatedText)
+            ? new ProviderTranslationResponse(
+                new TranslationResult(request.SourceText, payload.TranslatedText, request.TargetLanguage),
+                [$"{Name}: standard direct"], false)
+            : null;
+    }
+
     public async Task<TranslationResult?> TranslateAsync(
         TranslationRequest request,
         TranslationSettings settings,
@@ -162,9 +214,21 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
         };
 
         using var response = await _httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            using var errStream = await response.Content.ReadAsStreamAsync(ct);
+            using var errReader = new System.IO.StreamReader(errStream);
+            var detail = await errReader.ReadToEndAsync(ct);
+            _logger?.LogWarning("TranslateServiceLocal /stream HTTP {Status}: {Body}",
+                (int)response.StatusCode, detail);
+            if ((int)response.StatusCode == 404)
+            {
+                throw new HttpRequestException("HTTP 404", null, response.StatusCode);
+            }
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {detail}", null, response.StatusCode);
+        }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 
         RealtimeTranslateResponsePayload? finalPayload = null;
@@ -221,9 +285,17 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
             BuildEndpoint(baseUrl, "/translate/realtime"),
             fallbackContent,
             ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            using var errStream = await response.Content.ReadAsStreamAsync(ct);
+            using var errReader = new System.IO.StreamReader(errStream);
+            var detail = await errReader.ReadToEndAsync(ct);
+            _logger?.LogWarning("TranslateServiceLocal /realtime HTTP {Status}: {Body}",
+                (int)response.StatusCode, detail);
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {detail}", null, response.StatusCode);
+        }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var stream = await response.Content.ReadAsStreamAsync(ct);
         var finalPayload = await JsonSerializer.DeserializeAsync<RealtimeTranslateResponsePayload>(stream, cancellationToken: ct);
 
         if (finalPayload is null)
@@ -332,9 +404,18 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
                     BuildEndpoint(NormalizeBaseUrl(null), "/translate"),
                     content,
                     ct);
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    using var errStream = await response.Content.ReadAsStreamAsync(ct);
+                    using var errReader = new System.IO.StreamReader(errStream);
+                    var detail = await errReader.ReadToEndAsync(ct);
+                    _logger?.LogWarning("TranslateServiceLocal batch single HTTP {Status}: {Body}",
+                        (int)response.StatusCode, detail);
+                    single.Tcs.TrySetException(new HttpRequestException($"HTTP {(int)response.StatusCode}: {detail}", null, response.StatusCode));
+                    return;
+                }
 
-                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                using var stream = await response.Content.ReadAsStreamAsync(ct);
                 var payload = await JsonSerializer.DeserializeAsync<TranslateResponsePayload>(stream, cancellationToken: ct);
                 var result = !string.IsNullOrWhiteSpace(payload?.TranslatedText)
                     ? new TranslationResult(single.Text, payload.TranslatedText, single.TargetLang)
@@ -366,9 +447,21 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
                 BuildEndpoint(NormalizeBaseUrl(null), "/translate/batch"),
                 content,
                 ct);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                using var errStream = await response.Content.ReadAsStreamAsync(ct);
+                using var errReader = new System.IO.StreamReader(errStream);
+                var detail = await errReader.ReadToEndAsync(ct);
+                _logger?.LogWarning("TranslateServiceLocal batch HTTP {Status}: {Body}",
+                    (int)response.StatusCode, detail);
+                foreach (var item in batch)
+                {
+                    item.Tcs.TrySetException(new HttpRequestException($"HTTP {(int)response.StatusCode}: {detail}", null, response.StatusCode));
+                }
+                return;
+            }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
             var batchResponse = await JsonSerializer.DeserializeAsync<BatchTranslateResponsePayload>(stream, cancellationToken: ct);
 
             if (batchResponse?.Translations is null)
@@ -468,6 +561,7 @@ public sealed class TranslateServiceLocalTranslationProvider : IRealtimeTranslat
         public string TargetLang { get; init; }
 
         [JsonPropertyName("context_before")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ContextBefore { get; init; }
 
         [JsonPropertyName("quality")]

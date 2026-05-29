@@ -77,12 +77,23 @@
                                       Foreground="#FFFFFF"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
-                        <SelectableTextBlock Text="{Binding PartialTranslatedText}"
-                                    FontSize="{Binding OverlayTranslationFontSize}"
-                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
-                                      Foreground="#E2E8F0"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding HasDraftTranslationLine}" />
+                        <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
+                                      IsVisible="{Binding HasDraftTranslationLine}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <SelectableTextBlock Text="{Binding}"
+                                                FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
+                                                LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                Foreground="#E2E8F0"
+                                                TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -161,12 +172,23 @@
                                       Foreground="#0F172A"
                                       TextWrapping="Wrap"
                                       IsVisible="{Binding HasPartial}" />
-                        <SelectableTextBlock Text="{Binding PartialTranslatedText}"
-                                    FontSize="{Binding OverlayTranslationFontSize}"
-                                      LineHeight="{Binding OverlaySecondaryLineHeight}"
-                                      Foreground="#475569"
-                                      TextWrapping="Wrap"
-                                      IsVisible="{Binding HasDraftTranslationLine}" />
+                        <ItemsControl ItemsSource="{Binding PartialTranslatedWords}"
+                                      IsVisible="{Binding HasDraftTranslationLine}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <SelectableTextBlock Text="{Binding}"
+                                                FontSize="{Binding $parent[Window].DataContext.OverlayTranslationFontSize}"
+                                                LineHeight="{Binding $parent[Window].DataContext.OverlaySecondaryLineHeight}"
+                                                Foreground="#475569"
+                                                TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
 

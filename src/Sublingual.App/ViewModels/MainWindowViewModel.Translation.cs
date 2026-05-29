@@ -11,13 +11,6 @@ public sealed partial class MainWindowViewModel
     [RelayCommand(CanExecute = nameof(CanTestTranslation))]
     private async Task TestTranslationAsync()
     {
-        if (_translationService is null)
-        {
-            TranslationTestError = "Translation service is not available.";
-            TranslationTestResult = string.Empty;
-            return;
-        }
-
         try
         {
             IsTestingTranslation = true;
@@ -32,6 +25,31 @@ public sealed partial class MainWindowViewModel
                 : TranslationTestTargetLanguage.Trim();
 
             var request = new TranslationRequest(TranslationTestSourceText.Trim(), sourceLanguage, targetLanguage);
+            var appSettings = _settingsStore.Load();
+
+                if (TranslateServiceLocalEnabled)
+            {
+                using var testProvider = new TranslateServiceLocalTranslationProvider(new HttpClient());
+                var execution = await testProvider.TranslateStandardDirectAsync(request, appSettings.Translation, CancellationToken.None);
+                if (execution is not null)
+                {
+                    TranslationTestResult = execution.Result.TranslatedText;
+                    var providerName = execution.Diagnostics.Count > 0
+                        ? execution.Diagnostics[0]
+                        : TranslationProviders.TranslateServiceLocal;
+                    TranslationRuntimeStatus = $"test | {providerName}{(execution.IsCacheHit ? " | cache" : string.Empty)}";
+                    TranslationRuntimeDiagnostics = string.Join(" | ", execution.Diagnostics);
+                    TranslationTestError = string.Empty;
+                    return;
+                }
+            }
+
+            if (_translationService is null)
+            {
+                TranslationTestError = "No translation service available.";
+                return;
+            }
+
             if (_translationService is ITranslationExecutionService translationExecutionService)
             {
                 var execution = await translationExecutionService.TranslateWithDiagnosticsAsync(request);

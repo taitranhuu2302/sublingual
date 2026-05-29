@@ -52,7 +52,7 @@ if [[ -f "$PROJECT_DIR/.env" ]]; then
 fi
 
 # --- Read UVICORN_WORKERS ---
-UVICORN_WORKERS="${UVICORN_WORKERS:-2}"
+UVICORN_WORKERS="${UVICORN_WORKERS:-1}"
 
 printf 'Starting Translate Service...\n'
 printf '  Python:     %s\n' "$PYTHON_EXEC"

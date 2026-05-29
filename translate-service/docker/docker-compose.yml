@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       args:
-        UVICORN_WORKERS: 2
+        UVICORN_WORKERS: 1
     restart: unless-stopped
     ports:
       - "3333:3333"
@@ -13,4 +13,4 @@ services:
     env_file:
       - ../.env
     environment:
-      - UVICORN_WORKERS=2
+      - UVICORN_WORKERS=1

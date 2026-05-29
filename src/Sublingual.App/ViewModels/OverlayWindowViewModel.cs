@@ -15,6 +15,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty] private string partialOriginalText = string.Empty;
     [ObservableProperty] private string partialTranslatedText = string.Empty;
+    public ObservableCollection<string> PartialTranslatedWords { get; } = [];
     [ObservableProperty] private bool isDraftTranslating;
     [ObservableProperty] private string statusText = "Overlay ready.";
     [ObservableProperty] private double overlayFontSize = 26;
@@ -34,7 +35,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
     public double OverlayPrimaryLineHeight => OverlayFontSize * EffectiveOverlayLineHeight;
     public double OverlaySecondaryLineHeight => OverlayTranslationFontSize * EffectiveOverlayLineHeight;
     public bool HasPartial => !string.IsNullOrWhiteSpace(PartialOriginalText);
-    public bool HasDraftTranslation => !string.IsNullOrWhiteSpace(PartialTranslatedText);
+    public bool HasDraftTranslation => PartialTranslatedWords.Count > 0 || !string.IsNullOrWhiteSpace(PartialTranslatedText);
     public bool HasDraftTranslationLine => OverlayShowTranslation && (IsDraftTranslating || HasDraftTranslation);
     public bool IsDarkTheme => string.Equals(OverlayTheme, "Dark", StringComparison.OrdinalIgnoreCase);
     public bool IsLightTheme => string.Equals(OverlayTheme, "Light", StringComparison.OrdinalIgnoreCase);
@@ -115,8 +116,44 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 
     partial void OnPartialTranslatedTextChanged(string value)
     {
+        SyncPartialTranslatedWords(value);
         OnPropertyChanged(nameof(HasDraftTranslation));
         OnPropertyChanged(nameof(HasDraftTranslationLine));
+    }
+
+    private void SyncPartialTranslatedWords(string newFullText)
+    {
+        if (string.IsNullOrEmpty(newFullText))
+        {
+            PartialTranslatedWords.Clear();
+            return;
+        }
+
+        var words = newFullText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var existingCount = PartialTranslatedWords.Count;
+
+        if (words.Length > existingCount)
+        {
+            for (var i = existingCount; i < words.Length; i++)
+            {
+                PartialTranslatedWords.Add(words[i]);
+            }
+        }
+        else if (words.Length < existingCount)
+        {
+            while (PartialTranslatedWords.Count > words.Length)
+            {
+                PartialTranslatedWords.RemoveAt(PartialTranslatedWords.Count - 1);
+            }
+        }
+
+        for (var i = 0; i < words.Length; i++)
+        {
+            if (i < PartialTranslatedWords.Count)
+            {
+                PartialTranslatedWords[i] = words[i];
+            }
+        }
     }
 
     partial void OnIsDraftTranslatingChanged(bool value)
@@ -143,6 +180,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
                     _stableLinesBySegmentId.Clear();
                     PartialOriginalText = string.Empty;
                     PartialTranslatedText = string.Empty;
+                    PartialTranslatedWords.Clear();
                     IsDraftTranslating = false;
                     StatusText = $"Updated {reset.UpdatedAt:HH:mm:ss}";
                     break;
@@ -163,6 +201,7 @@ public sealed partial class OverlayWindowViewModel : ViewModelBase, IDisposable
 
                     PartialOriginalText = string.Empty;
                     PartialTranslatedText = string.Empty;
+                    PartialTranslatedWords.Clear();
                     IsDraftTranslating = false;
                     StatusText = $"Updated {stable.UpdatedAt:HH:mm:ss}";
                     break;

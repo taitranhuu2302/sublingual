@@ -168,3 +168,48 @@ Avoid layout jumps:
 ## Notes on Vosk “streaming”
 
 Vosk supports incremental recognition by feeding audio chunks continuously and reading `PartialResult()` until `AcceptWaveform` signals a final result and `Result()` returns a committed segment. This is sufficient for realtime captions.
+
+## Notes on translate-service Deployment
+
+### Worker configuration
+
+`uvicorn --workers N` forks **independent processes**, not threads. Each worker has its own isolated copy of:
+
+- `RealtimeSessionCache` — session deduplication state is not shared across workers. The same `session_id` will be treated as a fresh session on each worker, causing duplicate translations and broken "too similar" filtering.
+- `model_manager.cache` — each worker loads its own in-memory copy of each model (wasted RAM).
+- `/translate/realtime/reset` — resets only on the worker that receives the request.
+
+### Current workaround (2025-05-29)
+
+Set `--workers 1` everywhere:
+
+| File | Change |
+|------|--------|
+| `translate-service/run.sh` | `UVICORN_WORKERS="${UVICORN_WORKERS:-1}"` |
+| `translate-service/docker/Dockerfile` | unchanged (`ARG UVICORN_WORKERS=1`) |
+| `translate-service/docker/docker-compose.yml` | `UVICORN_WORKERS=1` |
+
+This sidesteps the shared state problem at the cost of not utilizing multiple CPU cores. For a single-user local desktop app this is perfectly fine — the translation service is I/O-bound (model inference, disk reads) rather than CPU-bound at the HTTP layer.
+
+### Future improvement (shared session cache)
+
+To scale with multiple workers without losing session affinity, the recommended path is:
+
+**Option A — Redis-backed session cache** (production-ready):
+1. Add `redis` to the service dependency.
+2. Replace `RealtimeSessionCache` with a Redis hash keyed by `session_id`.
+3. `TTL`, `cleanup_expired`, and `should_translate` all become Redis ops. Fall back to in-memory on Redis unavailable (dev mode).
+
+**Option B — Single-process async** (simpler, lower RAM):
+1. Drop `--workers` entirely.
+2. Run uvicorn with `--loop uvloop` for better async performance.
+3. Use `httpx.AsyncClient` with connection pooling from the .NET client if you later want async HTTP calls.
+
+**Option C — Sticky sessions via reverse proxy**:
+1. Keep `--workers N`.
+2. Add nginx or Traefik in front with sticky sessions (`$cookie_rt_sid` or similar).
+3. Trade-off: adds infrastructure complexity for container deployments.
+
+**Option D — Redis for session + shared model loading**:
+1. Option A + memory-map model files via a shared read-only filesystem, or
+2. Use `torch.compile` with shared weights across forked processes (complex, not recommended).
