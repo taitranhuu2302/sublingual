@@ -11,12 +11,8 @@ let sessionCreated = false;
 // Load the library
 const lib = koffi.load(LIB_PATH);
 
-// Define callback type string - koffi 3.x uses string format directly
-// Signature: void callback(const float* samples, int frameCount, int channels, double timestamp, void* context)
-const AudioCallbackType = "void(float *, int, int, double, void *)";
-
-// Define C function signatures
-const sc_create_session = lib.func("sc_create_session", "int", [AudioCallbackType, "void *"]);
+// Define C function signatures - treat callback as opaque pointer
+const sc_create_session = lib.func("sc_create_session", "int", ["void *", "void *"]);
 const sc_start_capture = lib.func("sc_start_capture", "int", []);
 const sc_stop_capture = lib.func("sc_stop_capture", "int", []);
 const sc_destroy_session = lib.func("sc_destroy_session", "int", []);
@@ -29,6 +25,7 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
 
   try {
     // Create the JavaScript callback function
+    // The dylib expects: void callback(const float* samples, int frameCount, int channels, double timestamp, void* context)
     const jsCallback = (samples: any, frameCount: number, channels: number, timestamp: number, _context: any) => {
       try {
         // Read the float array from memory
@@ -41,11 +38,13 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
       }
     };
 
-    // Store the callback to keep it alive
+    // Store the callback to keep it alive (prevent GC)
     registeredCallback = jsCallback;
 
-    // Create session with callback - koffi automatically wraps JS functions
-    const status = sc_create_session(jsCallback, null);
+    // Pass callback as opaque pointer - the dylib will handle it
+    const callbackPtr = koffi.as(jsCallback, "void *");
+    const status = sc_create_session(callbackPtr, null);
+    
     if (status !== 0) {
       console.error("[screencapture-mac] sc_create_session failed:", sc_get_last_error_message());
       return false;
