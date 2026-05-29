@@ -13,7 +13,7 @@
 ## File Structure
 
 ```
-translate-service/
+translate/
 ├── app/
 │   ├── main.py                          — Add /translate/stream endpoint
 │   ├── schemas.py                       — Add StreamTranslateRequest
@@ -21,7 +21,7 @@ translate-service/
 │       └── nllb_streaming.py            — NEW: NLLB model loader + token generator
 ├── requirements.txt                     — Add torch, sentencepiece
 
-desktop-electron/src/
+desktop/src/
 ├── main/
 │   └── translation/
 │       └── translation-scheduler.ts     — NEW: debounce/abort/SSE fetch logic
@@ -40,7 +40,7 @@ desktop-electron/src/
 ### Task 1: NLLB Streaming Generator (FastAPI)
 
 **Files:**
-- Create: `translate-service/app/translator/nllb_streaming.py`
+- Create: `translate/app/translator/nllb_streaming.py`
 
 - [ ] **Step 1: Create nllb_streaming.py with model loader**
 
@@ -124,7 +124,7 @@ def _generate(model, kwargs):
 
 - [ ] **Step 2: Verify module imports work**
 
-Run (from translate-service/):
+Run (from translate/):
 ```bash
 python -c "from app.translator.nllb_streaming import stream_translate; print('OK')"
 ```
@@ -141,9 +141,9 @@ git add app/translator/nllb_streaming.py && git commit -m "feat: NLLB streaming 
 ### Task 2: SSE Endpoint (FastAPI)
 
 **Files:**
-- Modify: `translate-service/app/schemas.py`
-- Modify: `translate-service/app/main.py`
-- Modify: `translate-service/requirements.txt`
+- Modify: `translate/app/schemas.py`
+- Modify: `translate/app/main.py`
+- Modify: `translate/requirements.txt`
 
 - [ ] **Step 1: Add StreamTranslateRequest schema**
 
@@ -286,7 +286,7 @@ git add -A && git commit -m "feat: POST /translate/stream SSE endpoint with true
 ### Task 3: Electron — Translation Types
 
 **Files:**
-- Modify: `desktop-electron/src/types/electron-api.d.ts`
+- Modify: `desktop/src/types/electron-api.d.ts`
 
 - [ ] **Step 1: Add translation types**
 
@@ -325,7 +325,7 @@ git add -A && git commit -m "feat: translation IPC types"
 ### Task 4: Electron — TranslationScheduler
 
 **Files:**
-- Create: `desktop-electron/src/main/translation/translation-scheduler.ts`
+- Create: `desktop/src/main/translation/translation-scheduler.ts`
 
 - [ ] **Step 1: Implement TranslationScheduler**
 
@@ -497,9 +497,9 @@ git add -A && git commit -m "feat: TranslationScheduler with debounce, abort, SS
 ### Task 5: Wire TranslationScheduler into Main Process
 
 **Files:**
-- Modify: `desktop-electron/src/main/ipc-handlers.ts`
-- Modify: `desktop-electron/src/preload.ts`
-- Modify: `desktop-electron/src/main.ts`
+- Modify: `desktop/src/main/ipc-handlers.ts`
+- Modify: `desktop/src/preload.ts`
+- Modify: `desktop/src/main.ts`
 
 - [ ] **Step 1: Instantiate scheduler in main and connect to whisper output**
 
@@ -551,7 +551,7 @@ git add -A && git commit -m "feat: wire translation scheduler to whisper + prelo
 ### Task 6: Renderer — useStreamingTranslation Hook
 
 **Files:**
-- Create: `desktop-electron/src/hooks/use-streaming-translation.ts`
+- Create: `desktop/src/hooks/use-streaming-translation.ts`
 
 - [ ] **Step 1: Implement hook**
 
@@ -624,8 +624,8 @@ git add -A && git commit -m "feat: useStreamingTranslation hook"
 ### Task 7: UI — SubtitleOverlay with Streaming Translation
 
 **Files:**
-- Modify: `desktop-electron/src/components/SubtitleOverlay.tsx`
-- Modify: `desktop-electron/src/pages/HomePage.tsx`
+- Modify: `desktop/src/components/SubtitleOverlay.tsx`
+- Modify: `desktop/src/pages/HomePage.tsx`
 
 - [ ] **Step 1: Update SubtitleOverlay**
 
@@ -711,7 +711,7 @@ git add -A && git commit -m "feat: SubtitleOverlay with streaming translation di
 ### Task 8: NLLB Model Download Script
 
 **Files:**
-- Create: `translate-service/scripts/download_nllb.py`
+- Create: `translate/scripts/download_nllb.py`
 
 - [ ] **Step 1: Create download script**
 
@@ -762,7 +762,7 @@ All tasks are sequential — each depends on the previous.
 
 After all tasks, end-to-end test:
 
-1. Start translate-service: `cd translate-service && uvicorn app.main:app --port 8000`
+1. Start translate: `cd translate && uvicorn app.main:app --port 8000`
 2. Test SSE: `curl -N -X POST http://localhost:8000/translate/stream -H "Content-Type: application/json" -d '{"text":"Hello world","source_lang":"en","target_lang":"vi"}'`
-3. Start Electron: `cd desktop-electron && pnpm start`
+3. Start Electron: `cd desktop && pnpm start`
 4. Speak into mic → see original text + streaming translation appear word-by-word

@@ -1,207 +1,258 @@
 # Sublingual
 
-Sublingual is a cross-platform desktop application for real-time transcription and translation with a transparent subtitle overlay for meetings and system audio.
+Real-time speech-to-text and translation desktop app with a transparent subtitle overlay. Built for meetings, media playback, and live bilingual subtitles.
 
-The app is designed for cases such as:
+## Use Cases
 
-- online meetings in Google Meet, Microsoft Teams, and Zoom
-- videos and media playback from the local machine
-- live bilingual subtitles during work, study, or entertainment
-
-## Current Status
-
-This repository is already beyond the planning stage. It currently contains:
-
-- a working Avalonia desktop app shell
-- transparent always-on-top overlay rendering
-- audio device capture flows
-- local Vosk-based speech-to-text integration
-- session storage for captured audio and transcripts
-- settings persistence under the user profile
-- an in-progress realtime translation pipeline with configurable providers
-- packaging scripts for macOS and Windows
-
-The project is still under active iteration, especially around translation behavior, packaging polish, and cross-platform capture details.
+- Online meetings (Google Meet, Teams, Zoom) — see live subtitles in your language
+- Video and media playback — real-time captions from system audio
+- Language learning — bilingual subtitles during study or entertainment
 
 ## Tech Stack
 
-- UI: `Avalonia UI` + `SukiUI`
-- Language: `C#`
-- Runtime: `.NET 10`
-- Architecture style: `MVVM`
-- Speech-to-text: `Vosk`
-- Translation providers: `GoogleTranslateFreeApi`, `LibreTranslate`
-- Windows audio capture: `WASAPI`-based flow
-- macOS audio capture: native `ScreenCaptureKit` bridge via `P/Invoke`
+| Layer | Technology |
+|-------|-----------|
+| Desktop app | Electron 42 + React 19 + TypeScript |
+| UI framework | shadcn/ui + Tailwind CSS 4 |
+| Build tooling | Vite 5 + Electron Forge |
+| Speech-to-text | whisper.cpp (local, offline) |
+| Translation | Google Translate Free API / Local MarianMT service |
+| macOS audio capture | Native ScreenCaptureKit bridge |
+
+## Architecture
+
+```
+System Audio → Audio Capture → whisper.cpp STT → Auto-translate → Overlay Window
+                                       ↓                              ↓
+                                  Session Storage              Floating Subtitles
+```
+
+## Repository Structure
+
+```
+sublingual/
+├── desktop/              # Electron desktop app (main project)
+│   ├── src/
+│   │   ├── main/         # Main process (Node.js)
+│   │   │   ├── asr/      # Whisper.cpp speech-to-text engine
+│   │   │   ├── audio/    # Audio capture (system audio)
+│   │   │   ├── ipc/      # IPC handlers (audio, asr, settings, etc.)
+│   │   │   ├── models/   # Model manager, downloader, catalog
+│   │   │   ├── overlay/  # Overlay window manager
+│   │   │   ├── sessions/ # Session recording and storage
+│   │   │   ├── settings/ # Settings store (~/.sublingual/settings.json)
+│   │   │   └── translation/ # Translation providers
+│   │   ├── overlay/      # Overlay renderer (separate BrowserWindow)
+│   │   ├── pages/        # React pages (Home, Settings, Sessions)
+│   │   ├── components/   # React components + shadcn/ui
+│   │   ├── hooks/        # React hooks
+│   │   └── types/        # TypeScript type definitions
+│   └── bin/              # whisper-cli binary
+├── translate/            # Local translation microservice (optional)
+│   ├── app/              # FastAPI service (MarianMT + CTranslate2)
+│   ├── scripts/          # Model conversion and benchmarking
+│   ├── models/           # CTranslate2 model files
+│   └── docker/           # Docker deployment
+├── native/               # Native platform bridges
+│   └── macos/            # ScreenCaptureKit bridge for macOS
+├── assets/               # App icons and logos
+├── scripts/              # Build and packaging scripts
+└── docs/                 # Architecture docs and plans
+```
 
 ## Quick Start
 
 ### Prerequisites
 
-- `.NET SDK 10`
-- Windows or macOS
-- for macOS native capture work: `clang++` and local `ScreenCaptureKit` support
+- **Node.js** 20+ and **pnpm**
+- **macOS** (ARM64) or **Windows** (needs separate `whisper-cli.exe`, see below)
+- **A whisper model** (downloaded from the app, see [Model Download](#model-download))
 
-### Run The App
-
-From the repository root:
+### 1. Install Dependencies
 
 ```bash
-dotnet run --project "src/Sublingual.App/Sublingual.App.csproj"
+cd desktop
+pnpm install
 ```
 
-There is also a helper script for bash environments:
+### 2. Whisper Binary (Windows only)
+
+The `whisper-cli` binary for macOS ARM64 is **already included** in `desktop/bin/`.
+
+For Windows, build and copy the binary:
+
+```powershell
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp
+cmake -B build
+cmake --build build --config Release
+copy build\bin\Release\whisper-cli.exe \path\to\sublingual\desktop\bin\
+```
+
+The app automatically picks `whisper-cli` on macOS or `whisper-cli.exe` on Windows.
+
+### 3. Run the App
 
 ```bash
-bash ./scripts/run-dev.sh
+cd desktop
+pnpm start
 ```
 
-### Build The App
+### 4. First Run Setup
+
+1. Open **Settings → Speech** and click **Download Models**
+2. Download at least one model (recommended: **Base** for testing, **Small** for daily use)
+3. Select the downloaded model in Settings
+4. Go to **Home**, select an audio source, and press **Start**
+
+## Model Download
+
+Whisper models are downloaded from Hugging Face and stored in `~/.sublingual/models/`.
+
+| Model | Size | Speed | Accuracy | Recommended For |
+|-------|------|-------|----------|-----------------|
+| Tiny | 75 MB | Fastest | Lower | Quick testing |
+| Base | 142 MB | Fast | Good | Getting started |
+| Small | 466 MB | Moderate | Better | Daily use |
+| Medium | 1.5 GB | Slow | High | Important meetings |
+| Large v3 | 3.1 GB | Slowest | Highest | Maximum accuracy |
+
+Models are downloaded directly from the app via **Settings → Speech → Download Models**.
+
+## App Data
+
+All data is stored under `~/.sublingual/`:
+
+```
+~/.sublingual/
+├── settings.json          # App configuration
+├── models/                # Downloaded whisper models
+│   ├── ggml-tiny.bin
+│   ├── ggml-base.bin
+│   └── ...
+└── sessions/              # Recorded transcription sessions
+    └── 2026-05-30T03-00-00-000Z/
+        ├── meta.json      # Session metadata (start time, duration)
+        └── transcript.json # Transcript lines with timestamps
+```
+
+### Default Settings
+
+| Setting | Default |
+|---------|---------|
+| Source language | `en` (English) |
+| Target language | `vi` (Vietnamese) |
+| Translation provider | Google Translate Free API |
+| Chunk timing | Balanced (1000ms) |
+| Overlay theme | Dark |
+| Overlay opacity | 88% |
+
+## Translation Setup
+
+### Google Translate Free API (default)
+
+Works out of the box. No API key required. Uses the free Google Translate endpoint.
+
+### Local Translation Service (optional)
+
+For offline/private translation, you can run the included MarianMT translation service:
 
 ```bash
-dotnet build "Sublingual.slnx"
+cd translate
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up config
+cp .env.example .env
+
+# Convert models (requires PyTorch)
+python scripts/convert_marian_to_ct2.py \
+  --hf_model Helsinki-NLP/opus-mt-en-vi \
+  --output_dir models/ct2/en-vi \
+  --quantization int8
+
+# Start the service
+uvicorn app.main:app --host 0.0.0.0 --port 3333
 ```
 
-If you only want the main desktop app:
+Then in the app, go to **Settings → Translation** and select **Local TranslateService**.
+
+See [`translate/README.md`](translate/README.md) for full documentation including Docker deployment, batch translation, and benchmarking.
+
+## Features
+
+- **Real-time STT** — whisper.cpp running locally, no cloud dependency
+- **Auto-translation** — each recognized segment is translated automatically
+- **Overlay window** — transparent, always-on-top floating subtitles with drag and resize
+- **Session recording** — every capture session saves transcript with timestamps
+- **Session browser** — review, search, export (TXT/JSON), and delete past sessions
+- **Model manager** — download and manage whisper models from the app
+- **Configurable chunk timing** — Fast (500ms), Balanced (1000ms), Accurate (2000ms)
+- **Settings** — 4 sections: General, Speech, Translation, Overlay
+
+## Development
+
+### Build
 
 ```bash
-dotnet build "src/Sublingual.App/Sublingual.App.csproj"
+cd desktop
+pnpm run make        # Build distributable
 ```
 
-## First Run Notes
+### Package
 
-- the main desktop entry point is `src/Sublingual.App`
-- the app minimizes to the system tray instead of exiting immediately
-- speech-to-text models are stored under the app data folder and can be installed from inside the app
-- session audio, transcript data, and settings are persisted under the user profile
-
-## App Data And Configuration
-
-By default, Sublingual stores local data under:
-
-```text
-~/.sublingual
+```bash
+cd desktop
+pnpm run package     # Package without installer
 ```
 
-This includes:
+### Project Scripts
 
-- `settings.json`
-- `sessions/`
-- `speech-to-text-models/`
-
-Default behavior visible in the current codebase:
-
-- source language defaults to `en`
-- target language defaults to `vi`
-- translation provider order defaults to `GoogleTranslateFreeApi` then `LibreTranslate`
-- session data is saved as captured audio plus transcript metadata in the session folder tree
+```bash
+pnpm start           # Run in development mode
+pnpm run lint        # Run ESLint
+pnpm run package     # Package the app
+pnpm run make        # Build distributable installer
+```
 
 ## Platform Support
 
-### Windows
+| Feature | macOS | Windows |
+|---------|-------|---------|
+| Desktop app | ✅ | ✅ |
+| Overlay window | ✅ | ✅ |
+| System audio capture | ✅ (ScreenCaptureKit) | ✅ |
+| Packaging | ✅ (ZIP) | ✅ (Squirrel) |
 
-- desktop app: available
-- overlay window: available
-- packaged publish output: available
-- audio capture pipeline: available in repo
+## Troubleshooting
 
-### macOS
+### "No model selected"
 
-- desktop app: available
-- overlay window: available
-- native `ScreenCaptureKit` bridge: available in repo
-- packaged publish output and `.app` bundle scripts: available
+Go to **Settings → Speech → Download Models**, download a model, then select it.
 
-### Not Finished Yet
+### Whisper binary not found
 
-- code signing and notarization are not part of the default release flow
-- Windows installer or `.msi` is not included yet
-- translation quality and realtime behavior are still being refined
+The binary is included at `desktop/bin/whisper-cli` (macOS ARM64). Windows users need to build `whisper-cli.exe` from [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — see `desktop/bin/README.md`.
 
-## Architecture Overview
+### STT not producing output
 
-```mermaid
-graph TD
-    SystemAudio[System Audio Output] --> WinAudio[Windows Capture]
-    SystemAudio --> MacAudio[macOS ScreenCaptureKit Bridge]
+- Try **Balanced** (1000ms) chunk timing instead of Fast (500ms)
+- Make sure the correct audio source is selected
+- Check that the whisper model file is not corrupted (re-download if needed)
 
-    WinAudio --> AudioBuffer[C# Audio Pipeline]
-    MacAudio -- P/Invoke --> AudioBuffer
+### Overlay shows white screen
 
-    AudioBuffer --> STT[Vosk Transcription]
-    STT --> Translator[Translation Provider Pipeline]
-    Translator --> ViewModel[Avalonia MVVM]
-    ViewModel --> Overlay[Transparent Overlay Window]
-```
+Make sure `overlay.html` exists in the project root (`desktop/overlay.html`), not inside `src/`.
 
-Runtime flow:
+### macOS audio permission
 
-1. launch the desktop app
-2. choose an audio device or capture source
-3. start capture
-4. normalize and chunk incoming audio
-5. run local speech-to-text
-6. optionally translate recognized text
-7. render subtitles in the transparent overlay
-8. persist session artifacts for later review
+macOS requires Screen Recording permission to capture system audio. Grant it in **System Settings → Privacy & Security → Screen Recording**.
 
-## Repository Structure
+## License
 
-- `src/Sublingual.App` - main Avalonia desktop application
-- `src/Sublingual.Domain` - domain contracts and transcription models
-- `src/Sublingual.Application` - application-level abstractions and workflow scaffolding
-- `src/Sublingual.Infrastructure` - infrastructure layer
-- `src/Sublingual.Interop` - interop support for native integrations
-- `src/Sublingual.UI` - shared UI project surface
-- `native/macos/ScreenCaptureKitBridge` - native macOS capture bridge
-- `scripts/` - run and packaging scripts
-- `docs/` - architecture notes, packaging docs, and technical decisions
-
-## Packaging
-
-Packaging scripts are already included.
-
-Windows:
-
-```powershell
-pwsh ./scripts/package-windows.ps1
-```
-
-macOS zip publish:
-
-```bash
-bash ./scripts/package-macos.sh
-```
-
-macOS `.app` bundle:
-
-```bash
-bash ./scripts/package-macos-app.sh
-```
-
-See `docs/PACKAGING.md` for full packaging details, runtime identifiers, signing notes, and output layout.
-
-## Documentation
-
-- High-level architecture: `docs/OVERVIEW.md`
-- Packaging guide: `docs/PACKAGING.md`
-- Realtime translation planning: `docs/REALTIME-TRANSLATION-PLAN.md`
-- macOS JIT crash notes: `docs/KNOWN-ISSUES-MACOS-JIT-CRASH.md`
-- Architecture notes:
-  - `docs/architecture/audio-pipeline.md`
-  - `docs/architecture/windows-wasapi.md`
-  - `docs/architecture/macos-screencapturekit.md`
-- Technical decisions:
-  - `docs/decisions/001-native-desktop-stack.md`
-  - `docs/decisions/002-audio-capture-abstraction.md`
-- Task breakdown and planning: `tasks/prd-lingostream-mvp/`
-
-## Known Gaps
-
-- README does not yet include screenshots or a usage walkthrough
-- translation provider behavior may still change as the pipeline is refined
-- final release/distribution flow still needs signing and installer polish
-
-## Suggested GitHub Description
-
-`Cross-platform desktop app for real-time transcription and translation with a transparent overlay for meetings and system audio.`
+MIT

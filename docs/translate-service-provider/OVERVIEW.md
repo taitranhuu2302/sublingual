@@ -2,7 +2,7 @@
 
 ### Purpose
 
-This folder contains the implementation plan for integrating the local `translate-service` as a first-class realtime translation provider for Sublingual.
+This folder contains the implementation plan for integrating the local `translate` as a first-class realtime translation provider for Sublingual.
 
 The goal is not only to add another HTTP provider. The goal is to add a provider that preserves realtime subtitle semantics:
 
@@ -20,7 +20,7 @@ The existing providers in Sublingual are request/response translators:
 
 They can translate text, but they do not provide provider-specific realtime semantics for partial and final subtitle updates.
 
-The local `translate-service` is different:
+The local `translate` is different:
 
 - it runs locally
 - it can maintain short-lived realtime session state
@@ -50,14 +50,14 @@ Because of that, this provider should not be treated as just another generic `PO
 
 The recommended architecture is:
 
-- local provider specialized for `translate-service`
+- local provider specialized for `translate`
 - draft partials use a realtime-aware API contract
 - stable/final segments use a final translation path with stronger delivery guarantees
 - the app passes session and sequencing metadata so stale responses can be dropped safely
 
 ### Document Map
 
-- `API-UPDATE-PLAN.md`: changes required in `translate-service`
+- `API-UPDATE-PLAN.md`: changes required in `translate`
 - `APP-INTEGRATION-PLAN.md`: changes required in Sublingual app
 - `TODO.md`: phased implementation checklist
 

@@ -45,7 +45,7 @@ Whisper ASR (partial/final)
 
 ## Component Details
 
-### 1. FastAPI — translate-service refactor
+### 1. FastAPI — translate refactor
 
 **New endpoint:** `POST /translate/stream`
 
@@ -124,7 +124,7 @@ async def generate_sse(text: str, src_lang: str, tgt_lang: str):
 - Receive transcript segments (partial/final) from whisper process
 - For partials: debounce 300ms, abort previous SSE fetch
 - For finals: enqueue, process FIFO, no abort
-- Fetch SSE from translate-service, parse events
+- Fetch SSE from translate, parse events
 - Forward each token to renderer via IPC
 
 ```typescript
@@ -219,7 +219,7 @@ t=1500ms  UI: line finalized
 - If too slow: can switch to `model.half()` or use `optimum` with ONNX Runtime
 - Debounce 300ms prevents flooding server with every whisper partial
 
-## Refactor to translate-service
+## Refactor to translate
 
 **Keep existing:**
 - CT2 MarianMT for `/translate`, `/translate/batch`, `/translate/realtime` (fast, non-streaming)

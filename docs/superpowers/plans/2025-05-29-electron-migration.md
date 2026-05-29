@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate core functionality (audio capture → ASR → display) from the C#/Avalonia `src/` app to the Electron `desktop-electron/` app.
+**Goal:** Migrate core functionality (audio capture → ASR → display) from the C#/Avalonia `src/` app to the Electron `desktop/` app.
 
 **Architecture:**
 ```
@@ -20,20 +20,18 @@ Electron App (main process)
 **Tech Stack:** Electron 42, React 19, TypeScript, Vite, shadcn/ui, Tailwind CSS 4, node-addon-api (WASAPI), ffi-napi (macOS), whisper.cpp (child process)
 
 **Scope exclusions:**
-- ❌ LibreTranslate provider (removed)
-- ❌ TranslatedTextPartial logic (will be redefined separately)
-- ❌ Translation pipeline (deferred)
+- ❌ Session audio playback (deferred — requires audio file serving from main process)
 
 ---
 
 ## File Structure
 
 ```
-desktop-electron/src/
+desktop/src/
 ├── main.ts                          — Main process entry, window creation, IPC registration
-├── preload.ts                       — contextBridge: expose audio/ASR APIs to renderer
+├── preload.ts                       — contextBridge: expose audio/ASR/translation/overlay APIs to renderer
 ├── main/
-│   ├── ipc-handlers.ts             — IPC handler registration (audio, ASR, settings)
+│   ├── ipc-handlers.ts             — IPC handler registration (audio, ASR, settings, translation, overlay)
 │   ├── audio/
 │   │   ├── audio-capture.ts        — Platform-agnostic audio capture orchestrator
 │   │   ├── wasapi-addon.ts         — Windows WASAPI native addon loader
@@ -42,9 +40,19 @@ desktop-electron/src/
 │   │   ├── whisper-process.ts      — whisper.cpp child process manager (spawn, stream, kill)
 │   │   └── whisper-types.ts        — Types for whisper output (segments, timestamps)
 │   ├── models/
-│   │   └── model-manager.ts        — Download/list/select whisper models
+│   │   ├── model-manager.ts        — Download/list/select whisper models
+│   │   ├── model-source-catalog.ts — Downloadable model manifest (from JSON config)
+│   │   └── model-downloader.ts     — Download model zip, report progress, import
+│   ├── translation/
+│   │   ├── translation-service.ts  — Simple translation: pick provider, call, return result
+│   │   ├── providers/
+│   │   │   ├── types.ts            — ITranslationProvider interface, TranslationRequest/Result types
+│   │   │   ├── google-free.ts      — Google Translate free API provider
+│   │   │   └── translate-local.ts  — Local TranslateService provider (localhost:3333)
+│   ├── overlay/
+│   │   └── overlay-window.ts       — Overlay BrowserWindow manager (create, show/hide, position, sync settings)
 │   └── settings/
-│       └── settings-store.ts       — Persistent settings (electron-store or JSON file)
+│       └── settings-store.ts       — Persistent settings (all categories)
 ├── renderer.ts                      — React app entry
 ├── App.tsx                          — Router setup
 ├── lib/
@@ -52,23 +60,30 @@ desktop-electron/src/
 ├── hooks/
 │   ├── use-audio-capture.ts        — React hook wrapping IPC audio controls
 │   ├── use-transcription.ts        — React hook for streaming ASR results
-│   └── use-settings.ts            — React hook for app settings
+│   ├── use-settings.ts             — React hook for app settings
+│   ├── use-translation.ts          — React hook for translation state & results
+│   └── use-model-download.ts       — React hook for model download progress
 ├── components/
 │   ├── Layout.tsx                  — App shell (existing, will be updated)
 │   ├── ui/                         — shadcn components
-│   ├── SubtitleOverlay.tsx         — Real-time subtitle display
+│   ├── SubtitleOverlay.tsx         — Real-time subtitle display (inline, for HomePage)
 │   ├── AudioSourceSelector.tsx     — Dropdown to pick mic/system audio
-│   └── ModelSelector.tsx           — Dropdown to pick whisper model
+│   ├── ModelSelector.tsx           — Dropdown to pick whisper model
+│   └── ModelDownloadDialog.tsx     — Dialog to browse & download models with progress
 ├── pages/
 │   ├── HomePage.tsx                — Main capture + subtitle view
-│   └── SettingsPage.tsx            — Settings (model, audio source, language)
+│   └── SettingsPage.tsx            — Settings with tabs (General, Speech, Translation, Overlay)
+├── overlay/
+│   ├── overlay-renderer.ts         — Separate renderer entry for overlay window
+│   ├── overlay-preload.ts          — Preload for overlay window
+│   └── OverlayApp.tsx              — Overlay React root (subtitle lines + translation + theme)
 └── types/
     └── electron-api.d.ts           — Type declarations for window.electronAPI
 ```
 
 **Native addons (separate build):**
 ```
-desktop-electron/native/
+desktop/native/
 ├── wasapi-capture/                  — Windows WASAPI (node-addon-api)
 │   ├── binding.gyp
 │   ├── src/wasapi_capture.cc
@@ -80,7 +95,7 @@ desktop-electron/native/
 
 > **macOS native build exists at:** `native/macos/ScreenCaptureKitBridge/` (repo root).
 > Build output: `native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib`
-> Copy or symlink it to `desktop-electron/native/screencapture-mac/libScreenCaptureKitBridge.dylib` after build.
+> Copy or symlink it to `desktop/native/screencapture-mac/libScreenCaptureKitBridge.dylib` after build.
 
 ---
 
@@ -185,7 +200,7 @@ declare global {
 
 - [ ] **Step 4: Verify app compiles**
 
-Run: `pnpm start` (in desktop-electron/)
+Run: `pnpm start` (in desktop/)
 Expected: Window opens with Home page
 
 - [ ] **Step 5: Commit**
@@ -639,11 +654,11 @@ pnpm add ffi-napi
 
 > **Note:** `ffi-napi` requires native compilation (node-gyp). On macOS you need Xcode Command Line Tools.
 
-- [ ] **Step 4: Copy the dylib to desktop-electron**
+- [ ] **Step 4: Copy the dylib to desktop**
 
 ```bash
-mkdir -p desktop-electron/native/screencapture-mac
-cp native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib desktop-electron/native/screencapture-mac/libScreenCaptureKitBridge.dylib
+mkdir -p desktop/native/screencapture-mac
+cp native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib desktop/native/screencapture-mac/libScreenCaptureKitBridge.dylib
 ```
 
 - [ ] **Step 5: Commit**
@@ -816,15 +831,63 @@ import fs from "fs";
 import path from "path";
 
 export interface AppSettings {
-  language: string;
-  modelId: string;
-  audioSourceId: string;
+  storage: {
+    sessionsRoot: string;
+    speechToTextModelsRoot: string;
+  };
+  overlay: {
+    fontSize: number;
+    lineHeight: number;
+    width: number;
+    height: number;
+    theme: "Dark" | "Light";
+    opacity: number;
+    showTranslation: boolean;
+    positionX: number | null;
+    positionY: number | null;
+  };
+  speechToText: {
+    selectedModel: string;
+    realtimeChunkPreset: "Fast" | "Balanced" | "Accurate";
+    sourceLanguage: string;
+  };
+  translation: {
+    enabled: boolean;
+    provider: "google-free" | "translate-local";
+    targetLanguage: string;
+    google: { endpoint: string };
+    local: { baseUrl: string };
+  };
 }
 
 const DEFAULTS: AppSettings = {
-  language: "en",
-  modelId: "",
-  audioSourceId: "",
+  storage: {
+    sessionsRoot: "sessions",
+    speechToTextModelsRoot: "speech-to-text-models",
+  },
+  overlay: {
+    fontSize: 26,
+    lineHeight: 1.35,
+    width: 720,
+    height: 200,
+    theme: "Dark",
+    opacity: 0.88,
+    showTranslation: true,
+    positionX: null,
+    positionY: null,
+  },
+  speechToText: {
+    selectedModel: "",
+    realtimeChunkPreset: "Balanced",
+    sourceLanguage: "en",
+  },
+  translation: {
+    enabled: true,
+    provider: "google-free",
+    targetLanguage: "vi",
+    google: { endpoint: "https://translate.googleapis.com/translate_a/single" },
+    local: { baseUrl: "http://127.0.0.1:3333" },
+  },
 };
 
 const settingsPath = path.join(app.getPath("userData"), "settings.json");
@@ -1049,273 +1112,876 @@ git add -A && git commit -m "feat: React hooks for audio capture, transcription,
 
 ---
 
-## Task 7: UI — Subtitle Overlay & Home Page
+## Task 7: UI — HomePage (Live Capture + Transcript View)
+
+**Goal:** Build the main capture screen with a clean, focused layout. No Avalonia patterns — design from scratch for Electron/React.
 
 **Files:**
-- Create: `src/components/SubtitleOverlay.tsx`
-- Create: `src/components/AudioSourceSelector.tsx`
-- Create: `src/components/ModelSelector.tsx`
 - Modify: `src/pages/HomePage.tsx`
+- Create: `src/components/TranscriptPanel.tsx`
+- Create: `src/components/CaptureToolbar.tsx`
+- Modify: `src/components/SubtitleOverlay.tsx` (delete — replaced by TranscriptPanel)
 
-> **UI Reference:** Use shadcn/ui components (Button, Select, Card, etc.) per `desktop-electron/.agents/skills/shadcn/`.
+> **UI toolkit:** shadcn/ui + Tailwind CSS 4. Install additional shadcn components as needed: `npx shadcn@latest add badge separator tooltip switch scroll-area`
 
-- [ ] **Step 1: Create SubtitleOverlay component**
-
-```tsx
-// src/components/SubtitleOverlay.tsx
-import type { TranscriptEntry } from "../hooks/use-transcription";
-
-interface Props {
-  segments: TranscriptEntry[];
-}
-
-export function SubtitleOverlay({ segments }: Props) {
-  const recent = segments.slice(-5); // show last 5 segments
-
-  return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[80%] max-w-2xl">
-      <div className="bg-black/80 rounded-lg px-6 py-4 space-y-1">
-        {recent.length === 0 && (
-          <p className="text-white/50 text-center text-sm">Waiting for speech...</p>
-        )}
-        {recent.map((seg, i) => (
-          <p
-            key={i}
-            className={`text-white text-lg text-center ${!seg.isFinal ? "opacity-60 italic" : ""}`}
-          >
-            {seg.text}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-- [ ] **Step 2: Create AudioSourceSelector**
+- [ ] **Step 1: Create CaptureToolbar component**
 
 ```tsx
-// src/components/AudioSourceSelector.tsx
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import type { AudioSource } from "../types/electron-api";
-
-interface Props {
-  sources: AudioSource[];
-  value: string;
-  onChange: (sourceId: string) => void;
-  disabled?: boolean;
-}
-
-export function AudioSourceSelector({ sources, value, onChange, disabled }: Props) {
-  return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className="w-[250px]">
-        <SelectValue placeholder="Select audio source" />
-      </SelectTrigger>
-      <SelectContent>
-        {sources.map((s) => (
-          <SelectItem key={s.id} value={s.id}>
-            {s.name} ({s.type})
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+// src/components/CaptureToolbar.tsx
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ [🎙 Audio Source ▼]  [🧠 Model ▼]  [▶ Start]  [🗑 Clear]  [📺 Overlay] │
+// └─────────────────────────────────────────────────────────────────────────┘
+//
+// Layout: horizontal bar, items-center, gap-3, border-b, px-4 py-3
+// - AudioSourceSelector (existing) — compact w-[200px]
+// - ModelSelector (existing) — compact w-[200px]
+// - Separator (vertical)
+// - Start/Stop button: primary green when idle, destructive red when capturing
+//   - Start disabled if no source or no model selected
+//   - Shows pulsing dot animation when capturing
+// - Clear button: ghost variant, icon-only with tooltip "Clear transcript"
+// - Separator (vertical)
+// - Overlay toggle: ghost button with Monitor icon, tooltip "Show overlay"
+//   - Active state: highlighted bg when overlay is visible
+// - Right-aligned: status badge
+//   - "Ready" (muted) / "Capturing" (green pulse) / "No model" (yellow warning)
 ```
 
-- [ ] **Step 3: Create ModelSelector**
+- [ ] **Step 2: Create TranscriptPanel component**
 
 ```tsx
-// src/components/ModelSelector.tsx
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import type { WhisperModel } from "../types/electron-api";
-
-interface Props {
-  models: WhisperModel[];
-  value: string;
-  onChange: (modelId: string) => void;
-  disabled?: boolean;
-}
-
-export function ModelSelector({ models, value, onChange, disabled }: Props) {
-  return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className="w-[250px]">
-        <SelectValue placeholder="Select model" />
-      </SelectTrigger>
-      <SelectContent>
-        {models.map((m) => (
-          <SelectItem key={m.id} value={m.id} disabled={!m.downloaded}>
-            {m.name} {!m.downloaded && "(not downloaded)"}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
+// src/components/TranscriptPanel.tsx
+// The main content area showing live transcript lines.
+//
+// ┌─────────────────────────────────────────────────────────────────┐
+// │                                                                 │
+// │  10:32:05  Hello, welcome to the presentation today.           │
+// │            Xin chào, chào mừng đến với bài thuyết trình hôm nay│
+// │                                                                 │
+// │  10:32:12  We'll be discussing the new architecture.            │
+// │            Chúng ta sẽ thảo luận về kiến trúc mới.             │
+// │                                                                 │
+// │  10:32:18  Let me share my screen...                  ← partial│
+// │            Để tôi chia sẻ màn hình...                  (italic) │
+// │                                                                 │
+// └─────────────────────────────────────────────────────────────────┘
+//
+// Design:
+// - Uses shadcn ScrollArea, full height of remaining space
+// - Each transcript entry is a row:
+//   - Left gutter: timestamp in text-xs text-muted-foreground, mono font
+//   - Main content:
+//     - Original text: text-base font-medium
+//     - Translated text (if exists): text-sm text-muted-foreground, mt-0.5
+//   - Partial (non-final) entries: italic, opacity-70, no bottom border
+//   - Final entries: border-b border-border/30
+// - Auto-scroll to bottom on new entries (useRef + scrollIntoView)
+// - "Jump to bottom" FAB button when scrolled up (absolute bottom-4 right-4)
+// - Empty state: centered illustration-free message
+//   "Press Start to begin capturing audio"
+//   with subtle microphone icon above, text-muted-foreground
+// - Max 200 entries displayed, older ones removed from DOM (keep in state for export)
 ```
 
-- [ ] **Step 4: Implement HomePage**
+- [ ] **Step 3: Redesign HomePage layout**
 
 ```tsx
 // src/pages/HomePage.tsx
-import { useState, useEffect } from "react";
-import { Button } from "../components/ui/button";
-import { AudioSourceSelector } from "../components/AudioSourceSelector";
-import { ModelSelector } from "../components/ModelSelector";
-import { SubtitleOverlay } from "../components/SubtitleOverlay";
-import { useAudioCapture } from "../hooks/use-audio-capture";
-import { useTranscription } from "../hooks/use-transcription";
-import type { WhisperModel } from "../types/electron-api";
+// Full-height flex layout:
+//
+// ┌───────────────────────────────────────────────────┐
+// │  CaptureToolbar                                    │  ← fixed height
+// ├───────────────────────────────────────────────────┤
+// │                                                    │
+// │  TranscriptPanel                                   │  ← flex-1, scrollable
+// │                                                    │
+// ├───────────────────────────────────────────────────┤
+// │  Status: Capturing · 00:02:34 · 12 segments       │  ← fixed height
+// └───────────────────────────────────────────────────┘
+//
+// Bottom status bar: flex items-center gap-4, h-8, px-4, border-t, text-xs text-muted-foreground
+// Shows:
+//   - Capture duration (live timer when capturing)
+//   - Segment count
+//   - Active model name
+//   - Translation provider status (if enabled)
+```
 
-export function HomePage() {
-  const { sources, capturing, activeSource, start, stop } = useAudioCapture();
-  const { segments, running, start: startASR, stop: stopASR, clear } = useTranscription();
-  const [selectedSource, setSelectedSource] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
-  const [models, setModels] = useState<WhisperModel[]>([]);
+- [ ] **Step 4: Delete old SubtitleOverlay.tsx**
 
-  useEffect(() => {
-    window.electronAPI.asr.getModels().then(setModels);
-  }, []);
+Remove `src/components/SubtitleOverlay.tsx` — replaced by TranscriptPanel.
 
-  const handleStart = async () => {
-    if (!selectedSource || !selectedModel) return;
-    await window.electronAPI.asr.selectModel(selectedModel);
-    await start(selectedSource);
-    await startASR();
-  };
+- [ ] **Step 5: Commit**
 
-  const handleStop = async () => {
-    await stopASR();
-    await stop();
-  };
+```bash
+git add -A && git commit -m "feat: clean HomePage with CaptureToolbar, TranscriptPanel, status bar"
+```
 
-  return (
-    <div className="flex flex-col h-full p-6 gap-4">
-      <div className="flex items-center gap-4">
-        <AudioSourceSelector
-          sources={sources}
-          value={selectedSource}
-          onChange={setSelectedSource}
-          disabled={capturing}
-        />
-        <ModelSelector
-          models={models}
-          value={selectedModel}
-          onChange={setSelectedModel}
-          disabled={capturing}
-        />
-        {!capturing ? (
-          <Button onClick={handleStart} disabled={!selectedSource || !selectedModel}>
-            Start
-          </Button>
-        ) : (
-          <Button variant="destructive" onClick={handleStop}>
-            Stop
-          </Button>
-        )}
-        <Button variant="outline" onClick={clear}>
-          Clear
-        </Button>
-      </div>
+---
 
-      <div className="flex-1 relative">
-        <SubtitleOverlay segments={segments} />
-      </div>
-    </div>
-  );
+## Task 8: Settings Page (Full Tabbed Layout)
+
+**Goal:** Build a complete settings page with sidebar navigation and 4 sections. Clean design, not copying Avalonia layout.
+
+**Files:**
+- Rewrite: `src/pages/SettingsPage.tsx`
+- Create: `src/components/settings/GeneralSettings.tsx`
+- Create: `src/components/settings/SpeechSettings.tsx`
+- Create: `src/components/settings/TranslationSettings.tsx`
+- Create: `src/components/settings/OverlaySettings.tsx`
+- Create: `src/components/settings/SettingsSection.tsx`
+- Create: `src/components/settings/SettingsField.tsx`
+
+> Install: `npx shadcn@latest add tabs input label slider switch card separator`
+
+- [ ] **Step 1: Create reusable SettingsSection and SettingsField**
+
+```tsx
+// src/components/settings/SettingsSection.tsx
+// Reusable section wrapper for settings groups.
+//
+// ┌─ Section Title ──────────────────────────────────┐
+// │  Optional description text in muted color         │
+// │                                                    │
+// │  [children — the settings fields]                 │
+// └───────────────────────────────────────────────────┘
+//
+// - title: text-lg font-semibold
+// - description: text-sm text-muted-foreground mb-4
+// - children: space-y-4
+// - Wrapper: bg-card rounded-lg border p-6
+
+// src/components/settings/SettingsField.tsx
+// Single setting field with label + control layout.
+//
+// ┌───────────────────────────────────────────────────┐
+// │  Label text                              [control]│
+// │  Helper text in smaller muted font                │
+// └───────────────────────────────────────────────────┘
+//
+// - Horizontal layout (justify-between) for simple controls (switch, select)
+// - Vertical layout for complex controls (text input with helper)
+// - label: text-sm font-medium
+// - helper: text-xs text-muted-foreground
+```
+
+- [ ] **Step 2: Implement SettingsPage with sidebar navigation**
+
+```tsx
+// src/pages/SettingsPage.tsx
+// Sidebar navigation + content area:
+//
+// ┌──────────┬───────────────────────────────────────────┐
+// │          │                                            │
+// │ General  │  General Settings                          │
+// │ Speech   │                                            │
+// │ Translat │  ┌─ Storage ──────────────────────────┐   │
+// │ Overlay  │  │ Sessions folder    [/path...] [📁]  │   │
+// │          │  │ Models folder      [/path...] [📁]  │   │
+// │          │  └─────────────────────────────────────┘   │
+// │          │                                            │
+// └──────────┴───────────────────────────────────────────┘
+//
+// Sidebar: w-48, border-r, py-4, space-y-1
+//   Each item: px-3 py-2, rounded-md, text-sm
+//   Active: bg-muted font-medium
+//   Icons: Cog, Mic, Languages, Monitor
+// Content: flex-1, p-6, overflow-y-auto
+//
+// Use React state for active tab (not router — instant switching)
+```
+
+- [ ] **Step 3: Implement GeneralSettings**
+
+```tsx
+// src/components/settings/GeneralSettings.tsx
+//
+// ┌─ Storage ────────────────────────────────────────────┐
+// │                                                       │
+// │  Sessions folder                                      │
+// │  [/Users/taitran/.sublingual/sessions    ] [Browse]   │
+// │  Where captured audio sessions are saved              │
+// │                                                       │
+// │  Speech models folder                                 │
+// │  [/Users/taitran/.sublingual/models      ] [Browse]   │
+// │  Local speech-to-text model files                     │
+// │                                                       │
+// └───────────────────────────────────────────────────────┘
+//
+// - Each path field: flex row, Input (read-only, flex-1) + Button "Browse" (ghost, FolderOpen icon)
+// - Clicking Browse opens native folder picker via IPC
+// - Below each input: helper text in text-xs text-muted-foreground
+```
+
+- [ ] **Step 4: Implement SpeechSettings**
+
+```tsx
+// src/components/settings/SpeechSettings.tsx
+//
+// ┌─ Speech-to-Text Model ──────────────────────────────────┐
+// │                                                          │
+// │  Active model                                            │
+// │  [vosk-model-en-us-0.22  ▼]                             │
+// │                                                          │
+// │  Chunk preset                                            │
+// │  ( ) Fast — 500ms chunks, lower accuracy                 │
+// │  (●) Balanced — 1000ms chunks                            │
+// │  ( ) Accurate — 2000ms chunks, higher latency            │
+// │                                                          │
+// │  Source language          [English  ▼]                    │
+// │  Language of the audio being captured                     │
+// │                                                          │
+// └──────────────────────────────────────────────────────────┘
+//
+// ┌─ Model Management ──────────────────────────────────────┐
+// │                                                          │
+// │  [📥 Install Models]  [📂 Import]  [📁 Open Folder]     │
+// │                                                          │
+// │  "Install Models" opens ModelDownloadDialog (Task 10)    │
+// │  "Import" opens file picker for zip/directory            │
+// │  "Open Folder" opens models dir in file explorer         │
+// │                                                          │
+// └──────────────────────────────────────────────────────────┘
+//
+// Chunk preset: use radio group (shadcn RadioGroup)
+// Model selector: shadcn Select
+```
+
+- [ ] **Step 5: Implement TranslationSettings**
+
+```tsx
+// src/components/settings/TranslationSettings.tsx
+//
+// ┌─ Translation ────────────────────────────────────────────┐
+// │                                                           │
+// │  Enable translation                              [🔘 on] │
+// │                                                           │
+// │  Provider                     [Google Translate ▼]        │
+// │  Translation backend to use                               │
+// │                                                           │
+// │  Target language              [Vietnamese ▼]              │
+// │  Translate transcripts into this language                  │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+// ┌─ Provider: Google Translate ─────────────────────────────┐
+// │                                                           │
+// │  Endpoint                                                 │
+// │  [https://translate.googleapis.com/translate_a/single]    │
+// │  Free Google Translate API endpoint                        │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+//  — OR if "Local TranslateService" selected: —
+//
+// ┌─ Provider: Local TranslateService ───────────────────────┐
+// │                                                           │
+// │  Base URL                                                 │
+// │  [http://127.0.0.1:3333                              ]    │
+// │  Local translation service address                        │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+// ┌─ Test Translation ───────────────────────────────────────┐
+// │                                                           │
+// │  Source text                                              │
+// │  [Hello, how are you today?                          ]    │
+// │                                                           │
+// │  [🔄 Translate]                                           │
+// │                                                           │
+// │  Result                                                   │
+// │  ┌─────────────────────────────────────────────────────┐ │
+// │  │ Xin chào, hôm nay bạn có khỏe không?               │ │
+// │  └─────────────────────────────────────────────────────┘ │
+// │  Provider: GoogleTranslateFreeApi · 120ms                 │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+// Provider options: "Google Translate" | "Local TranslateService"
+// (NO LibreTranslate, NO fallback chain)
+// Provider config section changes dynamically based on selected provider.
+// Test translation: textarea input + translate button + result display
+// Show provider name + latency after test completes
+// Show error in red text if translation fails
+```
+
+- [ ] **Step 6: Implement OverlaySettings**
+
+```tsx
+// src/components/settings/OverlaySettings.tsx
+//
+// ┌─ Appearance ─────────────────────────────────────────────┐
+// │                                                           │
+// │  Theme                         [Dark ▼]                   │
+// │                                                           │
+// │  Font size                     [====●======] 26px         │
+// │                                     14 ←→ 48              │
+// │                                                           │
+// │  Line spacing                  [Compact] [Default] [Wide] │
+// │                                                           │
+// │  Background opacity            [========●==] 88%          │
+// │                                     30% ←→ 100%           │
+// │                                                           │
+// │  Show translation                                [🔘 on]  │
+// │  Display translated text below each transcript line       │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+// ┌─ Size ───────────────────────────────────────────────────┐
+// │                                                           │
+// │  Width   [720] px          Height   [200] px              │
+// │                                                           │
+// └───────────────────────────────────────────────────────────┘
+//
+// ┌─ Preview ────────────────────────────────────────────────┐
+// │  ┌─────────────────────────────────────────────────────┐ │
+// │  │ (live preview of overlay with current settings)      │ │
+// │  │                                                      │ │
+// │  │  Hello, welcome to the presentation.                 │ │
+// │  │  Xin chào, chào mừng đến với bài thuyết trình.      │ │
+// │  │                                                      │ │
+// │  │  We'll discuss the new architecture.                 │ │
+// │  │  Chúng ta sẽ thảo luận kiến trúc mới.               │ │
+// │  └─────────────────────────────────────────────────────┘ │
+// └───────────────────────────────────────────────────────────┘
+//
+// Theme: Select with "Dark" | "Light"
+// Font size: shadcn Slider, shows current value
+// Line spacing: 3-button toggle group (Compact=1.15, Default=1.35, Wide=1.6)
+// Opacity: shadcn Slider with percentage display
+// Show translation: Switch
+// Width/Height: number Input fields, side by side
+// Preview: a mini overlay simulation box, uses actual settings to render sample text
+//   - Background color matches theme + opacity
+//   - Font size and line height match settings
+//   - Shows/hides translation line based on toggle
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A && git commit -m "feat: full settings page with General, Speech, Translation, Overlay sections"
+```
+
+---
+
+## Task 9: Translation Service (Simple Provider Model)
+
+**Goal:** Simple translation service — pick one active provider, call it, return result. No fallback chain, no cache, no draft/stable scheduler, no LibreTranslate.
+
+**Providers:** Google Translate Free API, Local TranslateService.
+
+**Files:**
+- Create: `src/main/translation/providers/types.ts`
+- Create: `src/main/translation/providers/google-free.ts`
+- Create: `src/main/translation/providers/translate-local.ts`
+- Create: `src/main/translation/translation-service.ts`
+- Create: `src/hooks/use-translation.ts`
+- Modify: `src/main/ipc-handlers.ts`
+- Modify: `src/preload.ts`
+- Modify: `src/types/electron-api.d.ts`
+
+- [ ] **Step 1: Define translation types**
+
+```ts
+// src/main/translation/providers/types.ts
+export interface TranslationRequest {
+  sourceText: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+}
+
+export interface TranslationResult {
+  translatedText: string;
+  providerName: string;
+  durationMs: number;
+}
+
+export interface TranslationSettings {
+  enabled: boolean;
+  provider: "google-free" | "translate-local"; // active provider
+  targetLanguage: string;
+  google: { endpoint: string };
+  local: { baseUrl: string };
+}
+
+export interface ITranslationProvider {
+  name: string;
+  translate(request: TranslationRequest, config: Record<string, string>): Promise<string>;
 }
 ```
 
-- [ ] **Step 5: Add shadcn Select component if not present**
+- [ ] **Step 2: Implement Google Translate Free API provider**
+
+```ts
+// src/main/translation/providers/google-free.ts
+// GET https://translate.googleapis.com/translate_a/single?client=gtx&sl={src}&tl={tgt}&dt=t&q={text}
+// Parse nested array response: result[0].map(s => s[0]).join("")
+// Config: { endpoint: string }
+```
+
+- [ ] **Step 3: Implement Local TranslateService provider**
+
+```ts
+// src/main/translation/providers/translate-local.ts
+// POST {baseUrl}/translate with JSON body { text, source, target }
+// Returns { translatedText: string }
+// Config: { baseUrl: string } (default http://127.0.0.1:3333)
+```
+
+- [ ] **Step 4: Implement translation service**
+
+```ts
+// src/main/translation/translation-service.ts
+// Simple service:
+//   - Reads settings to pick active provider
+//   - Calls provider.translate()
+//   - Measures duration
+//   - Returns TranslationResult
+//   - Skips if source === target language (returns empty)
+//   - Skips if source text is empty
+//   - On error: throws with provider name + error message
+//
+// Used in two ways:
+//   1. One-shot: settings test translation (IPC handler)
+//   2. Inline: called after each final ASR segment, result sent to renderer
+//      (translation is triggered from whisper-process.ts when a final segment arrives)
+```
+
+- [ ] **Step 5: Wire translation IPC**
+
+Add to `ipc-handlers.ts`:
+```ts
+ipcMain.handle("translation:translate", async (_e, sourceText, sourceLang, targetLang) => { ... });
+ipcMain.handle("translation:test", async (_e, sourceText, sourceLang, targetLang) => { ... });
+```
+
+Events pushed from main → renderer:
+```ts
+// "translation:segment-result" — { segmentId, translatedText, providerName, durationMs }
+// Sent after each final ASR segment is translated
+```
+
+- [ ] **Step 6: Update preload and types**
+
+```ts
+// Add to ElectronAPI:
+translation: {
+  translate: (sourceText: string, sourceLang: string, targetLang: string) => Promise<TranslationResult>;
+  test: (sourceText: string, sourceLang: string, targetLang: string) => Promise<TranslationResult>;
+  onSegmentResult: (callback: (result: { segmentId: string; translatedText: string; providerName: string; durationMs: number }) => void) => () => void;
+}
+```
+
+- [ ] **Step 7: Create use-translation hook**
+
+```ts
+// src/hooks/use-translation.ts
+// - Listens to translation:segment-result events
+// - Maintains a Map<segmentId, translatedText> for the current session
+// - Exposes: translations map, testTranslation(text, src, tgt) → result
+// - TranscriptPanel uses this to show translated text under each segment
+```
+
+- [ ] **Step 8: Integrate with ASR pipeline**
+
+In `whisper-process.ts`, after emitting a final segment to renderer:
+```ts
+// If translation is enabled in settings:
+//   1. Call translationService.translate(segment.text, sourceLang, targetLang)
+//   2. Send result to renderer via mainWindow.webContents.send("translation:segment-result", ...)
+// This keeps translation inline and simple — no scheduler needed
+```
+
+- [ ] **Step 9: Commit**
 
 ```bash
-npx shadcn@latest add select
+git add -A && git commit -m "feat: simple translation service with Google Free + Local providers"
+```
+
+---
+
+## Task 10: Model Download & Install
+
+**Goal:** Let users browse and download speech models from within the app.
+
+**Files:**
+- Create: `src/main/models/model-source-catalog.ts`
+- Create: `src/main/models/model-downloader.ts`
+- Create: `src/hooks/use-model-download.ts`
+- Create: `src/components/ModelDownloadDialog.tsx`
+- Modify: `src/main/ipc-handlers.ts`
+- Modify: `src/preload.ts`
+- Modify: `src/types/electron-api.d.ts`
+
+- [ ] **Step 1: Create model source catalog**
+
+```ts
+// src/main/models/model-source-catalog.ts
+// Embedded catalog of downloadable models:
+// [
+//   { id: "tiny", name: "Tiny", size: "75 MB", lang: "Multi", url: "https://huggingface.co/..." },
+//   { id: "base", name: "Base", size: "142 MB", lang: "Multi", url: "..." },
+//   { id: "small", name: "Small", size: "466 MB", lang: "Multi", url: "..." },
+//   { id: "medium", name: "Medium", size: "1.5 GB", lang: "Multi", url: "..." },
+//   { id: "large", name: "Large v3", size: "3.1 GB", lang: "Multi", url: "..." },
+// ]
+// Returns list with isInstalled flag from model-manager
+```
+
+- [ ] **Step 2: Implement model downloader**
+
+```ts
+// src/main/models/model-downloader.ts
+// - download(modelId): downloads model file with progress reporting
+// - Streams response to temp file, then moves to models dir
+// - Reports progress via IPC: models:download-progress { modelId, percent, status, error }
+// - Supports cancellation via AbortController
+```
+
+- [ ] **Step 3: Wire IPC handlers**
+
+```ts
+// models:get-installable — list all models with installed status
+// models:download — start download for modelId
+// models:cancel-download — abort active download
+// models:open-folder — shell.openPath(modelsDir)
+```
+
+- [ ] **Step 4: Create ModelDownloadDialog component**
+
+```tsx
+// src/components/ModelDownloadDialog.tsx
+// Modal dialog showing available models as cards:
+//
+// ┌─ Install Speech Models ──────────────────── [✕] ┐
+// │                                                   │
+// │  ┌────────────────────────────────────────────┐  │
+// │  │ 🟢 Tiny · 75 MB · Multi-language           │  │
+// │  │ Fast, lower accuracy            [Installed] │  │
+// │  └────────────────────────────────────────────┘  │
+// │                                                   │
+// │  ┌────────────────────────────────────────────┐  │
+// │  │ ○  Base · 142 MB · Multi-language           │  │
+// │  │ Good balance of speed and accuracy          │  │
+// │  │                                [⬇ Download] │  │
+// │  └────────────────────────────────────────────┘  │
+// │                                                   │
+// │  ┌────────────────────────────────────────────┐  │
+// │  │ ○  Small · 466 MB · Multi-language         │  │
+// │  │ Better accuracy, slower                     │  │
+// │  │ [████████████░░░░░░] 67%        [Cancel]    │  │
+// │  └────────────────────────────────────────────┘  │
+// │                                                   │
+// │  ┌────────────────────────────────────────────┐  │
+// │  │ ○  Medium · 1.5 GB · Multi-language        │  │
+// │  │ High accuracy                  [⬇ Download] │  │
+// │  └────────────────────────────────────────────┘  │
+// │                                                   │
+// └───────────────────────────────────────────────────┘
+//
+// Use shadcn Dialog, Card components
+// Each model card:
+//   - Left: model name (font-medium), size + language badge
+//   - Below: short description
+//   - Right: status — "Installed" badge (green) / "Download" button / progress bar + Cancel
+// Progress bar: shadcn Progress or native HTML progress
+// Error state: red text below card with retry button
+// Dialog footer: "Open Models Folder" link button
+```
+
+- [ ] **Step 5: Create use-model-download hook**
+
+```ts
+// src/hooks/use-model-download.ts
+// State: { activeDownload: { modelId, percent, status } | null, error: string | null }
+// Actions: startDownload(modelId), cancelDownload()
+// Listens to models:download-progress events
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A && git commit -m "feat: subtitle overlay UI, audio/model selectors, home page"
+git add -A && git commit -m "feat: model download dialog with progress and install management"
 ```
 
 ---
 
-## Task 8: Settings Page
+## Task 11: Overlay Window (Separate BrowserWindow)
+
+**Goal:** Floating always-on-top overlay window showing live transcript + translation. Separate from main window. Clean minimal design.
 
 **Files:**
-- Modify: `src/pages/SettingsPage.tsx`
+- Create: `src/main/overlay/overlay-window.ts`
+- Create: `src/overlay/overlay-renderer.ts`
+- Create: `src/overlay/overlay-preload.ts`
+- Create: `src/overlay/OverlayApp.tsx`
+- Create: `src/overlay/overlay.html`
+- Modify: `src/main/ipc-handlers.ts`
+- Modify: `src/preload.ts`
+- Modify: `vite.config.ts` (add overlay entry)
+- Modify: `src/types/electron-api.d.ts`
 
-- [ ] **Step 1: Implement SettingsPage**
+- [ ] **Step 1: Create overlay window manager (main process)**
+
+```ts
+// src/main/overlay/overlay-window.ts
+// Creates a second BrowserWindow:
+//   transparent: true, frame: false, alwaysOnTop: true,
+//   skipTaskbar: true, hasShadow: false
+//   Width/height/position from OverlaySettings
+//   Loads overlay.html (separate Vite entry)
+//
+// API:
+//   createOverlayWindow() — creates window if not exists
+//   showOverlay() / hideOverlay() / toggleOverlay()
+//   isOverlayVisible() → boolean
+//   sendToOverlay(channel, ...args) — forward events to overlay renderer
+//   On window move/resize → save position/size to settings
+//   On close → hide (not destroy), can be shown again
+```
+
+- [ ] **Step 2: Create overlay preload**
+
+```ts
+// src/overlay/overlay-preload.ts
+// Exposes overlayAPI via contextBridge:
+//   getSettings() → OverlaySettings
+//   onTranscriptLine(cb) — { id, text, translatedText, timestamp }
+//   onPartialUpdate(cb) — { text, translatedText }
+//   onSettingsUpdate(cb) — partial OverlaySettings changes
+//   onClear(cb) — clear all lines
+//   close() — hide overlay
+```
+
+- [ ] **Step 3: Create OverlayApp React component**
 
 ```tsx
-// src/pages/SettingsPage.tsx
-import { useEffect, useState } from "react";
-import { Button } from "../components/ui/button";
-import { AudioSourceSelector } from "../components/AudioSourceSelector";
-import { ModelSelector } from "../components/ModelSelector";
-import { useSettings } from "../hooks/use-settings";
-import type { AudioSource, WhisperModel } from "../types/electron-api";
+// src/overlay/OverlayApp.tsx
+// Minimal floating subtitle UI — NOT copying Avalonia layout.
+//
+// ┌─────────────────────────────────────────────────────────┐
+// │ ═══ drag handle ═══                              [✕]    │ ← 24px, transparent bar
+// │                                                          │
+// │   Hello, welcome to the presentation today.              │ ← original text
+// │   Xin chào, chào mừng đến với bài thuyết trình.         │ ← translation (if enabled)
+// │                                                          │
+// │   We'll discuss the new architecture.                    │
+// │   Chúng ta sẽ thảo luận kiến trúc mới.                  │
+// │                                                          │
+// │   Let me share my screen...                    (partial) │ ← italic, faded
+// │   Để tôi chia sẻ màn hình...                             │
+// │                                                          │
+// └─────────────────────────────────────────────────────────┘
+//
+// Design:
+// - Rounded-lg container with theme-dependent background
+//   - Dark: rgba(14, 19, 28, opacity)
+//   - Light: rgba(245, 247, 250, opacity)
+// - Drag handle: top bar, -webkit-app-region: drag, cursor: grab
+// - Close button: absolute top-right, small ✕, opacity on hover
+// - Content area: overflow-y auto, scrolls to bottom
+// - Each line:
+//   - Original: text-base, white (dark) or text-gray-900 (light)
+//   - Translation: text-sm, white/60 (dark) or text-gray-500 (light), mt-0.5
+//   - Spacing between lines: mb-3
+// - Partial line: italic + reduced opacity
+// - Empty state: "Waiting for speech..." in muted text, centered
+// - Max 50 visible lines (older removed)
+// - Auto-scroll to bottom, "↓" button when scrolled up
+// - All sizes/colors driven by OverlaySettings (fontSize, lineHeight, theme, opacity, showTranslation)
+// - Settings update in real-time via onSettingsUpdate listener
+```
 
-export function SettingsPage() {
-  const { settings, update } = useSettings();
-  const [sources, setSources] = useState<AudioSource[]>([]);
-  const [models, setModels] = useState<WhisperModel[]>([]);
+- [ ] **Step 4: Create overlay HTML and renderer entry**
 
-  useEffect(() => {
-    window.electronAPI.audio.getSources().then(setSources);
-    window.electronAPI.asr.getModels().then(setModels);
-  }, []);
+```ts
+// src/overlay/overlay-renderer.ts — mount OverlayApp
+// src/overlay/overlay.html — minimal HTML shell for overlay window
+```
 
-  return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+- [ ] **Step 5: Update Vite config for multi-entry**
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm font-medium mb-2 block">Default Audio Source</label>
-          <AudioSourceSelector
-            sources={sources}
-            value={settings.audioSourceId}
-            onChange={(id) => update({ audioSourceId: id })}
-          />
-        </div>
+Add overlay as a second renderer entry in `vite.config.ts`.
 
-        <div>
-          <label className="text-sm font-medium mb-2 block">ASR Model</label>
-          <ModelSelector
-            models={models}
-            value={settings.modelId}
-            onChange={(id) => update({ modelId: id })}
-          />
-        </div>
+- [ ] **Step 6: Wire overlay IPC in main window**
 
-        <div>
-          <label className="text-sm font-medium mb-2 block">Language</label>
-          <select
-            className="border rounded px-3 py-2"
-            value={settings.language}
-            onChange={(e) => update({ language: e.target.value })}
-          >
-            <option value="en">English</option>
-            <option value="vi">Vietnamese</option>
-            <option value="ja">Japanese</option>
-            <option value="ko">Korean</option>
-            <option value="zh">Chinese</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  );
+Add to main preload:
+```ts
+overlay: {
+  show: () => ipcRenderer.invoke("overlay:show"),
+  hide: () => ipcRenderer.invoke("overlay:hide"),
+  toggle: () => ipcRenderer.invoke("overlay:toggle"),
+  isVisible: () => ipcRenderer.invoke("overlay:is-visible"),
 }
 ```
 
-- [ ] **Step 2: Commit**
+Forward ASR + translation events to overlay window in `ipc-handlers.ts`:
+```ts
+// When asr:transcript arrives → sendToOverlay("overlay:transcript-line", segment)
+// When translation:segment-result arrives → sendToOverlay("overlay:translation", result)
+// When overlay settings change → sendToOverlay("overlay:settings-update", settings)
+```
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat: settings page with model/source/language config"
+git add -A && git commit -m "feat: floating overlay window with live transcript and translation"
+```
+
+---
+
+## Task 12: Layout & Navigation Update
+
+**Goal:** Update the app shell to include all pages and improve navigation.
+
+**Files:**
+- Modify: `src/App.tsx`
+- Modify: `src/components/Layout.tsx`
+
+- [ ] **Step 1: Update Layout with all navigation items**
+
+```tsx
+// src/components/Layout.tsx
+// Updated navigation:
+//
+// ┌─────────────────────────────────────────────────────────┐
+// │  🎙 Sublingual    [Home] [Sessions] [Settings]    [─][□][✕] │
+// └─────────────────────────────────────────────────────────┘
+//
+// - App title/logo: "Sublingual" with microphone icon, text-base font-semibold
+// - Nav items: Home (Mic icon), Sessions (Archive icon), Settings (Cog icon)
+// - Style: ghost buttons, active state with bg-muted
+// - Right side: window controls (if custom titlebar) or empty
+// - Border-b separator
+// - Main content: flex-1 overflow-hidden (pages handle their own scroll)
+```
+
+- [ ] **Step 2: Update App.tsx routes**
+
+```tsx
+// Add /sessions route
+<Route path="/sessions" element={<SessionsPage />} />
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add -A && git commit -m "feat: update layout with Sessions navigation"
+```
+
+---
+
+## Task 13: Sessions Management
+
+**Goal:** Browse, search, and manage saved capture sessions.
+
+**Files:**
+- Create: `src/main/sessions/session-storage.ts`
+- Create: `src/pages/SessionsPage.tsx`
+- Create: `src/hooks/use-sessions.ts`
+- Modify: `src/main/ipc-handlers.ts`
+- Modify: `src/preload.ts`
+- Modify: `src/types/electron-api.d.ts`
+
+- [ ] **Step 1: Implement session storage (main process)**
+
+```ts
+// src/main/sessions/session-storage.ts
+// - listSessions(search?, page?, pageSize?) → { sessions, total }
+// - getTranscript(sessionId) → TranscriptLine[]
+// - deleteSessions(ids: string[]) → number deleted
+// - clearAll() → number deleted
+// - exportAsTxt(sessionId) → opens save dialog, writes .txt
+// - exportAsJson(sessionId) → opens save dialog, writes .json
+// - openFolder(sessionId) → shell.openPath
+```
+
+- [ ] **Step 2: Wire session IPC handlers**
+
+```ts
+// sessions:list, sessions:get-transcript, sessions:delete,
+// sessions:clear-all, sessions:export-txt, sessions:export-json,
+// sessions:open-folder
+```
+
+- [ ] **Step 3: Create SessionsPage with master-detail layout**
+
+```tsx
+// src/pages/SessionsPage.tsx
+// Master-detail layout:
+//
+// ┌──────────────────────────┬──────────────────────────────────┐
+// │  🔍 Search sessions...   │  Session: 2025-05-29 10:32       │
+// │                           │  Duration: 5m 23s · 47 segments  │
+// │  ┌─ Today ────────────┐  │                                   │
+// │  │                     │  │  ┌────────────────────────────┐  │
+// │  │ ● 10:32 AM  5m 23s │  │  │ 10:32:05                    │  │
+// │  │   "Hello, welcome..." │  │ Hello, welcome to the...    │  │
+// │  │                     │  │  │ Xin chào, chào mừng...      │  │
+// │  │ ○ 09:15 AM  12m 07s│  │  │                              │  │
+// │  │   "Good morning..." │  │  │ 10:32:12                    │  │
+// │  │                     │  │  │ We'll be discussing...      │  │
+// │  └────────────────────┘  │  │ Chúng ta sẽ thảo luận...    │  │
+// │                           │  │                              │  │
+// │  ┌─ Yesterday ────────┐  │  └────────────────────────────┘  │
+// │  │                     │  │                                   │
+// │  │ ○ 3:45 PM  8m 44s  │  │  ┌────────────────────────────┐  │
+// │  │   "Let's review..." │  │  │ [📄 Export TXT] [📋 JSON]   │  │
+// │  │                     │  │  │ [📁 Open Folder] [🗑 Delete] │  │
+// │  └────────────────────┘  │  └────────────────────────────┘  │
+// │                           │                                   │
+// │  [Select All] [🗑 Delete] │                                   │
+// └──────────────────────────┴──────────────────────────────────┘
+//
+// Left panel (w-80, border-r):
+//   - Search input at top (shadcn Input with Search icon)
+//   - Session list grouped by date (Today, Yesterday, older dates)
+//   - Each session item:
+//     - Checkbox for multi-select
+//     - Time + duration
+//     - First line preview text (truncated)
+//     - Selected state: bg-muted
+//   - Bottom toolbar: "Select All" toggle, "Delete Selected" button
+//   - ScrollArea for the list
+//
+// Right panel (flex-1):
+//   - Header: session date/time, duration, segment count
+//   - Transcript view (ScrollArea):
+//     - Same layout as TranscriptPanel (timestamp + original + translation)
+//     - Read-only (no live updates)
+//   - Action bar at bottom:
+//     - Export TXT, Export JSON: ghost buttons with file icons
+//     - Open Folder: ghost button
+//     - Delete: destructive ghost button
+//   - Empty state (no session selected):
+//     "Select a session to view its transcript"
+//     centered, muted text
+```
+
+- [ ] **Step 4: Create use-sessions hook**
+
+```ts
+// src/hooks/use-sessions.ts
+// State:
+//   sessions: SessionSummary[]
+//   selectedIds: Set<string>
+//   activeSession: { info: SessionSummary, transcript: TranscriptLine[] } | null
+//   search: string
+//   loading: boolean
+// Actions:
+//   loadSessions(search?)
+//   selectSession(id) — loads transcript
+//   toggleSelect(id) / selectAll() / deselectAll()
+//   deleteSelected() → confirm dialog → delete → reload
+//   exportTxt(id) / exportJson(id)
+//   openFolder(id)
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A && git commit -m "feat: sessions management with master-detail layout"
 ```
 
 ---
@@ -1344,24 +2010,36 @@ Add to `package.json`:
 
 These must be downloaded/placed manually:
 
-1. **whisper.cpp binary** — Place in `desktop-electron/bin/`:
+1. **whisper.cpp binary** — Place in `desktop/bin/`:
    - macOS: `whisper-cli` (compiled from [whisper.cpp](https://github.com/ggerganov/whisper.cpp))
    - Windows: `whisper-cli.exe`
    - Compile it yourself or download a pre-built release
 
-2. **Whisper model files** — Place in the app's `userData/models/` directory (or configure path via settings):
+2. **Whisper model files** — Downloaded via Task 10's model downloader, or place manually in the app's `userData/models/` directory:
    - Download from Hugging Face: https://huggingface.co/ggerganov/whisper.cpp
    - Models: `ggml-tiny.bin`, `ggml-base.bin`, `ggml-small.bin`, `ggml-medium.bin`, `ggml-large-v3.bin`
-   - They are **not** auto-downloaded by the app
 
 3. **macOS dylib** — Already built at `native/macos/ScreenCaptureKitBridge/build/libScreenCaptureKitBridge.dylib`
-   - Copy to `desktop-electron/native/screencapture-mac/` (see Task 3b)
+   - Copy to `desktop/native/screencapture-mac/` (see Task 3b)
    - Only rebuild if modifying native code: run `./build.sh` in that directory
 
 ---
 
 ## Execution Order
 
-Tasks 1 → 2 → (3, 3b parallel) → 4 → 5 → 6 → 7 → 8
+```
+Phase 1 — Foundation:     Task 1 → Task 2
+Phase 2 — Audio/ASR:      (Task 3, Task 3b parallel) → Task 4
+Phase 3 — Backend:        Task 5 → Task 9 → Task 10
+Phase 4 — UI:             Task 6 → Task 7 → Task 8
+Phase 5 — Overlay:        Task 11 (after Task 9)
+Phase 6 — Navigation:     Task 12
+Phase 7 — Sessions:       Task 13
+```
 
-Tasks 3 and 3b are platform-specific and can be done in parallel. Task 4 depends on Task 3 being wired (audio → stdin). Tasks 6-8 are renderer-side and depend on IPC being in place (Task 2).
+Task dependencies:
+- Task 5 (settings store) must come before Task 9 (translation) and Task 10 (model download)
+- Task 6 (hooks) must come before Task 7 (HomePage) and Task 8 (SettingsPage)
+- Task 9 (translation) must come before Task 11 (overlay — needs translation results)
+- Task 8 (SettingsPage) should come after Task 9 + Task 10 (references translation settings + model download dialog)
+- Task 12 (layout update) and Task 13 (sessions) can be done after all core features are in place
