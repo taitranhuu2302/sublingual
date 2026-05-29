@@ -11,7 +11,7 @@ let sessionCreated = false;
 // Load the library
 const lib = koffi.load(LIB_PATH);
 
-// Define C function signatures first
+// Define C function signatures
 const sc_create_session = lib.func("sc_create_session", "int", ["void *", "void *"]);
 const sc_start_capture = lib.func("sc_start_capture", "int", []);
 const sc_stop_capture = lib.func("sc_stop_capture", "int", []);
@@ -25,8 +25,8 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
 
   try {
     // Create the JavaScript callback function
-    // Signature: void callback(const float* samples, int frameCount, int channels, double timestamp, void* context)
-    const jsCallback = koffi.proto("void callback(float *, int, int, double, void *)", (samples: any, frameCount: number, channels: number, timestamp: number, _context: any) => {
+    // The function signature: void callback(const float* samples, int frameCount, int channels, double timestamp, void* context)
+    const jsCallback = (samples: any, frameCount: number, channels: number, timestamp: number, _context: any) => {
       try {
         // Read the float array from memory
         const totalSamples = frameCount * channels;
@@ -36,12 +36,14 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
       } catch (err) {
         console.error("[screencapture-mac] Callback error:", err);
       }
-    });
+    };
 
-    registeredCallback = jsCallback;
+    // Use introspect to create a C-callable callback
+    // Format: introspect(function, returnType, [paramTypes])
+    registeredCallback = koffi.introspect(jsCallback, "void", ["float *", "int", "int", "double", "void *"]);
 
-    // Create session with callback (pass as void*)
-    const status = sc_create_session(jsCallback as any, null);
+    // Create session with callback
+    const status = sc_create_session(registeredCallback, null);
     if (status !== 0) {
       console.error("[screencapture-mac] sc_create_session failed:", sc_get_last_error_message());
       return false;
