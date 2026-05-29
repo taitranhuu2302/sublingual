@@ -105,19 +105,15 @@ desktop-electron/
 
 ## ⚠️ Manual Steps Required
 
-### 1. Build whisper.cpp Binary
+### 1. ✅ Build whisper.cpp Binary (COMPLETED)
 
-```bash
-# Clone whisper.cpp
-git clone https://github.com/ggerganov/whisper.cpp
-cd whisper.cpp
+The `whisper-cli` binary has been built and placed in `desktop-electron/bin/whisper-cli`.
 
-# Build
-make
+- **Platform**: macOS ARM64
+- **Size**: 844 KB
+- **Location**: `desktop-electron/bin/whisper-cli`
 
-# Copy to Electron app
-cp main /path/to/desktop-electron/bin/whisper-cli
-```
+For other platforms, see `desktop-electron/bin/README.md` for build instructions.
 
 ### 2. Download Whisper Models
 
