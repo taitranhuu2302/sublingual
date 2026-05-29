@@ -26,7 +26,6 @@ export function startWhisper(config: WhisperConfig, mainWindow: BrowserWindow) {
     "--language", config.language,
     "--threads", String(config.threads ?? 4),
     "--output-json",
-    "--no-timestamps", "false",
     "-", // read from stdin
   ]);
 
