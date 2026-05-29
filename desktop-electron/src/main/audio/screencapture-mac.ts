@@ -11,9 +11,9 @@ let sessionCreated = false;
 // Load the library
 const lib = koffi.load(LIB_PATH);
 
-// Define callback type: void callback(float*, int, int, double, void*)
-// In koffi, use callback without proto name
-const AudioCallbackType = koffi.proto("void(float *, int, int, double, void *)");
+// Define callback type using koffi.callback (not proto)
+// Signature: void callback(float*, int, int, double, void*)
+const AudioCallbackType = koffi.callback("void(float *, int, int, double, void *)");
 
 let callbackPtr: any = null;
 
@@ -36,7 +36,7 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
   // Register the callback with the type
   callbackPtr = koffi.register(callback, AudioCallbackType);
 
-  // Define C function signatures - callback is already a pointer type
+  // Define C function signatures - callback type is used directly
   const sc_create_session = lib.func("sc_create_session", "int", [AudioCallbackType, "void *"]);
   const sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
 
