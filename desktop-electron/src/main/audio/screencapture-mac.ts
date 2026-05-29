@@ -1,51 +1,47 @@
-import ffi from "ffi-napi";
+import koffi from "koffi";
 import path from "path";
 
 const LIB_PATH = path.join(
   __dirname,
-  "../../../native/screencapture-mac/libScreenCaptureKitBridge.dylib"
+  "../../native/screencapture-mac/libScreenCaptureKitBridge.dylib"
 );
-
-type AudioCallback = (
-  samples: Buffer,
-  frameCount: number,
-  channels: number,
-  timestamp: number,
-  context: Buffer
-) => void;
 
 let sessionCreated = false;
 
-// ffi-napi callback type: void(float*, int, int, double, void*)
-const AudioCallbackPtr = ffi.Callback(
-  "void",
-  ["pointer", "int", "int", "double", "pointer"],
-  (samples: Buffer, frameCount: number, channels: number, timestamp: number, _context: Buffer) => {
-    // Reinterpret the float* pointer as Float32Array
-    const floatArray = new Float32Array(samples.buffer, samples.byteOffset, frameCount * channels);
-    // Forward to the registered JS handler
-    (globalThis as any).__macAudioCallback?.(floatArray, frameCount, channels, timestamp);
-  }
-);
+// Load the library
+const lib = koffi.load(LIB_PATH);
 
-const lib = ffi.Library(LIB_PATH, {
-  sc_create_session: ["int", ["pointer", "pointer"]],
-  sc_start_capture: ["int", []],
-  sc_stop_capture: ["int", []],
-  sc_destroy_session: ["int", []],
-  sc_get_last_error_message: ["string", []],
-});
+// Define callback type: void(float*, int, int, double, void*)
+const AudioCallbackType = koffi.proto("void AudioCallbackProto(_Out_ float *samples, int frameCount, int channels, double timestamp, _Out_ void *context)");
+
+let callbackPtr: any = null;
 
 export function initMacCapture(onAudio: (samples: Float32Array, frameCount: number, channels: number, timestamp: number) => void): boolean {
   if (sessionCreated) return true;
 
-  // Store callback globally so ffi-napi can call it
-  (globalThis as any).__macAudioCallback = onAudio;
+  // Create callback
+  const callback = koffi.register((samples: koffi.IKoffiCType, frameCount: number, channels: number, timestamp: number, _context: koffi.IKoffiCType) => {
+    try {
+      // Read the float array from memory  
+      const totalSamples = frameCount * channels;
+      const floatArray = koffi.decode(samples, koffi.types.float, totalSamples);
+      const typedArray = new Float32Array(floatArray);
+      onAudio(typedArray, frameCount, channels, timestamp);
+    } catch (err) {
+      console.error("[screencapture-mac] Callback error:", err);
+    }
+  }, AudioCallbackType);
 
-  // We pass null for context (not needed)
-  const status = lib.sc_create_session(AudioCallbackPtr, ffi.NULL as any);
+  callbackPtr = callback;
+
+  // Define C function signatures
+  const sc_create_session = lib.func("sc_create_session", "int", [koffi.pointer(AudioCallbackType), "void *"]);
+  const sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
+
+  // Create session with callback
+  const status = sc_create_session(callback, null);
   if (status !== 0) {
-    console.error("[screencapture-mac] sc_create_session failed:", lib.sc_get_last_error_message());
+    console.error("[screencapture-mac] sc_create_session failed:", sc_get_last_error_message());
     return false;
   }
   sessionCreated = true;
@@ -54,21 +50,29 @@ export function initMacCapture(onAudio: (samples: Float32Array, frameCount: numb
 
 export function startMacCapture(): boolean {
   if (!sessionCreated) return false;
-  const status = lib.sc_start_capture();
+  const sc_start_capture = lib.func("sc_start_capture", "int", []);
+  const sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
+  
+  const status = sc_start_capture();
   if (status !== 0) {
-    console.error("[screencapture-mac] sc_start_capture failed:", lib.sc_get_last_error_message());
+    console.error("[screencapture-mac] sc_start_capture failed:", sc_get_last_error_message());
     return false;
   }
   return true;
 }
 
 export function stopMacCapture(): boolean {
-  const status = lib.sc_stop_capture();
+  const sc_stop_capture = lib.func("sc_stop_capture", "int", []);
+  const status = sc_stop_capture();
   return status === 0;
 }
 
 export function destroyMacCapture(): void {
-  lib.sc_destroy_session();
+  const sc_destroy_session = lib.func("sc_destroy_session", "int", []);
+  sc_destroy_session();
   sessionCreated = false;
-  (globalThis as any).__macAudioCallback = undefined;
+  if (callbackPtr) {
+    koffi.unregister(callbackPtr);
+    callbackPtr = null;
+  }
 }

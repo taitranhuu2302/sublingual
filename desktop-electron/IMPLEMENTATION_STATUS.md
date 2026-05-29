@@ -120,9 +120,9 @@ For other platforms, see `desktop-electron/bin/README.md` for build instructions
 Download models from Hugging Face and place in app's userData directory:
 
 ```bash
-# macOS: ~/Library/Application Support/desktop-electron/models/
-# Windows: %APPDATA%\desktop-electron\models\
-# Linux: ~/.config/desktop-electron/models/
+# macOS: ~/.sublingual/models/
+# Windows: ~\.sublingual~\models\
+# Linux: ~/.sublingual/models/
 
 # Download models (example):
 wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
