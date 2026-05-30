@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld("overlayAPI", {
     ipcRenderer.on("overlay:settings-update", handler);
     return () => ipcRenderer.removeListener("overlay:settings-update", handler);
   },
+  onTranslationUpdate: (callback: (data: { id: string; translatedText: string }) => void) => {
+    const handler = (_event: unknown, data: { id: string; translatedText: string }) => callback(data);
+    ipcRenderer.on("overlay:translation-update", handler);
+    return () => ipcRenderer.removeListener("overlay:translation-update", handler);
+  },
   onClear: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on("overlay:clear", handler);
