@@ -6,8 +6,78 @@ import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { getTranslationService } from "../translation/translation-service";
 
+function isSentenceComplete(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return /[.!?…]$/.test(trimmed) ||
+    /[.!?]["'\u201D\u201C\u2018\u2019]$/.test(trimmed);
+}
+
 export function registerAsrHandlers(mainWindow: BrowserWindow) {
   let segmentCounter = 0;
+  let pendingText = "";
+  let pendingLineId = "";
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  const FLUSH_TIMEOUT_MS = 3000;
+
+  const originalSend = mainWindow.webContents.send.bind(mainWindow.webContents);
+
+  const flushPending = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (!pendingText) return;
+
+    const line = {
+      id: pendingLineId,
+      text: pendingText.trim(),
+      isFinal: true,
+      timestamp: Date.now(),
+    };
+
+    pendingText = "";
+    pendingLineId = "";
+
+    getSessionStorage().appendLine(line);
+
+    const overlay = getOverlayManager();
+
+    // Send original text to overlay immediately
+    if (overlay.isVisible()) {
+      overlay.sendToOverlay("overlay:transcript-line", line);
+    }
+
+    // Send translation update asynchronously
+    const settings = getSettings();
+    if (settings.translation.enabled) {
+      const srcLang = settings.speechToText.sourceLanguage || "auto";
+      const tgtLang = settings.translation.targetLanguage || "vi";
+      getTranslationService()
+        .translate(line.text, srcLang, tgtLang)
+        .then((result) => {
+          if (!mainWindow.isDestroyed()) {
+            if (result.translatedText) {
+              originalSend("translation:segment-result", {
+                segmentId: line.id,
+                translatedText: result.translatedText,
+                providerName: result.providerName,
+                durationMs: result.durationMs,
+              });
+              if (overlay.isVisible()) {
+                overlay.sendToOverlay("overlay:translation-update", {
+                  id: line.id,
+                  translatedText: result.translatedText,
+                });
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("[translation] auto-translate failed:", err);
+        });
+    }
+  };
 
   ipcMain.handle("asr:get-models", async () => getModelManager().listModels());
   ipcMain.handle("asr:select-model", async (_event, modelId: string) => {
@@ -20,6 +90,12 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     if (!model) throw new Error("No model selected");
     const settings = getSettings();
     segmentCounter = 0;
+    pendingText = "";
+    pendingLineId = "";
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
 
     getSessionStorage().startSession();
     getOverlayManager().show(mainWindow);
@@ -31,12 +107,11 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle("asr:stop-transcription", async () => {
+    flushPending();
     stopWhisper();
     getSessionStorage().stopSession();
   });
 
-  // Intercept transcript sends to enrich with ID, save to session, translate, and forward to overlay
-  const originalSend = mainWindow.webContents.send.bind(mainWindow.webContents);
   mainWindow.webContents.send = (channel: string, ...args: unknown[]) => {
     if (channel === "asr:transcript") {
       const segment = args[0] as {
@@ -45,65 +120,24 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
         timestamp: number;
         id?: string;
       };
-      if (segment?.text) {
+      if (segment?.text && segment.isFinal) {
         const lineId = `seg-${segmentCounter++}`;
         segment.id = lineId;
 
-        const line = {
-          id: lineId,
-          text: segment.text,
-          isFinal: segment.isFinal,
-          timestamp: segment.timestamp,
-        };
-
-        if (segment.isFinal) {
-          getSessionStorage().appendLine(line);
+        if (pendingText) {
+          pendingText = pendingText + " " + segment.text;
+        } else {
+          pendingText = segment.text;
+          pendingLineId = lineId;
         }
 
-        const overlay = getOverlayManager();
-
-        if (!segment.isFinal) {
-          if (overlay.isVisible()) {
-            overlay.sendToOverlay("overlay:partial-update", { text: segment.text });
-          }
-        }
-
-        if (segment.isFinal) {
-          const settings = getSettings();
-          if (settings.translation.enabled) {
-            const srcLang = settings.speechToText.sourceLanguage || "auto";
-            const tgtLang = settings.translation.targetLanguage || "vi";
-            getTranslationService()
-              .translate(segment.text, srcLang, tgtLang)
-              .then((result) => {
-                if (!mainWindow.isDestroyed()) {
-                  if (result.translatedText) {
-                    originalSend("translation:segment-result", {
-                      segmentId: lineId,
-                      translatedText: result.translatedText,
-                      providerName: result.providerName,
-                      durationMs: result.durationMs,
-                    });
-                  }
-                  if (overlay.isVisible()) {
-                    overlay.sendToOverlay("overlay:transcript-line", {
-                      ...line,
-                      translatedText: result.translatedText || undefined,
-                    });
-                  }
-                }
-              })
-              .catch((err) => {
-                console.error("[translation] auto-translate failed:", err);
-                if (overlay.isVisible()) {
-                  overlay.sendToOverlay("overlay:transcript-line", line);
-                }
-              });
-          } else {
-            if (overlay.isVisible()) {
-              overlay.sendToOverlay("overlay:transcript-line", line);
-            }
-          }
+        if (isSentenceComplete(pendingText)) {
+          flushPending();
+        } else {
+          if (flushTimer) clearTimeout(flushTimer);
+          flushTimer = setTimeout(() => {
+            flushPending();
+          }, FLUSH_TIMEOUT_MS);
         }
       }
     }

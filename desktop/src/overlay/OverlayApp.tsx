@@ -22,6 +22,7 @@ declare global {
       onTranscriptLine: (cb: (line: TranscriptLine) => void) => () => void;
       onPartialUpdate: (cb: (data: { text: string; translatedText?: string }) => void) => () => void;
       onSettingsUpdate: (cb: (settings: Partial<OverlaySettings>) => void) => () => void;
+      onTranslationUpdate: (cb: (data: { id: string; translatedText: string }) => void) => () => void;
       onClear: (cb: () => void) => () => void;
       close: () => void;
     };
@@ -40,6 +41,7 @@ export function OverlayApp() {
   });
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [partial, setPartial] = useState<{ text: string; translatedText?: string } | null>(null);
+  const [pendingTranslation, setPendingTranslation] = useState<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,9 +58,24 @@ export function OverlayApp() {
           return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
         });
         setPartial(null);
+        if (!line.translatedText) {
+          setPendingTranslation((prev) => new Set(prev).add(line.id));
+        }
       }),
       window.overlayAPI.onPartialUpdate((data) => {
         setPartial(data.text ? data : null);
+      }),
+      window.overlayAPI.onTranslationUpdate((data) => {
+        setLines((prev) =>
+          prev.map((line) =>
+            line.id === data.id ? { ...line, translatedText: data.translatedText } : line,
+          ),
+        );
+        setPendingTranslation((prev) => {
+          const next = new Set(prev);
+          next.delete(data.id);
+          return next;
+        });
       }),
       window.overlayAPI.onSettingsUpdate((s) => {
         setSettings((prev) => ({ ...prev, ...s }));
@@ -66,6 +83,7 @@ export function OverlayApp() {
       window.overlayAPI.onClear(() => {
         setLines([]);
         setPartial(null);
+        setPendingTranslation(new Set());
       }),
     ];
     return () => unsubs.forEach((fn) => fn());
@@ -139,7 +157,7 @@ export function OverlayApp() {
             >
               {line.text}
             </p>
-            {settings.showTranslation && line.translatedText && (
+            {settings.showTranslation && line.translatedText ? (
               <p
                 className={`${mutedColor} mt-0.5`}
                 style={{
@@ -149,7 +167,17 @@ export function OverlayApp() {
               >
                 {line.translatedText}
               </p>
-            )}
+            ) : settings.showTranslation && pendingTranslation.has(line.id) ? (
+              <p
+                className={`${mutedColor} mt-0.5 animate-pulse`}
+                style={{
+                  fontSize: Math.max(14, settings.fontSize - 4),
+                  lineHeight: settings.lineHeight,
+                }}
+              >
+                ···
+              </p>
+            ) : null}
           </div>
         ))}
 
