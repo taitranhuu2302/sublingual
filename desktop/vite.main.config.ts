@@ -10,7 +10,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["vosk", "adm-zip"],
+      external: ["koffi", "adm-zip"],
     },
   },
 });

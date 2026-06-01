@@ -1,18 +1,20 @@
 import { BrowserWindow } from "electron";
-import * as vosk from "vosk";
+import * as bindings from "./vosk-bindings";
 
-let model: vosk.Model | null = null;
-let recognizer: vosk.Recognizer | null = null;
+let model: unknown = null;
+let recognizer: unknown = null;
 let mainWindowRef: BrowserWindow | null = null;
 
-vosk.setLogLevel(-1);
+bindings.setLogLevel(-1);
 
 export function startVosk(modelPath: string, mainWindow: BrowserWindow) {
   mainWindowRef = mainWindow;
 
   try {
-    model = new vosk.Model(modelPath);
-    recognizer = new vosk.Recognizer({ model, sampleRate: 16000 });
+    model = bindings.modelNew(modelPath);
+    recognizer = bindings.recognizerNew(model, 16000);
+    bindings.recognizerSetWords(recognizer, true);
+    bindings.recognizerSetPartialWords(recognizer, true);
   } catch (err) {
     console.error("[vosk] Failed to initialize:", err);
     throw err;
@@ -23,22 +25,24 @@ export function feedAudio(pcmData: Buffer) {
   if (!recognizer || !mainWindowRef || mainWindowRef.isDestroyed()) return;
 
   try {
-    const isFinal = recognizer.acceptWaveform(pcmData);
+    const isFinal = bindings.acceptWaveform(recognizer, pcmData);
 
     if (isFinal) {
-      const result = recognizer.result();
-      if (result.text && result.text.trim()) {
+      const raw = bindings.getResult(recognizer);
+      const parsed = tryParseJson(raw);
+      if (parsed?.text?.trim()) {
         mainWindowRef.webContents.send("asr:transcript", {
-          text: result.text.trim(),
+          text: parsed.text.trim(),
           isFinal: true,
           timestamp: Date.now(),
         });
       }
     } else {
-      const partial = recognizer.partialResult();
-      if (partial.partial && partial.partial.trim()) {
+      const raw = bindings.getPartialResult(recognizer);
+      const parsed = tryParseJson(raw);
+      if (parsed?.partial?.trim()) {
         mainWindowRef.webContents.send("asr:transcript", {
-          text: partial.partial.trim(),
+          text: parsed.partial.trim(),
           isFinal: false,
           timestamp: Date.now(),
         });
@@ -52,10 +56,11 @@ export function feedAudio(pcmData: Buffer) {
 export function stopVosk() {
   if (recognizer) {
     try {
-      const final = recognizer.finalResult();
-      if (final.text && final.text.trim() && mainWindowRef && !mainWindowRef.isDestroyed()) {
+      const raw = bindings.getFinalResult(recognizer);
+      const parsed = tryParseJson(raw);
+      if (parsed?.text?.trim() && mainWindowRef && !mainWindowRef.isDestroyed()) {
         mainWindowRef.webContents.send("asr:transcript", {
-          text: final.text.trim(),
+          text: parsed.text.trim(),
           isFinal: true,
           timestamp: Date.now(),
         });
@@ -63,14 +68,23 @@ export function stopVosk() {
     } catch (err) {
       console.error("[vosk] finalResult error:", err);
     }
-    recognizer.free();
+    bindings.recognizerFree(recognizer);
     recognizer = null;
   }
 
   if (model) {
-    model.free();
+    bindings.modelFree(model);
     model = null;
   }
 
   mainWindowRef = null;
+}
+
+function tryParseJson(s: string): Record<string, unknown> | null {
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
 }
