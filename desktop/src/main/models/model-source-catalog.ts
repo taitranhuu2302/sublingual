@@ -20,54 +20,54 @@ export interface InstallableModel extends ModelSource {
 
 const MODEL_CATALOG: ModelSource[] = [
   {
-    id: "tiny",
-    name: "Tiny",
-    description: "Fastest, lower accuracy. Good for testing.",
-    size: "75 MB",
-    sizeBytes: 75_000_000,
-    language: "Multilingual",
-    filename: "ggml-tiny.bin",
-    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+    id: "vosk-model-small-en-us-0.15",
+    name: "English (Small)",
+    description: "Lightweight US English model, ideal for desktop. ~40MB.",
+    size: "40 MB",
+    sizeBytes: 40_000_000,
+    language: "en",
+    filename: "vosk-model-small-en-us-0.15.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
   },
   {
-    id: "base",
-    name: "Base",
-    description: "Good balance of speed and accuracy.",
-    size: "142 MB",
-    sizeBytes: 142_000_000,
-    language: "Multilingual",
-    filename: "ggml-base.bin",
-    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+    id: "vosk-model-en-us-0.22",
+    name: "English (Accurate)",
+    description: "Accurate US English model for servers and high-end desktops. ~1.8GB.",
+    size: "1.8 GB",
+    sizeBytes: 1_800_000_000,
+    language: "en",
+    filename: "vosk-model-en-us-0.22.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip",
   },
   {
-    id: "small",
-    name: "Small",
-    description: "Better accuracy, moderate speed.",
-    size: "466 MB",
-    sizeBytes: 466_000_000,
-    language: "Multilingual",
-    filename: "ggml-small.bin",
-    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
+    id: "vosk-model-en-us-0.22-lgraph",
+    name: "English (Dynamic)",
+    description: "Big US English model with dynamic graph. ~128MB.",
+    size: "128 MB",
+    sizeBytes: 128_000_000,
+    language: "en",
+    filename: "vosk-model-en-us-0.22-lgraph.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
   },
   {
-    id: "medium",
-    name: "Medium",
-    description: "High accuracy, slower processing.",
-    size: "1.5 GB",
-    sizeBytes: 1_500_000_000,
-    language: "Multilingual",
-    filename: "ggml-medium.bin",
-    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
+    id: "vosk-model-small-vn-0.4",
+    name: "Vietnamese (Small)",
+    description: "Lightweight Vietnamese model. ~32MB.",
+    size: "32 MB",
+    sizeBytes: 32_000_000,
+    language: "vi",
+    filename: "vosk-model-small-vn-0.4.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
   },
   {
-    id: "large-v3",
-    name: "Large v3",
-    description: "Highest accuracy, requires more resources.",
-    size: "3.1 GB",
-    sizeBytes: 3_100_000_000,
-    language: "Multilingual",
-    filename: "ggml-large-v3.bin",
-    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+    id: "vosk-model-vn-0.4",
+    name: "Vietnamese",
+    description: "Bigger Vietnamese model for server. ~78MB.",
+    size: "78 MB",
+    sizeBytes: 78_000_000,
+    language: "vi",
+    filename: "vosk-model-vn-0.4.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-vn-0.4.zip",
   },
 ];
 
@@ -78,10 +78,14 @@ export function getModelsDir(): string {
 export function getInstallableModels(): InstallableModel[] {
   const modelsDir = getModelsDir();
   return MODEL_CATALOG.map((source) => {
-    const localPath = path.join(modelsDir, source.filename);
+    // Vosk models are extracted to directories (filename without .zip)
+    const dirName = source.filename.replace(/\.zip$/, "");
+    const localPath = path.join(modelsDir, dirName);
+    // Detect by checking for the model marker file
+    const isInstalled = fs.existsSync(path.join(localPath, "am", "final.mdl"));
     return {
       ...source,
-      isInstalled: fs.existsSync(localPath),
+      isInstalled,
       localPath,
     };
   });
