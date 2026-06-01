@@ -14,7 +14,7 @@ export interface ElectronAPI {
     onAudioData: (callback: (data: Float32Array) => void) => () => void;
   };
   asr: {
-    getModels: () => Promise<WhisperModel[]>;
+    getModels: () => Promise<VoskModel[]>;
     selectModel: (modelId: string) => Promise<void>;
     startTranscription: () => Promise<void>;
     stopTranscription: () => Promise<void>;
@@ -68,11 +68,12 @@ export interface AudioSource {
   type: "microphone" | "system";
 }
 
-export interface WhisperModel {
+export interface VoskModel {
   id: string;
   name: string;
   size: string;
   path: string;
+  language: string;
   downloaded: boolean;
 }
 
