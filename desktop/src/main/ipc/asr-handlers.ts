@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { getModelManager } from "../models/model-manager";
 import { getSettings } from "../settings/settings-store";
-import { startWhisper, stopWhisper } from "../asr/whisper-process";
+import { startVosk, stopVosk } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { getTranslationService } from "../translation/translation-service";
@@ -100,15 +100,12 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getSessionStorage().startSession();
     getOverlayManager().show(mainWindow);
 
-    startWhisper(
-      { modelPath: model.path, language: settings.speechToText.sourceLanguage },
-      mainWindow,
-    );
+    startVosk(model.path, mainWindow);
   });
 
   ipcMain.handle("asr:stop-transcription", async () => {
     flushPending();
-    stopWhisper();
+    stopVosk();
     getSessionStorage().stopSession();
   });
 
@@ -120,7 +117,14 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
         timestamp: number;
         id?: string;
       };
-      if (segment?.text && segment.isFinal) {
+
+      if (!segment?.text) {
+        originalSend(channel, ...args);
+        return;
+      }
+
+      if (segment.isFinal) {
+        // Final: sentence merging + translation pipeline
         const lineId = `seg-${segmentCounter++}`;
         segment.id = lineId;
 
@@ -138,6 +142,14 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
           flushTimer = setTimeout(() => {
             flushPending();
           }, FLUSH_TIMEOUT_MS);
+        }
+      } else {
+        // Partial: forward directly to renderer and overlay
+        const overlay = getOverlayManager();
+        if (overlay.isVisible()) {
+          overlay.sendToOverlay("overlay:partial-update", {
+            text: segment.text,
+          });
         }
       }
     }
