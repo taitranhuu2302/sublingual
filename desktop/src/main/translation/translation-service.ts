@@ -3,6 +3,11 @@ import { GoogleFreeTranslationProvider } from "./providers/google-free";
 import { LocalTranslationProvider } from "./providers/translate-local";
 import type { ITranslationProvider, TranslationResult } from "./providers/types";
 
+export interface TranslationContext {
+  previousSource?: string;
+  previousTarget?: string;
+}
+
 export class TranslationService {
   private getProvider(): ITranslationProvider {
     const settings = getSettings().translation;
@@ -13,7 +18,12 @@ export class TranslationService {
     return new GoogleFreeTranslationProvider(settings.google.endpoint);
   }
 
-  async translate(sourceText: string, sourceLanguage: string, targetLanguage: string): Promise<TranslationResult> {
+  async translate(
+    sourceText: string,
+    sourceLanguage: string,
+    targetLanguage: string,
+    context?: TranslationContext,
+  ): Promise<TranslationResult> {
     if (!sourceText.trim()) {
       return { translatedText: "", providerName: "none", durationMs: 0 };
     }
