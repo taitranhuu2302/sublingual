@@ -15,20 +15,6 @@ interface TranscriptLine {
   timestamp: number;
 }
 
-declare global {
-  interface Window {
-    overlayAPI: {
-      getSettings: () => Promise<OverlaySettings>;
-      onTranscriptLine: (cb: (line: TranscriptLine) => void) => () => void;
-      onPartialUpdate: (cb: (data: { text: string; translatedText?: string }) => void) => () => void;
-      onSettingsUpdate: (cb: (settings: Partial<OverlaySettings>) => void) => () => void;
-      onTranslationUpdate: (cb: (data: { id: string; translatedText: string }) => void) => () => void;
-      onClear: (cb: () => void) => () => void;
-      close: () => void;
-    };
-  }
-}
-
 const MAX_LINES = 50;
 
 export function OverlayApp() {

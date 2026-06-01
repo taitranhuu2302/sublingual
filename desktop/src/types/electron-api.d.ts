@@ -99,6 +99,19 @@ export interface TranslationSegmentResult {
   durationMs: number;
 }
 
+export interface IncrementalTranslationEvent {
+  utteranceId: string;
+  revision: number;
+  text: string;
+}
+
+export interface IncrementalFinalEvent {
+  utteranceId: string;
+  fullSource: string;
+  fullTranslation: string;
+  revision: number;
+}
+
 export interface InstallableModel {
   id: string;
   name: string;
@@ -134,5 +147,15 @@ export interface TranscriptLine {
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
+    overlayAPI: {
+      getSettings: () => Promise<OverlaySettings>;
+      onTranscriptLine: (cb: (line: TranscriptLine) => void) => () => void;
+      onPartialUpdate: (cb: (data: { text: string; translatedText?: string }) => void) => () => void;
+      onSettingsUpdate: (cb: (settings: Partial<OverlaySettings>) => void) => () => void;
+      onTranslationUpdate: (cb: (data: { id: string; translatedText: string }) => void) => () => void;
+      onTranslationCommitted: (cb: (data: { text: string }) => void) => () => void;
+      onClear: (cb: () => void) => () => void;
+      close: () => void;
+    };
   }
 }
