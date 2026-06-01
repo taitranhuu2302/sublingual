@@ -22,6 +22,7 @@ export function useSessions() {
   }, []);
 
   useEffect(() => {
+    if (!window.electronAPI) return;
     loadSessions(search || undefined);
   }, [loadSessions, search]);
 
@@ -65,6 +66,19 @@ export function useSessions() {
     await window.electronAPI.sessions.exportJson(id);
   }, []);
 
+  const deleteSession = useCallback(async (id: string) => {
+    await window.electronAPI.sessions.delete([id]);
+    if (activeSession?.info.id === id) {
+      setActiveSession(null);
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    await loadSessions(search || undefined);
+  }, [activeSession, loadSessions, search]);
+
   const openFolder = useCallback(async (id: string) => {
     await window.electronAPI.sessions.openFolder(id);
   }, []);
@@ -81,6 +95,7 @@ export function useSessions() {
     selectAll,
     deselectAll,
     deleteSelected,
+    deleteSession,
     exportTxt,
     exportJson,
     openFolder,

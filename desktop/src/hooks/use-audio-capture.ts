@@ -7,6 +7,7 @@ export function useAudioCapture() {
   const [activeSource, setActiveSource] = useState<string>("");
 
   useEffect(() => {
+    if (!window.electronAPI?.audio) return;
     window.electronAPI.audio.getSources().then(setSources);
     window.electronAPI.audio.getState().then((s) => setCapturing(s.capturing));
   }, []);

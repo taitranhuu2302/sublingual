@@ -11,7 +11,7 @@ Real-time speech-to-text and translation desktop app with a transparent subtitle
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| --- | --- |
 | Desktop app | Electron 42 + React 19 + TypeScript |
 | UI framework | shadcn/ui + Tailwind CSS 4 |
 | Build tooling | Vite 5 + Electron Forge |
@@ -110,7 +110,7 @@ pnpm start
 Whisper models are downloaded from Hugging Face and stored in `~/.sublingual/models/`.
 
 | Model | Size | Speed | Accuracy | Recommended For |
-|-------|------|-------|----------|-----------------|
+| --- | --- | --- | --- | --- |
 | Tiny | 75 MB | Fastest | Lower | Quick testing |
 | Base | 142 MB | Fast | Good | Getting started |
 | Small | 466 MB | Moderate | Better | Daily use |
@@ -139,7 +139,7 @@ All data is stored under `~/.sublingual/`:
 ### Default Settings
 
 | Setting | Default |
-|---------|---------|
+| --- | --- |
 | Source language | `en` (English) |
 | Target language | `vi` (Vietnamese) |
 | Translation provider | Google Translate Free API |
@@ -182,7 +182,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 3333
 
 Then in the app, go to **Settings → Translation** and select **Local TranslateService**.
 
-See [`translate/README.md`](translate/README.md) for full documentation including Docker deployment, batch translation, and benchmarking.
+See `translate/README.md` for full documentation including Docker deployment, batch translation, and benchmarking.
 
 ## Features
 
@@ -223,7 +223,7 @@ pnpm run make        # Build distributable installer
 ## Platform Support
 
 | Feature | macOS | Windows |
-|---------|-------|---------|
+| --- | --- | --- |
 | Desktop app | ✅ | ✅ |
 | Overlay window | ✅ | ✅ |
 | System audio capture | ✅ (ScreenCaptureKit) | ✅ |

@@ -5,7 +5,6 @@ import { GeneralSettings } from "../components/settings/GeneralSettings";
 import { SpeechSettings } from "../components/settings/SpeechSettings";
 import { TranslationSettings } from "../components/settings/TranslationSettings";
 import { OverlaySettingsPanel } from "../components/settings/OverlaySettings";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Settings, Mic, Languages, Monitor } from "lucide-react";
 
 const TABS = [
@@ -24,7 +23,7 @@ export function SettingsPage() {
   if (!loaded) return null;
 
   return (
-    <div className="flex flex-1">
+    <div className="flex flex-1 min-h-0">
       <nav className="w-48 border-r py-4 space-y-1 px-2 shrink-0">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -43,7 +42,7 @@ export function SettingsPage() {
         ))}
       </nav>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-6 max-w-2xl">
           <h1 className="text-2xl font-bold mb-6">
             {TABS.find((t) => t.id === activeTab)?.label} Settings
@@ -54,7 +53,7 @@ export function SettingsPage() {
           {activeTab === "translation" && <TranslationSettings settings={settings} onUpdate={update} />}
           {activeTab === "overlay" && <OverlaySettingsPanel settings={settings} onUpdate={update} />}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

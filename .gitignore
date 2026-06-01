@@ -49,10 +49,11 @@ native/build/
 *.dll
 *.o
 
-# Allow whisper binaries in desktop/bin
+# Allow platform binaries in desktop/bin
 !desktop/bin/*.dll
 !desktop/bin/whisper-cli
 !desktop/bin/whisper-cli.exe
+!desktop/bin/vosk/libvosk.dylib
 
 # Misc
 *.tmp

@@ -34,10 +34,12 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
   const [showDownload, setShowDownload] = useState(false);
 
   useEffect(() => {
+    if (!window.electronAPI) return;
     window.electronAPI.asr.getModels().then(setModels);
   }, []);
 
   const refreshModels = async () => {
+    if (!window.electronAPI) return;
     const list = await window.electronAPI.asr.getModels();
     setModels(list);
   };
@@ -57,7 +59,7 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
             </SelectTrigger>
             <SelectContent>
               {models.filter((m) => m.downloaded).length === 0 ? (
-                <SelectItem value="" disabled>No models installed</SelectItem>
+                <SelectItem value="__placeholder__" disabled>No models installed</SelectItem>
               ) : (
                 models.filter((m) => m.downloaded).map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
