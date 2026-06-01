@@ -160,7 +160,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
         incrementalMgr.handlePartial(segment.text);
 
-        if (overlay.isVisible()) {
+        if (overlay.isVisible() && segment.text.trim()) {
           overlay.sendToOverlay("overlay:partial-update", {
             text: segment.text,
           });

@@ -50,7 +50,7 @@ export function OverlayApp() {
       }),
       window.overlayAPI.onPartialUpdate((data) => {
         setPartial((prev) => {
-          if (!data.text) return null;
+          if (!data.text) return prev;
           return {
             text: data.text,
             committedTranslation: prev?.committedTranslation,
