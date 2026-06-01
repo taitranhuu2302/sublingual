@@ -1,5 +1,5 @@
 import { useSessions } from "../hooks/use-sessions";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -78,7 +78,7 @@ export function SessionsPage() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <div className="p-2">
             {sessions.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-sm">
@@ -119,7 +119,7 @@ export function SessionsPage() {
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="flex items-center gap-2 p-2 border-t">
           <Button variant="ghost" size="sm" onClick={allSelected ? deselectAll : selectAll}>
@@ -155,7 +155,7 @@ export function SessionsPage() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto min-h-0">
               <div className="px-6 py-4 space-y-1">
                 {activeSession.transcript.map((line) => {
                   const time = new Date(line.timestamp).toLocaleTimeString();
@@ -174,7 +174,7 @@ export function SessionsPage() {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="flex items-center gap-2 px-6 py-3 border-t">
               <Button variant="ghost" size="sm" onClick={() => exportTxt(activeSession.info.id)}>

@@ -31,7 +31,7 @@ export function Layout() {
           </NavLink>
         ))}
       </nav>
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main className="flex-1 overflow-hidden flex flex-col min-h-0">
         <Outlet />
       </main>
     </div>
