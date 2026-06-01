@@ -65,7 +65,7 @@ export function SessionsPage() {
   return (
     <div className="flex h-full">
       {/* Left panel — session list */}
-      <div className="w-80 border-r flex flex-col shrink-0">
+      <div className="w-80 border-r flex flex-col shrink-0 min-h-0">
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -136,7 +136,7 @@ export function SessionsPage() {
       </div>
 
       {/* Right panel — transcript detail */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {!activeSession ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
             <Archive className="h-10 w-10 mb-3 opacity-40" />

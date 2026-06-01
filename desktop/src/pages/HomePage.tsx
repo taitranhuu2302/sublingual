@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { CaptureToolbar } from "../components/CaptureToolbar";
 import { useAudioCapture } from "../hooks/use-audio-capture";
 import { useTranscription } from "../hooks/use-transcription";
 import { useSettings } from "../hooks/use-settings";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Languages, Mic } from "lucide-react";
+import { MessageSquare, Languages, Mic, Settings } from "lucide-react";
 
 export function HomePage() {
+  const navigate = useNavigate();
   const { sources, capturing, start, stop } = useAudioCapture();
   const { segments, running, start: startASR, stop: stopASR, clear: clearSegments } = useTranscription();
   const { settings } = useSettings();
@@ -105,60 +108,78 @@ export function HomePage() {
       />
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
-        {/* Big timer */}
-        <div className="text-center">
-          <p className={`text-6xl font-mono font-light tracking-wider ${capturing ? "text-foreground" : "text-muted-foreground/40"}`}>
-            {formatTime(elapsed)}
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {capturing ? "Recording in progress" : "Ready to capture"}
-          </p>
-        </div>
-
-        {/* Stats cards */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
-          <Card>
-            <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
-              <MessageSquare className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-semibold">{finalCount}</span>
-              <span className="text-xs text-muted-foreground">Segments</span>
+        {!hasModel ? (
+          <Card className="w-full max-w-md">
+            <CardContent className="flex flex-col items-center py-10 gap-4">
+              <Mic className="h-10 w-10 text-muted-foreground/40" />
+              <div className="text-center">
+                <h2 className="text-lg font-semibold mb-1">No Speech Model Installed</h2>
+                <p className="text-sm text-muted-foreground">
+                  Install a speech recognition model to start transcribing.
+                </p>
+              </div>
+              <Button onClick={() => navigate("/settings")}>
+                <Settings className="h-4 w-4 mr-2" />
+                Go to Settings
+              </Button>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
-              <Languages className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-semibold">{wordCount}</span>
-              <span className="text-xs text-muted-foreground">Words</span>
-            </CardContent>
-          </Card>
+        ) : (
+          <>
+            {/* Big timer */}
+            <div className="text-center">
+              <p className={`text-6xl font-mono font-light tracking-wider ${capturing ? "text-foreground" : "text-muted-foreground/40"}`}>
+                {formatTime(elapsed)}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {capturing ? "Recording in progress" : "Ready to capture"}
+              </p>
+            </div>
 
-        </div>
+            {/* Stats cards */}
+            <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
+              <Card>
+                <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
+                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-2xl font-semibold">{finalCount}</span>
+                  <span className="text-xs text-muted-foreground">Segments</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
+                  <Languages className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-2xl font-semibold">{wordCount}</span>
+                  <span className="text-xs text-muted-foreground">Words</span>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Last recognized text preview */}
-        {lastText && (
-          <div className="w-full max-w-lg">
-            <Card className="bg-muted/30">
-              <CardContent className="py-3 px-4">
-                <p className="text-xs text-muted-foreground mb-1">Last recognized</p>
-                <p className="text-sm truncate">{lastText}</p>
-              </CardContent>
-            </Card>
-          </div>
+            {/* Last recognized text preview */}
+            {lastText && (
+              <div className="w-full max-w-lg">
+                <Card className="bg-muted/30">
+                  <CardContent className="py-3 px-4">
+                    <p className="text-xs text-muted-foreground mb-1">Last recognized</p>
+                    <p className="text-sm truncate">{lastText}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Session info bar */}
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Mic className="h-3 w-3" /> Model: {modelName}
+              </span>
+              {settings.translation.enabled && (
+                <span className="flex items-center gap-1">
+                  <Languages className="h-3 w-3" />
+                  {settings.speechToText.sourceLanguage} → {settings.translation.targetLanguage}
+                </span>
+              )}
+            </div>
+          </>
         )}
-
-        {/* Session info bar */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Mic className="h-3 w-3" /> Model: {modelName}
-          </span>
-          {settings.translation.enabled && (
-            <span className="flex items-center gap-1">
-              <Languages className="h-3 w-3" />
-              {settings.speechToText.sourceLanguage} → {settings.translation.targetLanguage}
-            </span>
-          )}
-
-        </div>
       </div>
     </div>
   );

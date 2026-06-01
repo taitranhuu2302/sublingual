@@ -56,9 +56,13 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
             <SelectContent>
-              {models.filter((m) => m.downloaded).map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-              ))}
+              {models.filter((m) => m.downloaded).length === 0 ? (
+                <SelectItem value="" disabled>No models installed</SelectItem>
+              ) : (
+                models.filter((m) => m.downloaded).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </SettingsField>
