@@ -4,7 +4,7 @@ import { useAudioCapture } from "../hooks/use-audio-capture";
 import { useTranscription } from "../hooks/use-transcription";
 import { useSettings } from "../hooks/use-settings";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, MessageSquare, Languages, Mic, Activity } from "lucide-react";
+import { MessageSquare, Languages, Mic } from "lucide-react";
 
 export function HomePage() {
   const { sources, capturing, start, stop } = useAudioCapture();
@@ -86,7 +86,7 @@ export function HomePage() {
   const hasModel = !!settings.speechToText.selectedModel;
 
   const modelName = settings.speechToText.selectedModel
-    ? settings.speechToText.selectedModel.replace(/^ggml-/, "").replace(/\.bin$/, "")
+    ? settings.speechToText.selectedModel.replace(/^vosk-model-/, "").replace(/-/g, " ")
     : "None";
 
   return (
@@ -116,7 +116,7 @@ export function HomePage() {
         </div>
 
         {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-4 w-full max-w-lg">
+        <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
           <Card>
             <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
@@ -131,16 +131,7 @@ export function HomePage() {
               <span className="text-xs text-muted-foreground">Words</span>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
-              <Activity className="h-5 w-5 text-muted-foreground" />
-              <span className="text-2xl font-semibold">
-                {settings.speechToText.realtimeChunkPreset === "Fast" ? "500" :
-                 settings.speechToText.realtimeChunkPreset === "Accurate" ? "2000" : "1000"}
-              </span>
-              <span className="text-xs text-muted-foreground">Chunk ms</span>
-            </CardContent>
-          </Card>
+
         </div>
 
         {/* Last recognized text preview */}
@@ -166,9 +157,7 @@ export function HomePage() {
               {settings.speechToText.sourceLanguage} → {settings.translation.targetLanguage}
             </span>
           )}
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {settings.speechToText.realtimeChunkPreset}
-          </span>
+
         </div>
       </div>
     </div>
