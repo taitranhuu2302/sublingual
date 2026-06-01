@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { BrowserWindow } from "electron";
 import { getModelsDir, getModelSource } from "./model-source-catalog";
+import AdmZip from "adm-zip";
 
 export interface DownloadProgress {
   modelId: string;
@@ -22,8 +23,14 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
     fs.mkdirSync(modelsDir, { recursive: true });
   }
 
-  const destPath = path.join(modelsDir, source.filename);
-  const tempPath = destPath + ".tmp";
+  // For Vosk, filename is a zip, target is a directory
+  const zipPath = path.join(modelsDir, source.filename);
+  const extractDir = path.join(modelsDir, source.filename.replace(/\.zip$/, ""));
+
+  // Skip if already installed
+  if (fs.existsSync(path.join(extractDir, "am", "final.mdl"))) {
+    return;
+  }
 
   activeAbortController = new AbortController();
   activeModelId = modelId;
@@ -49,7 +56,7 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
     const reader = response.body?.getReader();
     if (!reader) throw new Error("No response body");
 
-    const fileStream = fs.createWriteStream(tempPath);
+    const fileStream = fs.createWriteStream(zipPath);
     let downloaded = 0;
     let lastReportedPercent = -1;
     let done = false;
@@ -75,11 +82,22 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
       fileStream.on("error", reject);
     });
 
-    fs.renameSync(tempPath, destPath);
+    // Extract zip (AdmZip is synchronous, this completes quickly)
+    const zip = new AdmZip(zipPath);
+    zip.extractAllTo(extractDir, true);
+
+    // Remove zip file
+    fs.unlinkSync(zipPath);
+
     sendProgress({ modelId, percent: 100, status: "completed" });
   } catch (err: unknown) {
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
+    // Clean up zip if it exists
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
+    }
+    // Clean up partial extract
+    if (fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true, force: true });
     }
 
     if (err instanceof Error && err.name === "AbortError") {
