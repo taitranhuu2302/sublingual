@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron";
 import { initMacCapture, startMacCapture, stopMacCapture, destroyMacCapture } from "./screencapture-mac";
-import { feedAudio } from "../asr/whisper-process";
+import { feedAudio } from "../asr/vosk-process";
 import type { AudioSource } from "../../types/electron-api";
 
 let capturing = false;
