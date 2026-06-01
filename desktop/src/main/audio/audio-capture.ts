@@ -58,6 +58,10 @@ export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
   }
 }
 
+export function isAudioCapturing(): boolean {
+  return capturing;
+}
+
 export function stopAudioCapture() {
   if (!capturing) return;
   capturing = false;

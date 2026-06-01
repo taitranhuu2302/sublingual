@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("electronAPI", {
   audio: {
     getSources: () => ipcRenderer.invoke("audio:get-sources"),
+    getState: () => ipcRenderer.invoke("audio:get-state"),
     startCapture: (sourceId: string) =>
       ipcRenderer.invoke("audio:start-capture", sourceId),
     stopCapture: () => ipcRenderer.invoke("audio:stop-capture"),
@@ -14,6 +15,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   asr: {
     getModels: () => ipcRenderer.invoke("asr:get-models"),
+    getState: () => ipcRenderer.invoke("asr:get-state"),
     selectModel: (modelId: string) =>
       ipcRenderer.invoke("asr:select-model", modelId),
     startTranscription: () => ipcRenderer.invoke("asr:start-transcription"),

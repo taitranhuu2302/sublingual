@@ -8,6 +8,7 @@ export function useAudioCapture() {
 
   useEffect(() => {
     window.electronAPI.audio.getSources().then(setSources);
+    window.electronAPI.audio.getState().then((s) => setCapturing(s.capturing));
   }, []);
 
   const start = useCallback(async (sourceId: string) => {

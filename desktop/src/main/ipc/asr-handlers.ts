@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { getModelManager } from "../models/model-manager";
 import { getSettings } from "../settings/settings-store";
-import { startVosk, stopVosk } from "../asr/vosk-process";
+import { startVosk, stopVosk, isVoskRunning } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { getTranslationService } from "../translation/translation-service";
@@ -102,6 +102,10 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     startVosk(model.path, mainWindow);
   });
+
+  ipcMain.handle("asr:get-state", async () => ({
+    running: isVoskRunning(),
+  }));
 
   ipcMain.handle("asr:stop-transcription", async () => {
     flushPending();

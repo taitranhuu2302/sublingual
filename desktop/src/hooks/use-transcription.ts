@@ -12,14 +12,14 @@ export function useTranscription() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
+    window.electronAPI.asr.getState().then((s) => setRunning(s.running));
+
     const unsub = window.electronAPI.asr.onTranscript((segment) => {
       setSegments((prev) => {
         if (segment.isFinal) {
-          // Replace last partial with final
           const withoutPartials = prev.filter((s) => s.isFinal);
           return [...withoutPartials, segment];
         }
-        // Replace current partial
         const finals = prev.filter((s) => s.isFinal);
         return [...finals, segment];
       });

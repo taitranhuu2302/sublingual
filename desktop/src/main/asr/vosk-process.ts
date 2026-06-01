@@ -21,6 +21,10 @@ export function startVosk(modelPath: string, mainWindow: BrowserWindow) {
   }
 }
 
+export function isVoskRunning(): boolean {
+  return recognizer !== null;
+}
+
 export function feedAudio(pcmData: Buffer) {
   if (!recognizer || !mainWindowRef || mainWindowRef.isDestroyed()) return;
 

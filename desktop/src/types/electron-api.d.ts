@@ -9,12 +9,14 @@ export type { AppSettings, OverlaySettings, TranslationSettings };
 export interface ElectronAPI {
   audio: {
     getSources: () => Promise<AudioSource[]>;
+    getState: () => Promise<{ capturing: boolean }>;
     startCapture: (sourceId: string) => Promise<void>;
     stopCapture: () => Promise<void>;
     onAudioData: (callback: (data: Float32Array) => void) => () => void;
   };
   asr: {
     getModels: () => Promise<VoskModel[]>;
+    getState: () => Promise<{ running: boolean }>;
     selectModel: (modelId: string) => Promise<void>;
     startTranscription: () => Promise<void>;
     stopTranscription: () => Promise<void>;
