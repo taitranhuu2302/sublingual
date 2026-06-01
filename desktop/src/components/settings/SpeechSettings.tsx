@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "./SettingsSection";
 import { SettingsField } from "./SettingsField";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Download, FolderOpen } from "lucide-react";
 import { ModelDownloadDialog } from "@/components/ModelDownloadDialog";
-import type { AppSettings, WhisperModel } from "@/types/electron-api";
+import type { AppSettings, VoskModel } from "@/types/electron-api";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -32,7 +30,7 @@ interface Props {
 }
 
 export function SpeechSettings({ settings, onUpdate }: Props) {
-  const [models, setModels] = useState<WhisperModel[]>([]);
+  const [models, setModels] = useState<VoskModel[]>([]);
   const [showDownload, setShowDownload] = useState(false);
 
   useEffect(() => {
@@ -63,34 +61,6 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
               ))}
             </SelectContent>
           </Select>
-        </SettingsField>
-
-        <SettingsField label="Chunk preset">
-          <RadioGroup
-            value={settings.speechToText.realtimeChunkPreset}
-            onValueChange={(v) =>
-              onUpdate({
-                speechToText: {
-                  ...settings.speechToText,
-                  realtimeChunkPreset: v as "Fast" | "Balanced" | "Accurate",
-                },
-              })
-            }
-            className="space-y-2"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Fast" id="fast" />
-              <Label htmlFor="fast" className="font-normal">Fast — 500ms chunks, lower accuracy</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Balanced" id="balanced" />
-              <Label htmlFor="balanced" className="font-normal">Balanced — 1000ms chunks</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Accurate" id="accurate" />
-              <Label htmlFor="accurate" className="font-normal">Accurate — 2000ms chunks, higher accuracy</Label>
-            </div>
-          </RadioGroup>
         </SettingsField>
 
         <SettingsField label="Source language" helper="Language of the audio being captured">
