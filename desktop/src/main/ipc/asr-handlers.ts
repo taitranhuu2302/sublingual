@@ -4,7 +4,7 @@ import { getSettings } from "../settings/settings-store";
 import { startVosk, stopVosk, isVoskRunning } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
-import { getTranslationService } from "../translation/translation-service";
+import { IncrementalTranslationManager } from "../translation/incremental-translation-manager";
 
 function isSentenceComplete(text: string): boolean {
   const trimmed = text.trim();
@@ -18,6 +18,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
   let pendingText = "";
   let pendingLineId = "";
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  const incrementalMgr = new IncrementalTranslationManager("");
   const FLUSH_TIMEOUT_MS = 3000;
 
   const originalSend = mainWindow.webContents.send.bind(mainWindow.webContents);
@@ -43,40 +44,33 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     const overlay = getOverlayManager();
 
-    // Send original text to overlay immediately
-    if (overlay.isVisible()) {
-      overlay.sendToOverlay("overlay:transcript-line", line);
-    }
-
-    // Send translation update asynchronously
-    const settings = getSettings();
-    if (settings.translation.enabled) {
-      const srcLang = settings.speechToText.sourceLanguage || "auto";
-      const tgtLang = settings.translation.targetLanguage || "vi";
-      getTranslationService()
-        .translate(line.text, srcLang, tgtLang)
-        .then((result) => {
-          if (!mainWindow.isDestroyed()) {
-            if (result.translatedText) {
-              originalSend("translation:segment-result", {
-                segmentId: line.id,
-                translatedText: result.translatedText,
-                providerName: result.providerName,
-                durationMs: result.durationMs,
-              });
-              if (overlay.isVisible()) {
-                overlay.sendToOverlay("overlay:translation-update", {
-                  id: line.id,
-                  translatedText: result.translatedText,
-                });
-              }
-            }
-          }
-        })
-        .catch((err) => {
-          console.error("[translation] auto-translate failed:", err);
+    // Finalize incremental translation (sends transcript-line via onFinalize callback)
+    incrementalMgr.onFinalize = (event) => {
+      if (!mainWindow.isDestroyed()) {
+        originalSend("translation:segment-result", {
+          segmentId: line.id,
+          translatedText: event.fullTranslation,
+          providerName: "incremental",
+          durationMs: 0,
         });
-    }
+
+        if (overlay.isVisible()) {
+          overlay.sendToOverlay("overlay:transcript-line", {
+            ...line,
+            translatedText: event.fullTranslation || undefined,
+          });
+          overlay.sendToOverlay("overlay:translation-committed", { text: "" });
+        }
+      }
+    };
+
+    incrementalMgr.handleFinal(line.text).catch((err) => {
+      console.error("[incremental] finalization failed:", err);
+      if (overlay.isVisible()) {
+        overlay.sendToOverlay("overlay:transcript-line", line);
+      }
+      incrementalMgr.reset();
+    });
   };
 
   ipcMain.handle("asr:get-models", async () => getModelManager().listModels());
@@ -96,6 +90,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
       clearTimeout(flushTimer);
       flushTimer = null;
     }
+    incrementalMgr.reset();
 
     getSessionStorage().startSession();
     getOverlayManager().show(mainWindow);
@@ -109,6 +104,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle("asr:stop-transcription", async () => {
     flushPending();
+    incrementalMgr.reset();
     stopVosk();
     getSessionStorage().stopSession();
   });
@@ -148,8 +144,23 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
           }, FLUSH_TIMEOUT_MS);
         }
       } else {
-        // Partial: forward directly to renderer and overlay
+        // Partial: feed to incremental translation manager
         const overlay = getOverlayManager();
+
+        if (!incrementalMgr.utteranceId) {
+          incrementalMgr.resetUtteranceId(`utt-${Date.now()}`);
+        }
+
+        incrementalMgr.onCommit = (event) => {
+          if (overlay.isVisible()) {
+            overlay.sendToOverlay("overlay:translation-committed", {
+              text: event.text,
+            });
+          }
+        };
+
+        incrementalMgr.handlePartial(segment.text);
+
         if (overlay.isVisible()) {
           overlay.sendToOverlay("overlay:partial-update", {
             text: segment.text,
