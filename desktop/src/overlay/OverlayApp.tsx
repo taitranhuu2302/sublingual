@@ -26,7 +26,7 @@ export function OverlayApp() {
     showTranslation: true,
   });
   const [lines, setLines] = useState<TranscriptLine[]>([]);
-  const [partial, setPartial] = useState<{ text: string; translatedText?: string } | null>(null);
+  const [partial, setPartial] = useState<{ text: string; committedTranslation?: string } | null>(null);
   const [pendingTranslation, setPendingTranslation] = useState<Set<string>>(new Set());
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,6 +62,11 @@ export function OverlayApp() {
           next.delete(data.id);
           return next;
         });
+      }),
+      window.overlayAPI.onTranslationCommitted((data) => {
+        setPartial((prev) =>
+          prev ? { ...prev, committedTranslation: data.text || undefined } : null,
+        );
       }),
       window.overlayAPI.onSettingsUpdate((s) => {
         setSettings((prev) => ({ ...prev, ...s }));
@@ -175,16 +180,30 @@ export function OverlayApp() {
             >
               {partial.text}
             </p>
-            {settings.showTranslation && partial.translatedText && (
-              <p
-                className={`${mutedColor} mt-0.5 italic opacity-70`}
-                style={{
-                  fontSize: Math.max(14, settings.fontSize - 4),
-                  lineHeight: settings.lineHeight,
-                }}
-              >
-                {partial.translatedText}
-              </p>
+            {settings.showTranslation && (
+              <>
+                {partial.committedTranslation ? (
+                  <p
+                    className={`${mutedColor} mt-0.5`}
+                    style={{
+                      fontSize: Math.max(14, settings.fontSize - 4),
+                      lineHeight: settings.lineHeight,
+                    }}
+                  >
+                    {partial.committedTranslation}
+                  </p>
+                ) : (
+                  <p
+                    className={`${mutedColor} mt-0.5 animate-pulse`}
+                    style={{
+                      fontSize: Math.max(14, settings.fontSize - 4),
+                      lineHeight: settings.lineHeight,
+                    }}
+                  >
+                    ···
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
