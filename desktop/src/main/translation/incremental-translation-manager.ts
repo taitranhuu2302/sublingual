@@ -57,7 +57,7 @@ export class IncrementalTranslationManager {
         if (currentRevision < this.revision) return;
         this.committedTranslation += (this.committedTranslation ? " " : "") + translationResult.translatedText;
         this.onCommit?.({
-          text: translationResult.translatedText,
+          text: this.committedTranslation,
           fullSource: text,
           revision: currentRevision,
         });
