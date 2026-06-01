@@ -49,7 +49,13 @@ export function OverlayApp() {
         }
       }),
       window.overlayAPI.onPartialUpdate((data) => {
-        setPartial(data.text ? data : null);
+        setPartial((prev) => {
+          if (!data.text) return null;
+          return {
+            text: data.text,
+            committedTranslation: prev?.committedTranslation,
+          };
+        });
       }),
       window.overlayAPI.onTranslationUpdate((data) => {
         setLines((prev) =>

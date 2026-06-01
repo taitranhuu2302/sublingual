@@ -48,8 +48,8 @@ export class IncrementalTranslationManager {
 
     if (!settings.translation.enabled) return;
 
-    const srcLang = settings.speechToText.sourceLanguage;
-    const tgtLang = settings.translation.targetLanguage;
+    const srcLang = settings.speechToText.sourceLanguage || "auto";
+    const tgtLang = settings.translation.targetLanguage || "vi";
 
     getTranslationService()
       .translate(newChunk, srcLang, tgtLang, { previousTarget: this.committedTranslation })
@@ -71,7 +71,7 @@ export class IncrementalTranslationManager {
     const settings = getSettings();
 
     // Increment revision to invalidate any in-flight partial callbacks
-    ++this.revision;
+    const finalRevision = ++this.revision;
 
     const words = text.trim() ? text.trim().split(/\s+/) : [];
     const remainingWords = words.slice(this.committedWordCount);
@@ -80,12 +80,14 @@ export class IncrementalTranslationManager {
     let fullTranslation = this.committedTranslation;
 
     if (settings.translation.enabled && remaining.trim()) {
-      const srcLang = settings.speechToText.sourceLanguage;
-      const tgtLang = settings.translation.targetLanguage;
+      const srcLang = settings.speechToText.sourceLanguage || "auto";
+      const tgtLang = settings.translation.targetLanguage || "vi";
 
       try {
         const result = await getTranslationService().translate(remaining, srcLang, tgtLang);
-        fullTranslation = this.committedTranslation + (this.committedTranslation ? " " : "") + result.translatedText;
+        if (finalRevision >= this.revision) {
+          fullTranslation = this.committedTranslation + (this.committedTranslation ? " " : "") + result.translatedText;
+        }
       } catch (err) {
         console.error("[IncrementalTranslationManager] Final translation error:", err);
       }
@@ -94,7 +96,7 @@ export class IncrementalTranslationManager {
     this.onFinalize?.({
       fullSource: text,
       fullTranslation,
-      revision: this.revision,
+      revision: finalRevision,
     });
 
     this.reset();

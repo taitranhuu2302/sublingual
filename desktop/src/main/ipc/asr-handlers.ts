@@ -59,7 +59,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
             ...line,
             translatedText: event.fullTranslation || undefined,
           });
-          overlay.sendToOverlay("overlay:translation-committed", { text: "" });
         }
       }
     };
