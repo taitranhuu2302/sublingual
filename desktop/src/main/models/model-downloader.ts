@@ -2,11 +2,12 @@ import fs from "fs";
 import path from "path";
 import { BrowserWindow } from "electron";
 import { getModelsDir, getModelSource } from "./model-source-catalog";
+import AdmZip from "adm-zip";
 
 export interface DownloadProgress {
   modelId: string;
   percent: number;
-  status: "downloading" | "completed" | "error" | "cancelled";
+  status: "downloading" | "extracting" | "completed" | "error" | "cancelled";
   error?: string;
 }
 
@@ -22,8 +23,9 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
     fs.mkdirSync(modelsDir, { recursive: true });
   }
 
-  const destPath = path.join(modelsDir, source.filename);
-  const tempPath = destPath + ".tmp";
+  const extractDir = path.join(modelsDir, source.extractDir);
+  const zipPath = path.join(modelsDir, `${modelId}.zip`);
+  const tempZipPath = zipPath + ".tmp";
 
   activeAbortController = new AbortController();
   activeModelId = modelId;
@@ -49,7 +51,7 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
     const reader = response.body?.getReader();
     if (!reader) throw new Error("No response body");
 
-    const fileStream = fs.createWriteStream(tempPath);
+    const fileStream = fs.createWriteStream(tempZipPath);
     let downloaded = 0;
     let lastReportedPercent = -1;
     let done = false;
@@ -75,11 +77,24 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
       fileStream.on("error", reject);
     });
 
-    fs.renameSync(tempPath, destPath);
+    fs.renameSync(tempZipPath, zipPath);
+
+    sendProgress({ modelId, percent: 100, status: "extracting" });
+
+    const zip = new AdmZip(zipPath);
+    if (fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true, force: true });
+    }
+    zip.extractAllTo(modelsDir, true);
+    fs.unlinkSync(zipPath);
+
     sendProgress({ modelId, percent: 100, status: "completed" });
   } catch (err: unknown) {
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
+    if (fs.existsSync(tempZipPath)) {
+      fs.unlinkSync(tempZipPath);
+    }
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
     }
 
     if (err instanceof Error && err.name === "AbortError") {
