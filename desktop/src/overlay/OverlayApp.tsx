@@ -181,7 +181,7 @@ export function OverlayApp() {
         {partial && (
           <div className="mb-3">
             <p
-              className={`${textColor} font-medium italic opacity-70`}
+              className={`${textColor} font-medium`}
               style={{ fontSize: settings.fontSize, lineHeight: settings.lineHeight }}
             >
               {partial.text}
