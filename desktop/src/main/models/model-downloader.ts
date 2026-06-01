@@ -82,20 +82,25 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
       fileStream.on("error", reject);
     });
 
-    // Extract zip — Vosk zips contain a top-level dir,
-    // so we extract then flatten if needed
+    // Extract zip — Vosk zips have a top-level directory inside
+    // (e.g. vosk-model-small-en-us-0.15/am/final.mdl).
+    // Strip that top-level dir and write files directly to extractDir.
     const zip = new AdmZip(zipPath);
-    zip.extractAllTo(extractDir, true);
+    const entries: any[] = zip.getEntries();
+    const fileEntries = entries.filter((e: any) => !e.isDirectory);
 
-    // Check if zip had a top-level dir (single subdirectory)
-    const entries = fs.readdirSync(extractDir);
-    if (entries.length === 1) {
-      const nested = path.join(extractDir, entries[0]);
-      if (fs.statSync(nested).isDirectory()) {
-        const tmpDir = extractDir + "_tmp";
-        fs.renameSync(extractDir, tmpDir);
-        fs.renameSync(path.join(tmpDir, entries[0]), extractDir);
-        fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (fileEntries.length > 0) {
+      const first = fileEntries[0].entryName;
+      const topDir = first.substring(0, first.indexOf("/") + 1);
+
+      fs.mkdirSync(extractDir, { recursive: true });
+      for (const entry of fileEntries) {
+        const rel = entry.entryName.startsWith(topDir)
+          ? entry.entryName.slice(topDir.length)
+          : entry.entryName;
+        const fp = path.join(extractDir, rel);
+        fs.mkdirSync(path.dirname(fp), { recursive: true });
+        fs.writeFileSync(fp, entry.getData());
       }
     }
 
