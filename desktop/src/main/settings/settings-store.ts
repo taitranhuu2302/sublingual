@@ -22,7 +22,6 @@ export interface OverlaySettings {
 
 export interface SpeechToTextSettings {
   selectedModel: string;
-  realtimeChunkPreset: "Fast" | "Balanced" | "Accurate";
   sourceLanguage: string;
 }
 
@@ -67,11 +66,10 @@ const DEFAULTS: AppSettings = {
     positionX: null,
     positionY: null,
   },
-  speechToText: {
-    selectedModel: "",
-    realtimeChunkPreset: "Balanced",
-    sourceLanguage: "en",
-  },
+    speechToText: {
+      selectedModel: "",
+      sourceLanguage: "en",
+    },
   translation: {
     enabled: true,
     provider: "google-free",

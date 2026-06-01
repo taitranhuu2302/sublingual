@@ -16,7 +16,6 @@ const DEFAULTS: AppSettings = {
   },
   speechToText: {
     selectedModel: "",
-    realtimeChunkPreset: "Balanced",
     sourceLanguage: "en",
   },
   translation: {
