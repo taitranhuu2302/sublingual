@@ -63,7 +63,7 @@ export function SessionsPage() {
   const allSelected = sessions.length > 0 && selectedIds.size === sessions.length;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-1">
       {/* Left panel — session list */}
       <div className="w-80 border-r flex flex-col shrink-0 min-h-0">
         <div className="p-3 border-b">

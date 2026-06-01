@@ -24,7 +24,7 @@ export function SettingsPage() {
   if (!loaded) return null;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-1">
       <nav className="w-48 border-r py-4 space-y-1 px-2 shrink-0">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button

@@ -93,7 +93,7 @@ export function HomePage() {
     : "None";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1">
       <CaptureToolbar
         sources={sources}
         selectedSource={selectedSource}
