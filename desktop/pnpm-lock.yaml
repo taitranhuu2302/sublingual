@@ -35,6 +35,9 @@ importers:
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)
+      native-audio-node:
+        specifier: ^0.3.5
+        version: 0.3.5
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -742,6 +745,32 @@ packages:
   '@mswjs/interceptors@0.41.9':
     resolution: {integrity: sha512-VVPPgHyQ6ShqnrmDWuxjmUIsO9gWyOZFmuOfLd9LfBGQJwZfy0gvv9pbHSJuoFNIYC7ZDX9aoFwowjcdSC4E8w==}
     engines: {node: '>=18'}
+
+  '@native-audio-node/darwin-arm64@0.3.1':
+    resolution: {integrity: sha512-LLgYOIljA6lPYoyjZE4nt7EHXUCp7Y+oxCjRAaDgGMnqvGqcppPw5qrSF3zWQBWA4x4ciIljyPN7hFdYLmqcpA==}
+    engines: {node: '>=20'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@native-audio-node/darwin-x64@0.3.0':
+    resolution: {integrity: sha512-ygRwNH0aexRDdLGYzz4uJrfxqZSXKkKbFgKKJCb8VLN6dyB7VCTAO40+oZULc2eQtWkZhdil3ArQW+Y7CTnK7g==}
+    engines: {node: '>=20'}
+    cpu: [x64]
+    os: [darwin]
+    deprecated: Missing binary, use 0.3.1+
+
+  '@native-audio-node/win32-arm64@0.3.0':
+    resolution: {integrity: sha512-4Oc1aeOkYkBaDCsmtW9t2a4muXB/WpnvU+xI2SJo8GSg5oOQ4mNMKLkcDAH+JMXx8KA/ROBNqsQsEyJjLIRvIA==}
+    engines: {node: '>=20'}
+    cpu: [arm64]
+    os: [win32]
+    deprecated: Missing binary, use 0.3.1+
+
+  '@native-audio-node/win32-x64@0.3.3':
+    resolution: {integrity: sha512-ESJVq6kqBCCc1c2Q+6Owjbg5rHgCd2KRLfIHxL6noFbuabFl/vjBAP7RMhu3SOknxt1GtQlmenJ0u31qmnRDVQ==}
+    engines: {node: '>=20'}
+    cpu: [x64]
+    os: [win32]
 
   '@noble/ciphers@1.3.0':
     resolution: {integrity: sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw==}
@@ -3765,6 +3794,12 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  native-audio-node@0.3.5:
+    resolution: {integrity: sha512-1ZeUwSkJ9HHLX2LdbFz3YCfzIajhgw6uVKv8ZgWz92xQ37izRYm1aQHSdGOgwwIhUC1th3COuRhW9Te+A6+rJA==}
+    engines: {node: '>=20'}
+    cpu: [x64, arm64]
+    os: [darwin, win32]
+
   natural-compare-lite@1.4.0:
     resolution: {integrity: sha512-Tj+HTDSJJKaZnfiuw+iaF9skdPpTo2GtEly5JHnWV/hfv2Qj/9RKsGISQtLh2ox3l5EAGw487hnBee0sIJ6v2g==}
 
@@ -6052,6 +6087,18 @@ snapshots:
       is-node-process: 1.2.0
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
+
+  '@native-audio-node/darwin-arm64@0.3.1':
+    optional: true
+
+  '@native-audio-node/darwin-x64@0.3.0':
+    optional: true
+
+  '@native-audio-node/win32-arm64@0.3.0':
+    optional: true
+
+  '@native-audio-node/win32-x64@0.3.3':
+    optional: true
 
   '@noble/ciphers@1.3.0': {}
 
@@ -9266,6 +9313,13 @@ snapshots:
   mute-stream@4.0.0: {}
 
   nanoid@3.3.12: {}
+
+  native-audio-node@0.3.5:
+    optionalDependencies:
+      '@native-audio-node/darwin-arm64': 0.3.1
+      '@native-audio-node/darwin-x64': 0.3.0
+      '@native-audio-node/win32-arm64': 0.3.0
+      '@native-audio-node/win32-x64': 0.3.3
 
   natural-compare-lite@1.4.0: {}
 

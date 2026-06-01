@@ -1,13 +1,12 @@
 import { BrowserWindow } from "electron";
-import { initMacCapture, startMacCapture, stopMacCapture, destroyMacCapture } from "./screencapture-mac";
-import { feedAudio } from "../asr/whisper-process";
+import { feedPcm } from "../asr/vosk-process";
 import type { AudioSource } from "../../types/electron-api";
 
 let capturing = false;
 
 export function getAudioSources(): AudioSource[] {
   if (process.platform === "win32") {
-    return [];
+    return [{ id: "system-default", name: "System Audio", type: "system" }];
   }
   if (process.platform === "darwin") {
     return [{ id: "system-default", name: "System Audio", type: "system" }];
@@ -15,11 +14,24 @@ export function getAudioSources(): AudioSource[] {
   return [];
 }
 
-export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
+export async function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
   if (capturing) return;
   capturing = true;
 
+  if (process.platform === "win32") {
+    const { initWinCapture, startWinCapture } = await import("./wasapi-capture");
+
+    const ok = initWinCapture((pcmBuffer: Buffer) => {
+      if (!capturing || mainWindow.isDestroyed()) return;
+      feedPcm(pcmBuffer);
+    });
+    if (ok) await startWinCapture();
+    return;
+  }
+
   if (process.platform === "darwin") {
+    const { initMacCapture, startMacCapture } = await import("./screencapture-mac");
+
     function downmixAndResample(samples: Float32Array, frameCount: number, channels: number, timestamp: number) {
       if (!capturing || mainWindow.isDestroyed()) return;
 
@@ -50,7 +62,7 @@ export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send("audio:data", resampled);
       }
-      feedAudio(pcmBuffer);
+      feedPcm(pcmBuffer);
     }
 
     const ok = initMacCapture(downmixAndResample);
@@ -58,11 +70,19 @@ export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
   }
 }
 
-export function stopAudioCapture() {
+export async function stopAudioCapture() {
   if (!capturing) return;
   capturing = false;
 
+  if (process.platform === "win32") {
+    const { stopWinCapture, destroyWinCapture } = await import("./wasapi-capture");
+    await stopWinCapture();
+    destroyWinCapture();
+    return;
+  }
+
   if (process.platform === "darwin") {
+    const { stopMacCapture, destroyMacCapture } = await import("./screencapture-mac");
     stopMacCapture();
     destroyMacCapture();
   }
