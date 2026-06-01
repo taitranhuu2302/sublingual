@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { getModelManager } from "../models/model-manager";
 import { getSettings } from "../settings/settings-store";
-import { startWhisper, stopWhisper } from "../asr/whisper-process";
+import { initVosk, stopVosk, updateVoskConfig, isVoskRunning } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { getTranslationService } from "../translation/translation-service";
@@ -43,12 +43,10 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     const overlay = getOverlayManager();
 
-    // Send original text to overlay immediately
     if (overlay.isVisible()) {
       overlay.sendToOverlay("overlay:transcript-line", line);
     }
 
-    // Send translation update asynchronously
     const settings = getSettings();
     if (settings.translation.enabled) {
       const srcLang = settings.speechToText.sourceLanguage || "auto";
@@ -84,6 +82,8 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getModelManager().selectModel(modelId);
   });
 
+  ipcMain.handle("asr:is-transcribing", async () => isVoskRunning());
+
   ipcMain.handle("asr:start-transcription", async () => {
     const mm = getModelManager();
     const model = mm.getSelectedModel();
@@ -100,7 +100,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getSessionStorage().startSession();
     getOverlayManager().show(mainWindow);
 
-    startWhisper(
+    initVosk(
       { modelPath: model.path, language: settings.speechToText.sourceLanguage },
       mainWindow,
     );
@@ -108,8 +108,19 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle("asr:stop-transcription", async () => {
     flushPending();
-    stopWhisper();
+    stopVosk();
     getSessionStorage().stopSession();
+  });
+
+  ipcMain.handle("asr:update-config", async () => {
+    const mm = getModelManager();
+    const model = mm.getSelectedModel();
+    if (!model) return;
+    const settings = getSettings();
+    updateVoskConfig({
+      modelPath: model.path,
+      language: settings.speechToText.sourceLanguage,
+    });
   });
 
   mainWindow.webContents.send = (channel: string, ...args: unknown[]) => {
