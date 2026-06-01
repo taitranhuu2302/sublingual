@@ -82,9 +82,22 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
       fileStream.on("error", reject);
     });
 
-    // Extract zip (AdmZip is synchronous, this completes quickly)
+    // Extract zip — Vosk zips contain a top-level dir,
+    // so we extract then flatten if needed
     const zip = new AdmZip(zipPath);
     zip.extractAllTo(extractDir, true);
+
+    // Check if zip had a top-level dir (single subdirectory)
+    const entries = fs.readdirSync(extractDir);
+    if (entries.length === 1) {
+      const nested = path.join(extractDir, entries[0]);
+      if (fs.statSync(nested).isDirectory()) {
+        const tmpDir = extractDir + "_tmp";
+        fs.renameSync(extractDir, tmpDir);
+        fs.renameSync(path.join(tmpDir, entries[0]), extractDir);
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
 
     // Remove zip file
     fs.unlinkSync(zipPath);
