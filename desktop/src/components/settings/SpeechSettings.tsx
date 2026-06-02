@@ -86,6 +86,26 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
             </SelectContent>
           </Select>
         </SettingsField>
+
+        <SettingsField label="Max speakers" helper="Maximum number of speakers to detect (2-8)">
+          <Select
+            value={String(settings.speechToText.maxSpeakers ?? 4)}
+            onValueChange={(v) =>
+              onUpdate({
+                speechToText: { ...settings.speechToText, maxSpeakers: Number(v) },
+              })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <SelectItem key={n} value={String(n)}>{n} speakers</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsField>
       </SettingsSection>
 
       <SettingsSection title="Model Management">
