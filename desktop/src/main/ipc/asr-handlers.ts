@@ -5,6 +5,8 @@ import { startVosk, stopVosk, isVoskRunning } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { IncrementalTranslationManager } from "../translation/incremental-translation-manager";
+import { startSpk, stopSpk, isSpkRunning, extractSpeakerEmbedding, classifySpeaker } from "../asr/speaker-process";
+import { getRingBuffer, getCaptureStartTime } from "../audio/audio-capture";
 
 function isSentenceComplete(text: string): boolean {
   const trimmed = text.trim();
@@ -20,6 +22,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   const incrementalMgr = new IncrementalTranslationManager("");
   const FLUSH_TIMEOUT_MS = 3000;
+  const speakerById: Map<string, { speakerId: string; speakerLabel: string; speakerColor: string }> = new Map();
 
   const originalSend = mainWindow.webContents.send.bind(mainWindow.webContents);
 
@@ -36,6 +39,14 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
       isFinal: true,
       timestamp: Date.now(),
     };
+
+    const speakerInfo = speakerById.get(pendingLineId);
+    if (speakerInfo) {
+      (line as any).speakerId = speakerInfo.speakerId;
+      (line as any).speakerLabel = speakerInfo.speakerLabel;
+      (line as any).speakerColor = speakerInfo.speakerColor;
+      speakerById.delete(pendingLineId);
+    }
 
     pendingText = "";
     pendingLineId = "";
@@ -95,6 +106,12 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getOverlayManager().show(mainWindow);
 
     startVosk(model.path, mainWindow);
+
+    const spkModelPath = settings.speechToText.speakerModel;
+    const maxSpeakers = settings.speechToText.maxSpeakers ?? 4;
+    if (spkModelPath) {
+      startSpk(spkModelPath, maxSpeakers);
+    }
   });
 
   ipcMain.handle("asr:get-state", async () => ({
@@ -105,6 +122,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     flushPending();
     incrementalMgr.reset();
     stopVosk();
+    stopSpk();
     getSessionStorage().stopSession();
   });
 
@@ -126,6 +144,23 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
         // Final: sentence merging + translation pipeline
         const lineId = `seg-${segmentCounter++}`;
         segment.id = lineId;
+
+        if (isSpkRunning()) {
+          const rb = getRingBuffer();
+          const startTime = getCaptureStartTime();
+          if (rb && startTime > 0) {
+            const endMs = Date.now() - startTime;
+            const startMs = Math.max(0, endMs - 2000);
+            const audioSegment = rb.extractSegment(startMs, endMs);
+            const embedding = extractSpeakerEmbedding(audioSegment);
+            if (embedding) {
+              const speaker = classifySpeaker(embedding);
+              if (speaker) {
+                speakerById.set(lineId, speaker);
+              }
+            }
+          }
+        }
 
         if (pendingText) {
           pendingText = pendingText + " " + segment.text;
