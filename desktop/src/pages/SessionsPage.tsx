@@ -183,7 +183,21 @@ export function SessionsPage() {
                                                 {time}
                                             </span>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-base">{line.text}</p>
+                                                <p className="text-base">
+                                                  {"speakerLabel" in line && line.speakerLabel && (
+                                                    <span
+                                                      className="inline-flex items-center gap-1 mr-2 text-xs font-semibold rounded px-1.5 py-0.5 align-middle"
+                                                      style={{
+                                                        backgroundColor: `${(line as any).speakerColor}22`,
+                                                        color: (line as any).speakerColor,
+                                                        border: `1px solid ${(line as any).speakerColor}44`,
+                                                      }}
+                                                    >
+                                                      {(line as any).speakerLabel}
+                                                    </span>
+                                                  )}
+                                                  {line.text}
+                                                </p>
                                                 {line.translatedText && (
                                                     <p className="text-sm text-muted-foreground mt-0.5">{line.translatedText}</p>
                                                 )}
