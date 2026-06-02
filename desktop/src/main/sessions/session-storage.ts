@@ -211,7 +211,8 @@ class SessionStorage {
       .filter((l) => l.isFinal)
       .map((l) => {
         const ts = new Date(l.timestamp).toLocaleTimeString();
-        let line = `[${ts}] ${l.text}`;
+        const speaker = (l as any).speakerLabel ? `[${(l as any).speakerLabel}] ` : "";
+        let line = `[${ts}] ${speaker}${l.text}`;
         if (l.translatedText) line += `\n         ${l.translatedText}`;
         return line;
       })
