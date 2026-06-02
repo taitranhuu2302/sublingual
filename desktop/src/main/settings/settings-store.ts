@@ -23,6 +23,8 @@ export interface OverlaySettings {
 export interface SpeechToTextSettings {
   selectedModel: string;
   sourceLanguage: string;
+  speakerModel?: string;
+  maxSpeakers?: number;
 }
 
 export interface TranslationProviderGoogle {
@@ -69,6 +71,8 @@ const DEFAULTS: AppSettings = {
   speechToText: {
     selectedModel: "",
     sourceLanguage: "en",
+    speakerModel: "",
+    maxSpeakers: 4,
   },
   translation: {
     enabled: true,

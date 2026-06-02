@@ -84,6 +84,9 @@ export interface TranscriptSegment {
   text: string;
   isFinal: boolean;
   timestamp: number;
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerColor?: string;
 }
 
 export interface TranslationResult {
@@ -142,6 +145,9 @@ export interface TranscriptLine {
   translatedText?: string;
   timestamp: number;
   isFinal: boolean;
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerColor?: string;
 }
 
 declare global {
