@@ -2,35 +2,57 @@ import koffi from "koffi";
 import path from "path";
 import { app } from "electron";
 
-function getLibPath(): string {
+export function getLibPath(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, "bin", "vosk", "libvosk.dylib");
   }
   return path.join(app.getAppPath(), "bin", "vosk", "libvosk.dylib");
 }
 
-const lib = koffi.load(getLibPath());
+const isVoskSupported = process.platform === "darwin";
 
-const VoskModel = koffi.opaque("VoskModel");
-const VoskModelPtr = koffi.pointer(VoskModel);
-const VoskRecognizer = koffi.opaque("VoskRecognizer");
-const VoskRecognizerPtr = koffi.pointer(VoskRecognizer);
+let lib: any = null;
+let VoskModel: any = null;
+let VoskModelPtr: any = null;
+let VoskRecognizer: any = null;
+let VoskRecognizerPtr: any = null;
 
-const vosk_set_log_level = lib.func("vosk_set_log_level", "void", ["int"]);
+let vosk_set_log_level: (...args: any[]) => void = () => {};
+let vosk_model_new: (...args: any[]) => any = () => null;
+let vosk_model_free: (...args: any[]) => void = () => {};
+let vosk_recognizer_new: (...args: any[]) => any = () => null;
+let vosk_recognizer_free: (...args: any[]) => void = () => {};
+let vosk_recognizer_set_words: (...args: any[]) => void = () => {};
+let vosk_recognizer_set_partial_words: (...args: any[]) => void = () => {};
+let vosk_recognizer_accept_waveform: (...args: any[]) => any = () => false;
+let vosk_recognizer_result: (...args: any[]) => any = () => null;
+let vosk_recognizer_partial_result: (...args: any[]) => any = () => null;
+let vosk_recognizer_final_result: (...args: any[]) => any = () => null;
 
-const vosk_model_new = lib.func("vosk_model_new", VoskModelPtr, ["string"]);
-const vosk_model_free = lib.func("vosk_model_free", "void", [VoskModelPtr]);
+if (isVoskSupported) {
+  lib = koffi.load(getLibPath());
 
-const vosk_recognizer_new = lib.func("vosk_recognizer_new", VoskRecognizerPtr, [VoskModelPtr, "float"]);
-const vosk_recognizer_free = lib.func("vosk_recognizer_free", "void", [VoskRecognizerPtr]);
-const vosk_recognizer_set_words = lib.func("vosk_recognizer_set_words", "void", [VoskRecognizerPtr, "bool"]);
-const vosk_recognizer_set_partial_words = lib.func("vosk_recognizer_set_partial_words", "void", [VoskRecognizerPtr, "bool"]);
+  VoskModel = koffi.opaque("VoskModel");
+  VoskModelPtr = koffi.pointer(VoskModel);
+  VoskRecognizer = koffi.opaque("VoskRecognizer");
+  VoskRecognizerPtr = koffi.pointer(VoskRecognizer);
 
-const vosk_recognizer_accept_waveform = lib.func("vosk_recognizer_accept_waveform", "bool", [VoskRecognizerPtr, koffi.pointer("void"), "int"]);
+  vosk_set_log_level = lib.func("vosk_set_log_level", "void", ["int"]);
 
-const vosk_recognizer_result = lib.func("vosk_recognizer_result", "string", [VoskRecognizerPtr]);
-const vosk_recognizer_partial_result = lib.func("vosk_recognizer_partial_result", "string", [VoskRecognizerPtr]);
-const vosk_recognizer_final_result = lib.func("vosk_recognizer_final_result", "string", [VoskRecognizerPtr]);
+  vosk_model_new = lib.func("vosk_model_new", VoskModelPtr, ["string"]);
+  vosk_model_free = lib.func("vosk_model_free", "void", [VoskModelPtr]);
+
+  vosk_recognizer_new = lib.func("vosk_recognizer_new", VoskRecognizerPtr, [VoskModelPtr, "float"]);
+  vosk_recognizer_free = lib.func("vosk_recognizer_free", "void", [VoskRecognizerPtr]);
+  vosk_recognizer_set_words = lib.func("vosk_recognizer_set_words", "void", [VoskRecognizerPtr, "bool"]);
+  vosk_recognizer_set_partial_words = lib.func("vosk_recognizer_set_partial_words", "void", [VoskRecognizerPtr, "bool"]);
+
+  vosk_recognizer_accept_waveform = lib.func("vosk_recognizer_accept_waveform", "bool", [VoskRecognizerPtr, koffi.pointer("void"), "int"]);
+
+  vosk_recognizer_result = lib.func("vosk_recognizer_result", "string", [VoskRecognizerPtr]);
+  vosk_recognizer_partial_result = lib.func("vosk_recognizer_partial_result", "string", [VoskRecognizerPtr]);
+  vosk_recognizer_final_result = lib.func("vosk_recognizer_final_result", "string", [VoskRecognizerPtr]);
+}
 
 export function setLogLevel(level: number): void {
   vosk_set_log_level(level);
