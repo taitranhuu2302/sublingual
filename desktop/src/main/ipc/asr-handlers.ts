@@ -107,7 +107,9 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     startVosk(model.path, mainWindow);
 
-    const spkModelPath = settings.speechToText.speakerModel;
+    // Load speaker identification model if available
+    const spkModel = mm.getSpkModel();
+    const spkModelPath = spkModel?.path ?? settings.speechToText.speakerModel;
     const maxSpeakers = settings.speechToText.maxSpeakers ?? 4;
     if (spkModelPath) {
       startSpk(spkModelPath, maxSpeakers);

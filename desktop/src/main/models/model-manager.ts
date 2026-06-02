@@ -31,6 +31,10 @@ class ModelManager {
     const settings = getSettings();
     return this.listModels().find((m) => m.id === settings.speechToText.selectedModel) ?? null;
   }
+
+  getSpkModel(): VoskModel | null {
+    return this.listModels().find((m) => m.id === "vosk-model-spk-0.4" && m.downloaded) ?? null;
+  }
 }
 
 let instance: ModelManager | null = null;

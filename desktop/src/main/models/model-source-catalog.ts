@@ -69,6 +69,16 @@ const MODEL_CATALOG: ModelSource[] = [
     filename: "vosk-model-vn-0.4.zip",
     url: "https://alphacephei.com/vosk/models/vosk-model-vn-0.4.zip",
   },
+  {
+    id: "vosk-model-spk-0.4",
+    name: "Speaker Identification",
+    description: "Speaker diarization model, works for all languages. ~50MB.",
+    size: "50 MB",
+    sizeBytes: 50_000_000,
+    language: "multi",
+    filename: "vosk-model-spk-0.4.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-model-spk-0.4.zip",
+  },
 ];
 
 export function getModelsDir(): string {
@@ -82,7 +92,8 @@ export function getInstallableModels(): InstallableModel[] {
     const dirName = source.filename.replace(/\.zip$/, "");
     const localPath = path.join(modelsDir, dirName);
     // Detect by checking for the model marker file
-    const isInstalled = fs.existsSync(path.join(localPath, "am", "final.mdl"));
+    const isInstalled = fs.existsSync(path.join(localPath, "am", "final.mdl"))
+      || fs.existsSync(path.join(localPath, "final.mdl"));
     return {
       ...source,
       isInstalled,
