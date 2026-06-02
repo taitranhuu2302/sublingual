@@ -3,7 +3,64 @@ import { initMacCapture, startMacCapture, stopMacCapture, destroyMacCapture } fr
 import { feedAudio } from "../asr/vosk-process";
 import type { AudioSource } from "../../types/electron-api";
 
+class RingBuffer {
+  private buffer: Buffer;
+  private writePos: number = 0;
+  private totalWritten: number = 0;
+  private readonly capacity: number;
+  private readonly sampleRate: number;
+  private readonly bytesPerSample: number = 2;
+
+  constructor(sampleRate: number, durationMs: number) {
+    this.sampleRate = sampleRate;
+    const samples = Math.ceil((sampleRate * durationMs) / 1000);
+    this.capacity = samples * this.bytesPerSample;
+    this.buffer = Buffer.alloc(this.capacity);
+  }
+
+  write(data: Buffer): void {
+    for (let i = 0; i < data.length; i++) {
+      this.buffer[this.writePos] = data[i];
+      this.writePos = (this.writePos + 1) % this.capacity;
+    }
+    this.totalWritten += data.length;
+  }
+
+  extractSegment(startMs: number, endMs: number): Buffer {
+    const startByte = Math.floor((startMs / 1000) * this.sampleRate) * this.bytesPerSample;
+    const endByte = Math.floor((endMs / 1000) * this.sampleRate) * this.bytesPerSample;
+    const length = endByte - startByte;
+
+    if (length <= 0) return Buffer.alloc(0);
+
+    const result = Buffer.alloc(length);
+    const totalBytes = this.totalWritten;
+
+    for (let i = 0; i < length; i++) {
+      const globalOffset = startByte + i;
+      if (globalOffset < 0 || globalOffset >= totalBytes) {
+        result[i] = 0;
+        continue;
+      }
+      const wrappedOffset = (globalOffset - Math.max(0, totalBytes - this.capacity));
+      if (wrappedOffset < 0) continue;
+      const idx = wrappedOffset % this.capacity;
+      result[i] = this.buffer[idx];
+    }
+
+    return result;
+  }
+
+  reset(): void {
+    this.writePos = 0;
+    this.totalWritten = 0;
+    this.buffer.fill(0);
+  }
+}
+
 let capturing = false;
+let ringBuffer: RingBuffer | null = null;
+let captureStartTime: number = 0;
 
 export function getAudioSources(): AudioSource[] {
   if (process.platform === "win32") {
@@ -18,6 +75,8 @@ export function getAudioSources(): AudioSource[] {
 export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
   if (capturing) return;
   capturing = true;
+  ringBuffer = new RingBuffer(16000, 5000);
+  captureStartTime = Date.now();
 
   if (process.platform === "darwin") {
     function downmixAndResample(samples: Float32Array, frameCount: number, channels: number, timestamp: number) {
@@ -51,6 +110,7 @@ export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
         mainWindow.webContents.send("audio:data", resampled);
       }
       feedAudio(pcmBuffer);
+      ringBuffer?.write(pcmBuffer);
     }
 
     const ok = initMacCapture(downmixAndResample);
@@ -62,6 +122,14 @@ export function isAudioCapturing(): boolean {
   return capturing;
 }
 
+export function getRingBuffer(): RingBuffer | null {
+  return ringBuffer;
+}
+
+export function getCaptureStartTime(): number {
+  return captureStartTime;
+}
+
 export function stopAudioCapture() {
   if (!capturing) return;
   capturing = false;
@@ -70,4 +138,7 @@ export function stopAudioCapture() {
     stopMacCapture();
     destroyMacCapture();
   }
+  ringBuffer?.reset();
+  ringBuffer = null;
+  captureStartTime = 0;
 }
