@@ -13,6 +13,8 @@ interface TranscriptLine {
   text: string;
   translatedText?: string;
   timestamp: number;
+  speakerLabel?: string;
+  speakerColor?: string;
 }
 
 const MAX_LINES = 50;
@@ -152,6 +154,18 @@ export function OverlayApp() {
               className={`${textColor} font-medium`}
               style={{ fontSize: settings.fontSize, lineHeight: settings.lineHeight }}
             >
+              {line.speakerLabel && (
+                <span
+                  className="inline-flex items-center gap-1 mr-2 text-xs font-semibold rounded px-1.5 py-0.5 align-middle"
+                  style={{
+                    backgroundColor: `${line.speakerColor}22`,
+                    color: line.speakerColor,
+                    border: `1px solid ${line.speakerColor}44`,
+                  }}
+                >
+                  {line.speakerLabel}
+                </span>
+              )}
               {line.text}
             </p>
             {settings.showTranslation && line.translatedText ? (
