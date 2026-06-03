@@ -9,17 +9,28 @@ const LIB_PATH = path.join(
 let sessionCreated = false;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
-// Load the library
-const lib = koffi.load(LIB_PATH);
+let lib: any = null;
 
 // Define C function signatures - using polling-based API (no callbacks)
-const sc_create_session_polling = lib.func("sc_create_session_polling", "int", []);
-const sc_start_capture = lib.func("sc_start_capture", "int", []);
-const sc_stop_capture = lib.func("sc_stop_capture", "int", []);
-const sc_destroy_session = lib.func("sc_destroy_session", "int", []);
-const sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
-const sc_read_audio = lib.func("sc_read_audio", "int", ["void *", "int", "void *", "void *", "void *"]);
-const sc_get_buffer_frames_available = lib.func("sc_get_buffer_frames_available", "int", []);
+let sc_create_session_polling: (...args: any[]) => any = () => -1;
+let sc_start_capture: (...args: any[]) => any = () => -1;
+let sc_stop_capture: (...args: any[]) => any = () => -1;
+let sc_destroy_session: (...args: any[]) => any = () => -1;
+let sc_get_last_error_message: (...args: any[]) => any = () => "Not supported on this platform";
+let sc_read_audio: (...args: any[]) => any = () => -1;
+let sc_get_buffer_frames_available: (...args: any[]) => any = () => 0;
+
+if (process.platform === "darwin") {
+  lib = koffi.load(LIB_PATH);
+
+  sc_create_session_polling = lib.func("sc_create_session_polling", "int", []);
+  sc_start_capture = lib.func("sc_start_capture", "int", []);
+  sc_stop_capture = lib.func("sc_stop_capture", "int", []);
+  sc_destroy_session = lib.func("sc_destroy_session", "int", []);
+  sc_get_last_error_message = lib.func("sc_get_last_error_message", "string", []);
+  sc_read_audio = lib.func("sc_read_audio", "int", ["void *", "int", "void *", "void *", "void *"]);
+  sc_get_buffer_frames_available = lib.func("sc_get_buffer_frames_available", "int", []);
+}
 
 // Status codes
 const SC_STATUS_OK = 0;

@@ -58,7 +58,6 @@ function init(): void {
     console.log("[vosk-spk] bindings initialized");
   } catch (err) {
     console.error("[vosk-spk] Failed to initialize bindings:", err);
-    initialized = false;
   }
 }
 
