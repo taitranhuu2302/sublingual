@@ -17,6 +17,7 @@ let vosk_spk_recognizer_accept_waveform: (...args: any[]) => any = () => false;
 let vosk_recognizer_result: (...args: any[]) => any = () => null;
 
 let initialized = false;
+let hasSpkFunctions = false;
 
 function init(): void {
   if (initialized) return;
@@ -55,15 +56,17 @@ function init(): void {
       [koffi.pointer("void")]
     );
 
+    hasSpkFunctions = true;
     console.log("[vosk-spk] bindings initialized");
   } catch (err) {
-    console.error("[vosk-spk] Failed to initialize bindings:", err);
+    console.warn("[vosk-spk] SPK functions not available:", (err as Error)?.message || err);
+    hasSpkFunctions = false;
   }
 }
 
 export function isSpkSupported(): boolean {
   init();
-  return isVoskSupported && lib !== null;
+  return hasSpkFunctions;
 }
 
 export function spkModelNew(modelPath: string): unknown {
