@@ -1,7 +1,7 @@
 import koffi from "koffi";
 import { getLibPath } from "./vosk-bindings";
 
-const isVoskSupported = process.platform === "darwin";
+const isVoskSupported = process.platform === "darwin" || process.platform === "win32";
 
 let lib: any = null;
 let VoskSpkModel: any = null;

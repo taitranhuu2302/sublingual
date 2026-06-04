@@ -2,14 +2,16 @@ import koffi from "koffi";
 import path from "path";
 import { app } from "electron";
 
+const LIB_NAME = process.platform === "win32" ? "libvosk.dll" : "libvosk.dylib";
+
 export function getLibPath(): string {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "bin", "vosk", "libvosk.dylib");
+    return path.join(process.resourcesPath, "bin", "vosk", LIB_NAME);
   }
-  return path.join(app.getAppPath(), "bin", "vosk", "libvosk.dylib");
+  return path.join(app.getAppPath(), "bin", "vosk", LIB_NAME);
 }
 
-const isVoskSupported = process.platform === "darwin";
+const isVoskSupported = process.platform === "darwin" || process.platform === "win32";
 
 let lib: any = null;
 let VoskModel: any = null;
