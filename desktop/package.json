@@ -21,7 +21,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron",
-      "electron-winstaller"
+      "electron-winstaller",
+      "vosk"
     ]
   },
   "devDependencies": {
@@ -55,6 +56,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "koffi": "^3.0.2",
     "native-audio-node": "^0.3.5",
+    "vosk": "^0.3.39",
     "lodash": "^4.17.21",
     "lucide-react": "^1.17.0",
     "radix-ui": "^1.4.3",

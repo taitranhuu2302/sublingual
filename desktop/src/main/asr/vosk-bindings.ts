@@ -4,11 +4,24 @@ import { app } from "electron";
 
 const LIB_NAME = process.platform === "win32" ? "libvosk.dll" : "libvosk.dylib";
 
-export function getLibPath(): string {
+export function getLibDir(): string {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "bin", "vosk", LIB_NAME);
+    return path.join(process.resourcesPath, "bin", "vosk");
   }
-  return path.join(app.getAppPath(), "bin", "vosk", LIB_NAME);
+  return path.join(app.getAppPath(), "bin", "vosk");
+}
+
+export function getLibPath(): string {
+  return path.join(getLibDir(), LIB_NAME);
+}
+
+function ensureDllPath(): void {
+  if (process.platform !== "win32") return;
+  const dir = getLibDir();
+  const current = process.env.PATH ?? "";
+  if (!current.includes(dir)) {
+    process.env.PATH = `${dir}${path.delimiter}${current}`;
+  }
 }
 
 const isVoskSupported = process.platform === "darwin" || process.platform === "win32";
@@ -32,6 +45,7 @@ let vosk_recognizer_partial_result: (...args: any[]) => any = () => null;
 let vosk_recognizer_final_result: (...args: any[]) => any = () => null;
 
 if (isVoskSupported) {
+  ensureDllPath();
   lib = koffi.load(getLibPath());
 
   VoskModel = koffi.opaque("VoskModel");
