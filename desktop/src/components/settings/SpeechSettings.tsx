@@ -32,6 +32,7 @@ interface Props {
 export function SpeechSettings({ settings, onUpdate }: Props) {
   const [models, setModels] = useState<VoskModel[]>([]);
   const [showDownload, setShowDownload] = useState(false);
+  const hasSpkModel = models.some((m) => m.id === "vosk-model-spk-0.4" && m.downloaded);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -87,9 +88,10 @@ export function SpeechSettings({ settings, onUpdate }: Props) {
           </Select>
         </SettingsField>
 
-        <SettingsField label="Max speakers" helper="Maximum number of speakers to detect (2-8)">
+        <SettingsField label="Max speakers" helper={hasSpkModel ? "Maximum number of speakers to detect (2-8)" : "Install Speaker Identification model to enable"}>
           <Select
             value={String(settings.speechToText.maxSpeakers ?? 4)}
+            disabled={!hasSpkModel}
             onValueChange={(v) =>
               onUpdate({
                 speechToText: { ...settings.speechToText, maxSpeakers: Number(v) },
