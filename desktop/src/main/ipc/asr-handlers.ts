@@ -55,7 +55,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     const overlay = getOverlayManager();
 
-    // Finalize incremental translation (sends transcript-line via onFinalize callback)
     incrementalMgr.onFinalize = (event) => {
       if (!mainWindow.isDestroyed()) {
         originalSend("translation:segment-result", {
@@ -107,7 +106,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     startVosk(model.path, mainWindow);
 
-    // Load speaker identification model if available
     const spkModel = mm.getSpkModel();
     const spkModelPath = spkModel?.path ?? settings.speechToText.speakerModel;
     const maxSpeakers = settings.speechToText.maxSpeakers ?? 4;
@@ -143,7 +141,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
       }
 
       if (segment.isFinal) {
-        // Final: sentence merging + translation pipeline
         const lineId = `seg-${segmentCounter++}`;
         segment.id = lineId;
 
@@ -180,7 +177,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
           }, FLUSH_TIMEOUT_MS);
         }
       } else {
-        // Partial: feed to incremental translation manager
         const overlay = getOverlayManager();
 
         if (!incrementalMgr.utteranceId) {

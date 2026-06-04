@@ -1,6 +1,5 @@
 import { BrowserWindow } from "electron";
-import { initMacCapture, startMacCapture, stopMacCapture, destroyMacCapture } from "./screencapture-mac";
-import { feedAudio } from "../asr/vosk-process";
+import { feedPcm } from "../asr/vosk-process";
 import type { AudioSource } from "../../types/electron-api";
 
 class RingBuffer {
@@ -64,7 +63,7 @@ let captureStartTime: number = 0;
 
 export function getAudioSources(): AudioSource[] {
   if (process.platform === "win32") {
-    return [];
+    return [{ id: "system-default", name: "System Audio", type: "system" }];
   }
   if (process.platform === "darwin") {
     return [{ id: "system-default", name: "System Audio", type: "system" }];
@@ -72,13 +71,27 @@ export function getAudioSources(): AudioSource[] {
   return [];
 }
 
-export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
+export async function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
   if (capturing) return;
   capturing = true;
   ringBuffer = new RingBuffer(16000, 5000);
   captureStartTime = Date.now();
 
+  if (process.platform === "win32") {
+    const { initWinCapture, startWinCapture } = await import("./wasapi-capture");
+
+    const ok = initWinCapture((pcmBuffer: Buffer) => {
+      if (!capturing || mainWindow.isDestroyed()) return;
+      feedPcm(pcmBuffer);
+      ringBuffer?.write(pcmBuffer);
+    });
+    if (ok) await startWinCapture();
+    return;
+  }
+
   if (process.platform === "darwin") {
+    const { initMacCapture, startMacCapture } = await import("./screencapture-mac");
+
     function downmixAndResample(samples: Float32Array, frameCount: number, channels: number, timestamp: number) {
       if (!capturing || mainWindow.isDestroyed()) return;
 
@@ -109,8 +122,8 @@ export function startAudioCapture(sourceId: string, mainWindow: BrowserWindow) {
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send("audio:data", resampled);
       }
-      feedAudio(pcmBuffer);
-      ringBuffer?.write(pcmBuffer);
+        feedPcm(pcmBuffer);
+        ringBuffer?.write(pcmBuffer);
     }
 
     const ok = initMacCapture(downmixAndResample);
@@ -130,11 +143,19 @@ export function getCaptureStartTime(): number {
   return captureStartTime;
 }
 
-export function stopAudioCapture() {
+export async function stopAudioCapture() {
   if (!capturing) return;
   capturing = false;
 
+  if (process.platform === "win32") {
+    const { stopWinCapture, destroyWinCapture } = await import("./wasapi-capture");
+    await stopWinCapture();
+    destroyWinCapture();
+    return;
+  }
+
   if (process.platform === "darwin") {
+    const { stopMacCapture, destroyMacCapture } = await import("./screencapture-mac");
     stopMacCapture();
     destroyMacCapture();
   }

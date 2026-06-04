@@ -57,6 +57,8 @@ export function feedAudio(pcmData: Buffer) {
   }
 }
 
+export const feedPcm = feedAudio;
+
 export function stopVosk() {
   if (recognizer) {
     try {
