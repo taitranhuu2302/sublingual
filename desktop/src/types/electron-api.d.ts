@@ -42,6 +42,7 @@ export interface ElectronAPI {
     getInstallable: () => Promise<InstallableModel[]>;
     download: (modelId: string) => Promise<void>;
     cancelDownload: () => Promise<void>;
+    remove: (modelId: string) => Promise<void>;
     openFolder: () => Promise<void>;
     onDownloadProgress: (
       callback: (progress: ModelDownloadProgress) => void

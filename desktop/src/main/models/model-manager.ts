@@ -1,3 +1,4 @@
+import fs from "fs";
 import { getSettings, setSettings } from "../settings/settings-store";
 import { getInstallableModels } from "./model-source-catalog";
 
@@ -30,6 +31,18 @@ class ModelManager {
   getSelectedModel(): VoskModel | null {
     const settings = getSettings();
     return this.listModels().find((m) => m.id === settings.speechToText.selectedModel) ?? null;
+  }
+
+  removeModel(modelId: string): void {
+    const model = this.listModels().find((m) => m.id === modelId);
+    if (!model || !model.downloaded) return;
+
+    fs.rmSync(model.path, { recursive: true, force: true });
+
+    const settings = getSettings();
+    if (settings.speechToText.selectedModel === modelId) {
+      setSettings({ speechToText: { ...settings.speechToText, selectedModel: "" } });
+    }
   }
 
   getSpkModel(): VoskModel | null {

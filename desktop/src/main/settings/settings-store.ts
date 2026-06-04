@@ -25,6 +25,7 @@ export interface SpeechToTextSettings {
   sourceLanguage: string;
   speakerModel?: string;
   maxSpeakers?: number;
+  flushTimeoutMs: number;
 }
 
 export interface TranslationProviderGoogle {
@@ -73,6 +74,7 @@ const DEFAULTS: AppSettings = {
     sourceLanguage: "en",
     speakerModel: "",
     maxSpeakers: 4,
+    flushTimeoutMs: 3000,
   },
   translation: {
     enabled: true,

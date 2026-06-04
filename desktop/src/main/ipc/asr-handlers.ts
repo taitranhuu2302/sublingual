@@ -21,7 +21,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
   let pendingLineId = "";
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   const incrementalMgr = new IncrementalTranslationManager("");
-  const FLUSH_TIMEOUT_MS = 3000;
+  let flushTimeoutMs = getSettings().speechToText.flushTimeoutMs || 3000;
   const speakerById: Map<string, { speakerId: string; speakerLabel: string; speakerColor: string }> = new Map();
 
   const originalSend = mainWindow.webContents.send.bind(mainWindow.webContents);
@@ -174,7 +174,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
           if (flushTimer) clearTimeout(flushTimer);
           flushTimer = setTimeout(() => {
             flushPending();
-          }, FLUSH_TIMEOUT_MS);
+          }, flushTimeoutMs);
         }
       } else {
         const overlay = getOverlayManager();

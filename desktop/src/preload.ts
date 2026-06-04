@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     download: (modelId: string) =>
       ipcRenderer.invoke("models:download", modelId),
     cancelDownload: () => ipcRenderer.invoke("models:cancel-download"),
+    remove: (modelId: string) => ipcRenderer.invoke("models:remove", modelId),
     openFolder: () => ipcRenderer.invoke("models:open-folder"),
     onDownloadProgress: (
       callback: (progress: {
