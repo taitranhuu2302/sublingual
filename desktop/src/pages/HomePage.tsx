@@ -15,6 +15,7 @@ export function HomePage() {
   const { settings } = useSettings();
   const [selectedSource, setSelectedSource] = useState("");
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [lastText, setLastText] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -44,15 +45,18 @@ export function HomePage() {
   }, [segments]);
 
   const handleStart = async () => {
-    if (!selectedSource) return;
+    if (!selectedSource || starting) return;
+    setStarting(true);
     try {
       await start(selectedSource);
       await startASR();
-      const visible = await window.electronAPI.overlay.isVisible();
-      setOverlayVisible(visible);
+      await window.electronAPI.overlay.show();
+      setOverlayVisible(true);
     } catch (err) {
       console.error("Failed to start:", err);
       await stop();
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -98,6 +102,7 @@ export function HomePage() {
         sources={sources}
         selectedSource={selectedSource}
         capturing={capturing}
+        starting={starting}
         hasModel={hasModel}
         overlayVisible={overlayVisible}
         onSourceChange={setSelectedSource}

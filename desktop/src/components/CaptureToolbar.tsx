@@ -10,6 +10,7 @@ interface CaptureToolbarProps {
   sources: AudioSource[];
   selectedSource: string;
   capturing: boolean;
+  starting: boolean;
   hasModel: boolean;
   overlayVisible: boolean;
   onSourceChange: (id: string) => void;
@@ -23,6 +24,7 @@ export function CaptureToolbar({
   sources,
   selectedSource,
   capturing,
+  starting,
   hasModel,
   overlayVisible,
   onSourceChange,
@@ -31,7 +33,7 @@ export function CaptureToolbar({
   onClear,
   onToggleOverlay,
 }: CaptureToolbarProps) {
-  const canStart = selectedSource && hasModel && !capturing;
+  const canStart = selectedSource && hasModel && !capturing && !starting;
 
   const statusText = capturing ? "Capturing" : hasModel ? "Ready" : "No model";
   const statusVariant = capturing ? "default" : hasModel ? "secondary" : "outline";
@@ -48,7 +50,15 @@ export function CaptureToolbar({
 
         <Separator orientation="vertical" className="h-6" />
 
-        {!capturing ? (
+        {starting ? (
+          <Button disabled className="bg-green-600 text-white opacity-70">
+            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Starting...
+          </Button>
+        ) : !capturing ? (
           <Button onClick={onStart} disabled={!canStart} className="bg-green-600 hover:bg-green-700 text-white">
             <Mic className="h-4 w-4 mr-2" />
             Start

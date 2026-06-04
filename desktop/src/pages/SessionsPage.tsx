@@ -109,13 +109,16 @@ export function SessionsPage() {
                             <div key={label} className="mb-4">
                                 <p className="text-xs font-medium text-muted-foreground px-2 mb-1">{label}</p>
                                 {items.map((s) => (
-                                    <button
+                                    <div
                                         key={s.id}
+                                        role="button"
+                                        tabIndex={0}
                                         className={cn(
-                                            "w-full text-left flex items-start gap-2 px-2 py-2 rounded-md transition-colors",
+                                            "w-full text-left flex items-start gap-2 px-2 py-2 rounded-md transition-colors cursor-pointer",
                                             activeSession?.info.id === s.id ? "bg-muted" : "hover:bg-muted/50"
                                         )}
                                         onClick={() => selectSession(s)}
+                                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSession(s); } }}
                                     >
                                         <Checkbox
                                             checked={selectedIds.has(s.id)}
@@ -132,7 +135,7 @@ export function SessionsPage() {
                                             </div>
                                             <p className="text-xs text-muted-foreground truncate mt-0.5">{s.preview || "No preview"}</p>
                                         </div>
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         ))}

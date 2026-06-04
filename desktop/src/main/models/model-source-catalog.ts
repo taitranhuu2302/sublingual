@@ -32,22 +32,13 @@ const MODEL_CATALOG: ModelSource[] = [
   {
     id: "vosk-model-en-us-0.22",
     name: "English (Accurate)",
-    description: "Accurate US English model for servers and high-end desktops. ~1.8GB.",
+    description:
+      "Accurate US English model for servers and high-end desktops. ~1.8GB.",
     size: "1.8 GB",
     sizeBytes: 1_800_000_000,
     language: "en",
     filename: "vosk-model-en-us-0.22.zip",
     url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip",
-  },
-  {
-    id: "vosk-model-en-us-0.22-lgraph",
-    name: "English (Dynamic)",
-    description: "Big US English model with dynamic graph. ~128MB.",
-    size: "128 MB",
-    sizeBytes: 128_000_000,
-    language: "en",
-    filename: "vosk-model-en-us-0.22-lgraph.zip",
-    url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
   },
   {
     id: "vosk-model-small-vn-0.4",
@@ -92,9 +83,10 @@ export function getInstallableModels(): InstallableModel[] {
     const dirName = source.filename.replace(/\.zip$/, "");
     const localPath = path.join(modelsDir, dirName);
     // Detect by checking for the model marker file
-    const isInstalled = fs.existsSync(path.join(localPath, "am", "final.mdl"))
-      || fs.existsSync(path.join(localPath, "final.mdl"))
-      || fs.existsSync(path.join(localPath, "final.ext.raw"));
+    const isInstalled =
+      fs.existsSync(path.join(localPath, "am", "final.mdl")) ||
+      fs.existsSync(path.join(localPath, "final.mdl")) ||
+      fs.existsSync(path.join(localPath, "final.ext.raw"));
     return {
       ...source,
       isInstalled,
