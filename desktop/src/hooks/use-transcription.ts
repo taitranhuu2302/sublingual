@@ -6,6 +6,9 @@ export interface TranscriptEntry {
   isFinal: boolean;
   timestamp: number;
   translatedText?: string;
+  speakerId?: string;
+  speakerLabel?: string;
+  speakerColor?: string;
 }
 
 export function useTranscription() {

@@ -20,6 +20,31 @@ interface TranscriptLine {
 const MAX_LINES = 50;
 const PARTIAL_ID = "__partial__";
 
+function trimLines(lines: TranscriptLine[]): TranscriptLine[] {
+  return lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines;
+}
+
+function replacePartialLine(lines: TranscriptLine[], text: string): TranscriptLine[] {
+  const partialIndex = lines.findIndex((line) => line.id === PARTIAL_ID);
+  const next = [...lines];
+  
+  if (partialIndex >= 0) {
+    // Update in-place to avoid unmount/remount flicker
+    next[partialIndex] = { id: PARTIAL_ID, text, timestamp: Date.now() };
+  } else {
+    // Create new partial if it doesn't exist
+    next.push({ id: PARTIAL_ID, text, timestamp: Date.now() });
+  }
+  
+  return trimLines(next);
+}
+
+function appendCommittedLine(lines: TranscriptLine[], line: TranscriptLine): TranscriptLine[] {
+  const next = lines.filter((item) => item.id !== PARTIAL_ID && item.id !== line.id);
+  next.push(line);
+  return trimLines(next);
+}
+
 export function OverlayApp() {
   const [settings, setSettings] = useState<OverlaySettings>({
     fontSize: 26,
@@ -36,11 +61,7 @@ export function OverlayApp() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const addCommittedLine = useCallback((line: TranscriptLine) => {
-    setLines((prev) => {
-      const next = prev.filter((l) => l.id !== PARTIAL_ID);
-      next.push(line);
-      return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
-    });
+    setLines((prev) => appendCommittedLine(prev, line));
     if (!line.translatedText) {
       setPendingTranslation((prev) => new Set(prev).add(line.id));
     }
@@ -48,9 +69,12 @@ export function OverlayApp() {
 
   const updatePartial = useCallback((text: string) => {
     setLines((prev) => {
-      const next = prev.filter((l) => l.id !== PARTIAL_ID);
-      next.push({ id: PARTIAL_ID, text, timestamp: Date.now() });
-      return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
+      const lastPartial = prev.find((line) => line.id === PARTIAL_ID);
+      // Skip update if partial text hasn't changed
+      if (lastPartial && lastPartial.text === text) {
+        return prev;
+      }
+      return replacePartialLine(prev, text);
     });
   }, []);
 
@@ -113,11 +137,58 @@ export function OverlayApp() {
   };
 
   const bgOpacity = settings.opacity;
+  const translationFontSize = Math.max(14, settings.fontSize - 4);
+  const translationTextStyle = {
+    fontSize: translationFontSize,
+    lineHeight: settings.lineHeight,
+  };
+  const contentTextStyle = {
+    fontSize: settings.fontSize,
+    lineHeight: settings.lineHeight,
+  };
   const isEmpty = lines.length === 0;
+
+  const renderTranslation = (line: TranscriptLine, isPartial: boolean) => {
+    if (!settings.showTranslation) return null;
+
+    if (!isPartial) {
+      if (line.translatedText) {
+        return (
+          <p className="text-muted-foreground mt-0.5" style={translationTextStyle}>
+            {line.translatedText}
+          </p>
+        );
+      }
+
+      if (pendingTranslation.has(line.id)) {
+        return (
+          <p className="text-muted-foreground/60 mt-0.5 animate-pulse" style={translationTextStyle}>
+            ···
+          </p>
+        );
+      }
+
+      return null;
+    }
+
+    if (partialTranslation) {
+      return (
+        <p className="text-muted-foreground mt-0.5" style={translationTextStyle}>
+          {partialTranslation}
+        </p>
+      );
+    }
+
+    return (
+      <p className="text-muted-foreground/60 mt-0.5 animate-pulse" style={translationTextStyle}>
+        ···
+      </p>
+    );
+  };
 
   return (
     <div
-      className="h-screen w-screen flex flex-col rounded-xl overflow-hidden"
+      className="h-screen w-screen flex flex-col rounded overflow-hidden"
       style={{
         background: `hsla(232, 23%, 18%, ${bgOpacity})`,
         backdropFilter: "blur(24px)",
@@ -162,7 +233,7 @@ export function OverlayApp() {
             >
               <p
                 className="text-foreground font-medium"
-                style={{ fontSize: settings.fontSize, lineHeight: settings.lineHeight }}
+                style={contentTextStyle}
               >
                 {line.speakerLabel && (
                   <span
@@ -178,48 +249,7 @@ export function OverlayApp() {
                 )}
                 {line.text}
               </p>
-              {settings.showTranslation && !isPartial && line.translatedText ? (
-                <p
-                  className="text-muted-foreground mt-0.5"
-                  style={{
-                    fontSize: Math.max(14, settings.fontSize - 4),
-                    lineHeight: settings.lineHeight,
-                  }}
-                >
-                  {line.translatedText}
-                </p>
-              ) : settings.showTranslation && !isPartial && pendingTranslation.has(line.id) ? (
-                <p
-                  className="text-muted-foreground/60 mt-0.5 animate-pulse"
-                  style={{
-                    fontSize: Math.max(14, settings.fontSize - 4),
-                    lineHeight: settings.lineHeight,
-                  }}
-                >
-                  ···
-                </p>
-              ) : null}
-              {settings.showTranslation && isPartial && partialTranslation ? (
-                <p
-                  className="text-muted-foreground mt-0.5"
-                  style={{
-                    fontSize: Math.max(14, settings.fontSize - 4),
-                    lineHeight: settings.lineHeight,
-                  }}
-                >
-                  {partialTranslation}
-                </p>
-              ) : settings.showTranslation && isPartial ? (
-                <p
-                  className="text-muted-foreground/60 mt-0.5 animate-pulse"
-                  style={{
-                    fontSize: Math.max(14, settings.fontSize - 4),
-                    lineHeight: settings.lineHeight,
-                  }}
-                >
-                  ···
-                </p>
-              ) : null}
+              {renderTranslation(line, isPartial)}
             </div>
           );
         })}
