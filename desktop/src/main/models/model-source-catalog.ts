@@ -94,10 +94,7 @@ export function getInstallableModels(): InstallableModel[] {
     const dirName = source.filename.replace(/\.zip$/, "");
     const localPath = path.join(modelsDir, dirName);
     // Detect by checking for the model marker file
-    const isInstalled =
-      fs.existsSync(path.join(localPath, "am", "final.mdl")) ||
-      fs.existsSync(path.join(localPath, "final.mdl")) ||
-      fs.existsSync(path.join(localPath, "final.ext.raw"));
+    const isInstalled = fs.existsSync(localPath);
     return {
       ...source,
       isInstalled,

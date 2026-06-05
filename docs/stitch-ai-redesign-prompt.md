@@ -1,5 +1,4 @@
-# Stitch AI — Sublingual UI/UX Redesign Prompt (Requirements-Only Version)
-
+# Sublingual UI/UX
 > **Design philosophy:** This prompt describes WHAT the system needs to do and WHO it serves. Layout, navigation, and visual decisions are entirely yours to design. No mockup to copy — just requirements to solve.
 
 ---
@@ -45,32 +44,65 @@ NERIS is an independent software studio dedicated to crafting elegant digital pr
 | `--neris-horizon-blue` | #0059B3 | (0,89,179) | Interactive elements, hover states, links |
 | `--neris-aurora-blue` | #0066CC | (0,102,204) | CTAs, active/live indicators, highlights, recording state |
 
-**Dark theme (default):**
+**Dark theme (only theme):**
 - Deep Ocean → deepest background (window body)
 - Ocean Navy → elevated surfaces (cards, sidebars, panels)
 - Marine Blue → subtle borders, secondary surfaces, dividers
 - Horizon Blue → interactive hover, focus rings, secondary buttons
 - Aurora Blue → primary CTAs, recording indicator, active state
 
-**Light theme:**
-- Invert the depth: near-white backgrounds, Deep Ocean text
-- Aurora Blue → primary interactive color, links
-- Horizon Blue → hover states, secondary actions
-- Marine Blue → subtle borders, muted UI accents
-- Deep Ocean → high-contrast body text on light surfaces
-
 ### Typography
-- **UI:** System font stack (Inter/-apple-system/Segoe UI) for maximum native feel
+- **Primary UI:** Inter (variable font, all weights 400–700)
+- **Fallback stack:** `Inter`, `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, sans-serif
 - **Monospace:** JetBrains Mono or SF Mono for transcript text, timestamps, code-adjacent content
-- **Scale:** 12/14/16/18/20/24/32px (Tailwind text-sm through text-4xl)
+- **Scale:** 12/14/16/18/20/24/32px (Tailwind `text-sm` through `text-4xl`)
 - **Line height:** 1.5 for body, 1.3 for headings, 1.6 for bilingual transcript lines (accommodates diacritics)
+
+### Border Radius
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--radius-xs` | 4px | Badges, small indicators, inputs |
+| `--radius-sm` | 6px | Buttons, small cards, dropdown items |
+| `--radius-md` | 8px | Cards, panels, dialogs, select fields |
+| `--radius-lg` | 12px | Modals, sidebar panels, larger surfaces |
+| `--radius-xl` | 16px | Main window, overlay background, group containers |
+| `--radius-full` | 9999px | Pills, avatars, toggle handles |
+
+> macOS-native feel: prefer `--radius-lg` (12px) for top-level surfaces, consistent with macOS window corner radius.
 
 ### Shadows & Depth
 - Subtle multi-layer shadows (not flat). Surface elevation via:
-  - `sm`: cards, dropdowns (1px offset, subtle blur)
-  - `md`: dialogs, modals (2px offset, medium blur)
-  - `lg`: overlay window, floating panels (3px offset, heavy blur)
+  - `sm`: cards, dropdowns (1px offset, 4px blur, `hsla(0,0%,0%,0.08)`)
+  - `md`: dialogs, modals (2px offset, 8px blur, `hsla(0,0%,0%,0.12)`)
+  - `lg`: overlay window, floating panels (4px offset, 16px blur, `hsla(0,0%,0%,0.16)`)
+  - `xl`: top-level popovers, tooltips (8px offset, 24px blur, `hsla(0,0%,0%,0.20)`)
 - Translucent surfaces with `backdrop-blur` where appropriate
+
+### Glassmorphism (Frosted Glass) — Optional
+Optional visual enhancement for elevated surfaces. Use sparingly for special surfaces; default to solid surfaces for cleaner minimal look:
+
+- **Background:** `hsla(var(--neris-ocean-navy-hsl), 0.6)` → 60% opacity Ocean Navy
+- **Blur:** `backdrop-blur-xl` (24px) for depth illusion
+- **Border:** subtle `hsla(255,255%,255%,0.08)` 1px top/light border (frosted edge highlight)
+- **Shadow:** soft multi-layer shadow beneath (see Shadows & Depth)
+- **Consider on:** overlay window, active state panels, subtle surface differentiation
+- **Default to:** solid Ocean Navy surfaces for cleaner, minimal look
+
+> Glassmorphism creates the "frosted glass" effect — content beneath the panel is subtly visible through a blurred, semi-transparent surface. Use intentionally, not universally. The default UI is clean solid surfaces; glassmorphism adds depth on specific surfaces where it adds value.
+
+### macOS Design Language
+The app runs on both macOS and Windows but takes strong visual cues from **macOS** as the primary design target:
+
+- **Title bar:** unified toolbar (no separate title bar). Traffic light controls respected on macOS, custom title bar buttons on Windows.
+- **Vibrancy (optional):** Reserve `backdrop-blur` surfaces for overlay window and active state panels. Default to solid surfaces for a cleaner minimal look.
+- **Large corner radii:** 12px+ for windows and panels (native macOS window radius is ~12px).
+- **Minimal chrome:** No heavy borders or bevels. Depth comes from shadows + translucency, not strokes.
+- **Spacing:** Generous whitespace (16–24px gutters). macOS-native apps breathe.
+- **Scrollbars:** Overlay scrollbars (thin, auto-hide) consistent with platform convention.
+- **Animations:** Fluid spring animations (0.4–0.6s ease-out) for panel reveals, mode transitions. 0.2s ease for hover/active micro-interactions.
+- **Icons:** Lucide outlined style — thin, consistent stroke width, matching SF Symbols visual weight.
+
+> Design principle: **macOS-first, Windows-respectful.** The visual language originates from macOS conventions, but nothing should feel broken or foreign on Windows.
 
 ---
 
@@ -112,7 +144,7 @@ NERIS is an independent software studio dedicated to crafting elegant digital pr
 - Displays live subtitles: original text + translation
 - Draggable by the user to any screen position
 - Theme: Dark or Light
-- Configurable: font size, line height, background opacity, window dimensions
+- Configurable: font size, line height, background opacity (via glassmorphism blur intensity), window dimensions
 - Can be shown/hidden independently from the main app window
 - Auto-scrolls to the latest content
 
@@ -150,7 +182,7 @@ NERIS is an independent software studio dedicated to crafting elegant digital pr
 
 1. **Dashboard as transcript viewer** — The main screen should show live transcription during capture, not just stats. Users should feel the app is "alive" while capturing.
 
-2. **Dark-first, light-supported** — The app will be used during meetings and media consumption; dark mode should be the default and feel polished.
+2. **Dark-only** — Dark theme is the only theme. No light mode. The app is used during meetings, media consumption, and low-light environments. Deep Ocean (#001A33) backgrounds with Ocean Navy (#003366) elevated surfaces create a calm, focus-friendly environment that reduces eye strain during extended use.
 
 3. **Progressive disclosure** — Show only what's relevant to the current state. Idle = clean and focused. Capturing = information-rich. Don't overwhelm first-time users.
 
@@ -158,19 +190,22 @@ NERIS is an independent software studio dedicated to crafting elegant digital pr
 
 5. **Bilingual by default** — Vietnamese is the primary target translation language. The UI must handle Latin + diacritics (ắ, ệ, ỏ, ư, ơ...) at all sizes. Design for bilingual text display as the norm, not an edge case.
 
-6. **Ocean depth, crafted warmth** — Not corporate-sterile. Aurora Blue (#0066CC) signals "live" and "active." Deep Ocean (#001A33) backgrounds meld into Ocean Navy (#003366) elevated surfaces for layered depth. Translucent panels, subtle shadows, fluid gradients. Think modern creative tools, not enterprise software.
+6. **Ocean depth, crafted warmth** — Not corporate-sterile. Aurora Blue (#0066CC) signals "live" and "active." Deep Ocean (#001A33) backgrounds meld into Ocean Navy (#003366) elevated surfaces for layered depth. Subtle shadows, fluid gradients. Think modern creative tools, not enterprise software.
 
 7. **Space-efficient** — This is a desktop app, not a mobile app. Use horizontal space well. Multi-column layouts are encouraged where they add value. But don't be afraid of whitespace in idle states.
 
 8. **Obvious affordances** — Every clickable thing should look clickable. Every dangerous action (delete) should have confirmation. Every icon-only button should have a tooltip.
 
-9. **Ocean-inspired fluidity** — The NERIS brand draws from oceanic depth and movement. UI transitions flow like water — smooth, continuous, natural. Gradients move from deep to light. Surfaces carry subtle translucency. The app feels calm and focused, never jarring.
+9. **Glassmorphism as optional accent** — Default UI uses clean solid Ocean Navy surfaces. Glassmorphism (`backdrop-blur-xl`, 60% opacity) is reserved for specific surfaces where depth adds value (overlay window, active state panels). Not a universal treatment — use intentionally and sparingly. The default is clean, minimal, and solid.
+
+10. **Consistent layout system across all screens** — Every page shares the same structural DNA: unified spacing scale (16–24px gutters), same surface elevation model, same glassmorphism treatment for panels. The 3 primary pages (Home, Sessions, Settings) use a consistent sidebar/content split pattern. Navigation, typography scale, button styles, and radius tokens are identical everywhere. No page feels like a different app.
 
 ---
 
-## TECHNICAL CONSTRAINTS (things to know, not design targets)
+## TECHNICAL CONSTRAINTS 
 
-- **Platform:** Electron desktop app (macOS + Windows)
+- **Platform:** Electron desktop app (macOS-first + Windows)
+- **Design target:** macOS as primary visual reference (vibrancy, large radii, minimal chrome). Windows gets same layout with platform-native adaptations (title bar, scrollbars, fonts).
 - **Component library:** shadcn/ui (Radix primitives available)
 - **Styling:** Tailwind CSS 4
 - **Icons:** Lucide React (use these icon names when mocking)
@@ -230,7 +265,7 @@ Design must account for these states across ALL relevant views:
 
 A complete visual redesign proposal under the NERIS brand including:
 
-1. **All screens** at high fidelity for both dark and light themes, using the NERIS Ocean color palette
+1. **All screens** at high fidelity in dark theme, using the NERIS Ocean color palette with glassmorphism surfaces
 2. **All component states** (idle, hover, active, disabled, loading, error, empty)
 3. **Key interaction flows** as sequential screen states or diagrams
 4. **Overlay window** as a standalone design (separate from main window)

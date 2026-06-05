@@ -28,8 +28,7 @@ export async function downloadModel(modelId: string, mainWindow: BrowserWindow):
   const extractDir = path.join(modelsDir, source.filename.replace(/\.zip$/, ""));
 
   // Skip if already installed
-  if (fs.existsSync(path.join(extractDir, "am", "final.mdl"))
-    || fs.existsSync(path.join(extractDir, "final.ext.raw"))) {
+  if (fs.existsSync(extractDir)) {
     return;
   }
 
