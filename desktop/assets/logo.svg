@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#002244"/>
+      <stop offset="60%" stop-color="#001A33"/>
+      <stop offset="100%" stop-color="#001122"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0059B3"/>
+      <stop offset="100%" stop-color="#0080FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="64" y="64" width="896" height="896" rx="224" ry="224" fill="url(#ocean)"/>
+
+  <!-- N monogram: Logic + Flow -->
+  <!-- Left stroke: straight vertical (structure/logic) -->
+  <path d="M 280 240 L 280 784" stroke="url(#accent)" stroke-width="72" stroke-linecap="round" fill="none"/>
+
+  <!-- Diagonal wave: flowing curve connecting left to right (ocean flow) -->
+  <path d="M 280 740 C 380 740, 500 500, 620 420 C 720 350, 744 300, 744 300" stroke="url(#accent)" stroke-width="72" stroke-linecap="round" fill="none"/>
+
+  <!-- Right stroke: straight vertical (structure) -->
+  <path d="M 744 784 L 744 240" stroke="url(#accent)" stroke-width="72" stroke-linecap="round" fill="none"/>
+</svg>
