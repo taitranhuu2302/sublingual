@@ -1,12 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { CaptureToolbar } from "../components/CaptureToolbar";
-import { useAudioCapture } from "../hooks/use-audio-capture";
-import { useTranscription } from "../hooks/use-transcription";
-import { useSettings } from "../hooks/use-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Languages, Mic, Settings } from "lucide-react";
+import { CaptureToolbar } from "@/components/CaptureToolbar";
+import { useAudioCapture } from "@/hooks/use-audio-capture";
+import { useTranscription } from "@/hooks/use-transcription";
+import { useSettings } from "@/hooks/use-settings";
+import { Mic, Settings, Languages, ScrollText, Clock } from "lucide-react";
+
+function formatTimer(s: number) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const mm = m.toString().padStart(2, "0");
+  const ss = sec.toString().padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function formatTimestamp(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -17,8 +31,8 @@ export function HomePage() {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [starting, setStarting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [lastText, setLastText] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!selectedSource && sources.length > 0) {
@@ -35,14 +49,6 @@ export function HomePage() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [capturing, running]);
-
-  // Track last recognized text
-  useEffect(() => {
-    const finals = segments.filter((s) => s.isFinal);
-    if (finals.length > 0) {
-      setLastText(finals[finals.length - 1].text);
-    }
-  }, [segments]);
 
   const handleStart = async () => {
     if (!selectedSource || starting || loading) return;
@@ -68,7 +74,6 @@ export function HomePage() {
 
   const handleClear = useCallback(() => {
     clearSegments();
-    setLastText("");
   }, [clearSegments]);
 
   const handleToggleOverlay = async () => {
@@ -77,27 +82,24 @@ export function HomePage() {
     setOverlayVisible(visible);
   };
 
-  const formatTime = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    const mm = m.toString().padStart(2, "0");
-    const ss = sec.toString().padStart(2, "0");
-    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-  };
-
-  const finalCount = segments.filter((s) => s.isFinal).length;
-  const wordCount = segments
-    .filter((s) => s.isFinal)
-    .reduce((sum, s) => sum + s.text.split(/\s+/).filter(Boolean).length, 0);
+  const finals = segments.filter((s) => s.isFinal);
+  const partials = segments.filter((s) => !s.isFinal);
   const hasModel = !!settings.speechToText.selectedModel;
-
   const modelName = settings.speechToText.selectedModel
     ? settings.speechToText.selectedModel.replace(/^vosk-model-/, "").replace(/-/g, " ")
     : "None";
 
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [segments]);
+
+  const isActive = capturing && running;
+  const isEmpty = finals.length === 0 && partials.length === 0;
+
   return (
-    <div className="flex flex-col flex-1">
+    <div className="flex flex-col flex-1 min-h-0">
       <CaptureToolbar
         sources={sources}
         selectedSource={selectedSource}
@@ -112,69 +114,108 @@ export function HomePage() {
         onToggleOverlay={handleToggleOverlay}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+      <div className="flex-1 flex flex-col min-h-0">
         {!hasModel ? (
-          <Card className="w-full max-w-md">
-            <CardContent className="flex flex-col items-center py-10 gap-4">
-              <Mic className="h-10 w-10 text-muted-foreground/40" />
-              <div className="text-center">
-                <h2 className="text-lg font-semibold mb-1">No Speech Model Installed</h2>
-                <p className="text-sm text-muted-foreground">
-                  Install a speech recognition model to start transcribing.
-                </p>
-              </div>
-              <Button onClick={() => navigate("/settings")}>
-                <Settings className="h-4 w-4 mr-2" />
-                Go to Settings
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="flex-1 flex flex-col items-center justify-center p-6">
+            <Card className="w-full max-w-md border-border/50">
+              <CardContent className="flex flex-col items-center py-10 gap-4">
+                <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
+                  <Mic className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <h2 className="text-lg font-semibold">No Speech Model Installed</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Install a speech recognition model to start transcribing.
+                  </p>
+                </div>
+                <Button onClick={() => navigate("/settings")}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Go to Settings
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <>
-            {/* Big timer */}
-            <div className="text-center">
-              <p className={`text-6xl font-mono font-light tracking-wider ${capturing ? "text-foreground" : "text-muted-foreground/40"}`}>
-                {formatTime(elapsed)}
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                {loading ? "Loading speech model..." : capturing && running ? "Recording in progress" : "Ready to capture"}
-              </p>
-            </div>
-
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
-              <Card>
-                <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
-                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-2xl font-semibold">{finalCount}</span>
-                  <span className="text-xs text-muted-foreground">Segments</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-col items-center py-4 px-3 gap-1">
-                  <Languages className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-2xl font-semibold">{wordCount}</span>
-                  <span className="text-xs text-muted-foreground">Words</span>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Last recognized text preview */}
-            {lastText && (
-              <div className="w-full max-w-lg">
-                <Card className="bg-muted/30">
-                  <CardContent className="py-3 px-4">
-                    <p className="text-xs text-muted-foreground mb-1">Last recognized</p>
-                    <p className="text-sm truncate">{lastText}</p>
-                  </CardContent>
-                </Card>
+            {/* Transcript Feed */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+              {isEmpty && !isActive && (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                  <ScrollText className="h-12 w-12 opacity-30" />
+                  <p className="text-sm">Ready to capture. Select a source and press Start.</p>
+                </div>
+              )}
+              {isEmpty && isActive && (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span>Listening...</span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1 max-w-4xl mx-auto">
+                {finals.map((seg) => (
+                  <div key={seg.id} className="flex gap-4 py-2 border-b border-border/20 group">
+                    <span className="text-xs text-muted-foreground font-mono shrink-0 pt-0.5 w-20 text-right">
+                      {formatTimestamp(seg.timestamp)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base leading-relaxed">
+                        {"speakerLabel" in seg && seg.speakerLabel && (
+                          <span
+                            className="inline-flex items-center gap-1 mr-2 text-[11px] font-semibold rounded px-1.5 py-0.5 align-middle"
+                            style={{
+                              backgroundColor: `${(seg as any).speakerColor}22`,
+                              color: (seg as any).speakerColor,
+                              border: `1px solid ${(seg as any).speakerColor}44`,
+                            }}
+                          >
+                            {(seg as any).speakerLabel}
+                          </span>
+                        )}
+                        {seg.text}
+                      </p>
+                      {"translatedText" in seg && (seg as any).translatedText && (
+                        <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+                          {(seg as any).translatedText}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {partials.map((seg) => (
+                  <div key={seg.id} className="flex gap-4 py-2 border-b border-border/10">
+                    <span className="text-xs text-muted-foreground font-mono shrink-0 pt-0.5 w-20 text-right opacity-50">
+                      {formatTimestamp(seg.timestamp)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base leading-relaxed italic opacity-70">{seg.text}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
-            {/* Session info bar */}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {/* Stats Footer */}
+            <div className="flex items-center gap-4 px-4 py-1.5 border-t border-border/30 bg-card/30 text-xs text-muted-foreground shrink-0">
               <span className="flex items-center gap-1">
-                <Mic className="h-3 w-3" /> Model: {modelName}
+                <Clock className="h-3 w-3" />
+                {isActive ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse mr-1" />
+                    {formatTimer(elapsed)}
+                  </>
+                ) : (
+                  formatTimer(elapsed)
+                )}
+              </span>
+              <span className="flex items-center gap-1">
+                <ScrollText className="h-3 w-3" />
+                {finals.length} segments
+              </span>
+              <span className="flex items-center gap-1">
+                <Mic className="h-3 w-3" />
+                {modelName}
               </span>
               {settings.translation.enabled && (
                 <span className="flex items-center gap-1">

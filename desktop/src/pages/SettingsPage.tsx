@@ -24,15 +24,16 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-1 min-h-0">
-      <nav className="w-48 border-r py-4 space-y-1 px-2 shrink-0">
+      {/* Sub-tab navigation */}
+      <nav className="w-44 border-r border-border/50 py-4 space-y-0.5 px-2 shrink-0 bg-card/30">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
             className={cn(
-              "w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
               activeTab === id
-                ? "bg-muted font-medium text-foreground"
+                ? "bg-accent font-medium text-accent-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
           >
@@ -42,9 +43,10 @@ export function SettingsPage() {
         ))}
       </nav>
 
+      {/* Content area */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-6 max-w-2xl">
-          <h1 className="text-2xl font-bold mb-6">
+        <div className="p-6 max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold mb-8">
             {TABS.find((t) => t.id === activeTab)?.label} Settings
           </h1>
 

@@ -114,33 +114,32 @@ export function OverlayApp() {
     bottomRef.current?.scrollIntoView({ behavior: "auto" });
   };
 
-  const isDark = settings.theme === "Dark";
-  const bgColor = isDark
-    ? `rgba(14, 19, 28, ${settings.opacity})`
-    : `rgba(245, 247, 250, ${settings.opacity})`;
-  const textColor = isDark ? "text-white" : "text-gray-900";
-  const mutedColor = isDark ? "text-white/60" : "text-gray-500";
-  const borderColor = isDark ? "border-white/10" : "border-gray-200/60";
-
+  const bgOpacity = settings.opacity;
   const isEmpty = lines.length === 0;
 
   return (
     <div
-      className="h-screen w-screen flex flex-col rounded-lg overflow-hidden"
-      style={{ backgroundColor: bgColor }}
+      className="h-screen w-screen flex flex-col rounded-xl overflow-hidden"
+      style={{
+        background: `hsla(210, 100%, 20%, ${bgOpacity})`,
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: "1px solid hsla(0, 0%, 100%, 0.08)",
+        boxShadow: "0 4px 16px hsla(0, 0%, 0%, 0.16)",
+      }}
     >
       {/* Drag handle */}
       <div
-        className={`flex items-center justify-between px-3 h-7 shrink-0 ${borderColor} border-b`}
+        className="flex items-center justify-between px-3 h-7 shrink-0 border-b border-white/8"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       >
-        <div className={`text-[10px] ${mutedColor} select-none`}>Sublingual Overlay</div>
+        <div className="text-[10px] text-white/30 select-none">NERIS Sublingual</div>
         <button
-          className={`${mutedColor} hover:${textColor} text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-colors`}
+          className="text-white/30 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           onClick={() => window.overlayAPI.close()}
         >
-          ✕
+          &#x2715;
         </button>
       </div>
 
@@ -151,7 +150,7 @@ export function OverlayApp() {
         onScroll={handleScroll}
       >
         {isEmpty && (
-          <div className={`flex items-center justify-center h-full ${mutedColor} text-sm`}>
+          <div className="flex items-center justify-center h-full text-white/40 text-sm">
             Waiting for speech...
           </div>
         )}
@@ -159,9 +158,12 @@ export function OverlayApp() {
         {lines.map((line) => {
           const isPartial = line.id === PARTIAL_ID;
           return (
-            <div key={line.id} className={`mb-3 ${borderColor} ${!isPartial ? "border-b pb-3 last:border-b-0" : ""}`}>
+            <div
+              key={line.id}
+              className={`mb-3 border-white/8 ${!isPartial ? "border-b pb-3 last:border-b-0" : ""}`}
+            >
               <p
-                className={`${textColor} font-medium`}
+                className="text-white font-medium"
                 style={{ fontSize: settings.fontSize, lineHeight: settings.lineHeight }}
               >
                 {line.speakerLabel && (
@@ -180,7 +182,7 @@ export function OverlayApp() {
               </p>
               {settings.showTranslation && !isPartial && line.translatedText ? (
                 <p
-                  className={`${mutedColor} mt-0.5`}
+                  className="text-white/60 mt-0.5"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -190,7 +192,7 @@ export function OverlayApp() {
                 </p>
               ) : settings.showTranslation && !isPartial && pendingTranslation.has(line.id) ? (
                 <p
-                  className={`${mutedColor} mt-0.5 animate-pulse`}
+                  className="text-white/40 mt-0.5 animate-pulse"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -201,7 +203,7 @@ export function OverlayApp() {
               ) : null}
               {settings.showTranslation && isPartial && partialTranslation ? (
                 <p
-                  className={`${mutedColor} mt-0.5`}
+                  className="text-white/60 mt-0.5"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -211,7 +213,7 @@ export function OverlayApp() {
                 </p>
               ) : settings.showTranslation && isPartial ? (
                 <p
-                  className={`${mutedColor} mt-0.5 animate-pulse`}
+                  className="text-white/40 mt-0.5 animate-pulse"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -230,12 +232,10 @@ export function OverlayApp() {
       {/* Jump to bottom */}
       {!isAtBottom && (
         <button
-          className={`absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-            isDark ? "bg-white/20 text-white hover:bg-white/30" : "bg-gray-300/60 text-gray-700 hover:bg-gray-300/80"
-          } transition-colors`}
+          className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm bg-white/15 text-white hover:bg-white/25 transition-colors"
           onClick={jumpToBottom}
         >
-          ↓
+          &#x2193;
         </button>
       )}
     </div>
