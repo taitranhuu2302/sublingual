@@ -26,7 +26,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { sources, capturing, start, stop } = useAudioCapture();
   const { segments, running, loading, start: startASR, stop: stopASR, clear: clearSegments } = useTranscription();
-  const { settings } = useSettings();
+  const { settings, loaded: settingsLoaded } = useSettings();
   const [selectedSource, setSelectedSource] = useState("");
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -97,6 +97,22 @@ export function HomePage() {
 
   const isActive = capturing && running;
   const isEmpty = finals.length === 0 && partials.length === 0;
+
+  if (!settingsLoaded) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
