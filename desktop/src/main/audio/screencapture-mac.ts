@@ -1,10 +1,15 @@
 import koffi from "koffi";
 import path from "path";
+import { app } from "electron";
 
-const LIB_PATH = path.join(
-  __dirname,
-  "../../native/screencapture-mac/libScreenCaptureKitBridge.dylib"
-);
+function getNativeLibPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "native", "screencapture-mac", "libScreenCaptureKitBridge.dylib");
+  }
+  return path.join(__dirname, "../../native/screencapture-mac/libScreenCaptureKitBridge.dylib");
+}
+
+const LIB_PATH = getNativeLibPath();
 
 let sessionCreated = false;
 let pollingInterval: ReturnType<typeof setInterval> | null = null;

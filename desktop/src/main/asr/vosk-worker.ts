@@ -8,6 +8,7 @@ function getLibDir(): string {
   const resourcesPath = process.env.RESOURCES_PATH;
   if (resourcesPath) return path.join(resourcesPath, "bin", "vosk");
   if (appPath) return path.join(appPath, "bin", "vosk");
+  if (process.resourcesPath) return path.join(process.resourcesPath, "bin", "vosk");
   return path.join(process.cwd(), "bin", "vosk");
 }
 
