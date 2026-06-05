@@ -84,6 +84,11 @@ process.on("message", (msg: any) => {
         model = modelNew(msg.modelPath);
         if (!model) throw new Error("Failed to create Vosk model");
 
+        if (msg.puncModelPath) {
+          console.log("[vosk-worker] Attaching punctuation model...");
+          modelSetAddPunc(model, msg.puncModelPath);
+        }
+
         recognizer = recognizerNew(model, msg.sampleRate ?? 16000);
         if (!recognizer) throw new Error("Failed to create Vosk recognizer");
 
