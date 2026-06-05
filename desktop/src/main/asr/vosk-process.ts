@@ -1,5 +1,5 @@
 import { BrowserWindow, app } from "electron";
-import { fork } from "node:child_process";
+import { Worker } from "node:worker_threads";
 import path from "node:path";
 
 interface WorkerMessage {
@@ -13,14 +13,14 @@ interface WorkerMessage {
   puncModelPath?: string;
 }
 
-let worker: any = null;
+let worker: Worker | null = null;
 let mainWindowRef: BrowserWindow | null = null;
 let ready = false;
 
 function killWorker(): void {
   if (!worker) return;
   try {
-    worker.kill();
+    worker.terminate();
   } catch { /* ignore */ }
   worker = null;
   ready = false;
@@ -36,18 +36,17 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
     let settled = false;
 
     try {
-      worker = fork(workerPath, [], {
+      worker = new Worker(workerPath, {
         env: {
           ...process.env,
-          ELECTRON_RUN_AS_NODE: "1",
           APP_PATH: app.getAppPath(),
           RESOURCES_PATH: app.isPackaged ? process.resourcesPath : "",
         },
-        silent: true,
+        workerData: { modelPath, puncModelPath },
       });
     } catch (err) {
-      console.error("[vosk] Failed to fork worker:", err);
-      reject(new Error("Failed to fork Vosk worker: " + String(err)));
+      console.error("[vosk] Failed to create worker:", err);
+      reject(new Error("Failed to create Vosk worker: " + String(err)));
       return;
     }
 
@@ -84,44 +83,27 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
 
     worker.on("error", (err: Error) => {
       console.error("[vosk] Worker error:", err);
-    });
-
-    worker.on("exit", (code: number | null) => {
       if (!settled) {
         settled = true;
+        reject(err);
+      }
+    });
+
+    worker.on("exit", (code: number) => {
+      if (!settled) {
+        settled = true;
+        killWorker();
         reject(new Error(`Vosk worker exited unexpectedly with code ${code}`));
       }
     });
 
-    // stdout/stderr forwarding
-    worker.stdout?.on("data", (data: Buffer) => {
-      const text = data.toString().trim();
-      console.log("[vosk:worker] " + text);
-      if (mainWindowRef && !mainWindowRef.isDestroyed() && !ready) {
-        mainWindowRef.webContents.send("asr:model-status", { status: "loading", message: text });
-      }
-    });
-
-    worker.stderr?.on("data", (data: Buffer) => {
-      const text = data.toString().trim();
-      if (text.includes("Discarding word-ids")) return;
-      try {
-        console.error("[vosk:worker:err] " + text);
-      } catch {
-        // Pipe may be broken if worker exits early — ignore EPIPE
-      }
-    });
-
-    worker.send({ type: "start", modelPath, puncModelPath });
+    worker.postMessage({ type: "start", modelPath, puncModelPath });
 
     setTimeout(() => {
       if (!settled) {
         settled = true;
         console.error("[vosk] Model loading timed out after 120s");
-        if (worker) {
-          worker.kill();
-          worker = null;
-        }
+        killWorker();
         reject(new Error("Model loading timed out after 120s"));
       }
     }, 120000);
@@ -138,7 +120,7 @@ export function isVoskLoading(): boolean {
 
 export function feedAudio(pcmData: Buffer) {
   if (!worker || !ready) return;
-  worker.send({ type: "audio", data: pcmData });
+  worker.postMessage({ type: "audio", data: pcmData }, [pcmData.buffer]);
 }
 
 export const feedPcm = feedAudio;
@@ -161,12 +143,10 @@ export function stopVosk(): Promise<void> {
     };
     targetWorker.on("message", onMessage);
 
-    targetWorker.send({ type: "stop" });
+    targetWorker.postMessage({ type: "stop" });
 
     setTimeout(() => {
-      targetWorker.kill();
-      worker = null;
-      ready = false;
+      killWorker();
       resolve();
     }, 5000);
   });

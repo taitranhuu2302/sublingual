@@ -1,5 +1,11 @@
 import koffi from "koffi";
 import path from "node:path";
+import { parentPort } from "node:worker_threads";
+
+if (!parentPort) {
+  console.error("[vosk-worker] parentPort is not available; worker must be run as a Worker thread");
+  process.exit(1);
+}
 
 const LIB_NAME = process.platform === "win32" ? "libvosk.dll" : "libvosk.dylib";
 
@@ -77,18 +83,18 @@ function tryParseJson(s: string): Record<string, unknown> | null {
   try { return JSON.parse(s); } catch { return null; }
 }
 
-process.on("message", (msg: any) => {
+parentPort.on("message", (msg: any) => {
   switch (msg.type) {
     case "start": {
       console.log("[vosk-worker] Loading model...");
-      process.send?.({ type: "log", message: "Loading speech model..." });
+      parentPort.postMessage({ type: "log", message: "Loading speech model..." });
       try {
         model = modelNew(msg.modelPath);
         if (!model) throw new Error("Failed to create Vosk model");
 
         if (msg.puncModelPath) {
           console.log("[vosk-worker] Attaching punctuation model...");
-          process.send?.({ type: "log", message: "Loading punctuation model..." });
+          parentPort.postMessage({ type: "log", message: "Loading punctuation model..." });
           modelSetAddPunc(model, msg.puncModelPath);
         }
 
@@ -99,12 +105,12 @@ process.on("message", (msg: any) => {
         recognizerSetPartialWords(recognizer, true);
 
         console.log("[vosk-worker] Model ready");
-        process.send?.({ type: "ready" });
+        parentPort.postMessage({ type: "ready" });
       } catch (err) {
         console.error("[vosk-worker] Start error:", err);
         if (recognizer) { recognizerFree(recognizer); recognizer = null; }
         if (model) { modelFree(model); model = null; }
-        process.send?.({ type: "error", message: String(err) });
+        parentPort.postMessage({ type: "error", message: String(err) });
       }
       break;
     }
@@ -119,7 +125,7 @@ process.on("message", (msg: any) => {
           const raw = getResult(recognizer) ?? "";
           const parsed = tryParseJson(raw);
           if (parsed?.text?.trim()) {
-            process.send?.({
+            parentPort.postMessage({
               type: "transcript",
               text: parsed.text.trim(),
               isFinal: true,
@@ -130,7 +136,7 @@ process.on("message", (msg: any) => {
           const raw = getPartialResult(recognizer) ?? "";
           const parsed = tryParseJson(raw);
           if (parsed?.partial?.trim()) {
-            process.send?.({
+            parentPort.postMessage({
               type: "transcript",
               text: parsed.partial.trim(),
               isFinal: false,
@@ -151,7 +157,7 @@ process.on("message", (msg: any) => {
           const raw = getFinalResult(recognizer) ?? "";
           const parsed = tryParseJson(raw);
           if (parsed?.text?.trim()) {
-            process.send?.({
+            parentPort.postMessage({
               type: "transcript",
               text: parsed.text.trim(),
               isFinal: true,
@@ -168,7 +174,7 @@ process.on("message", (msg: any) => {
       } catch (err) {
         console.error("[vosk-worker] Stop error:", err);
       }
-      process.send?.({ type: "stopped" });
+      parentPort.postMessage({ type: "stopped" });
       process.exit(0);
       break;
     }
