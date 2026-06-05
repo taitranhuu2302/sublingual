@@ -11,11 +11,41 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: 'NERIS Sublingual',
     executableName: 'neris-sublingual',
-    asar: true,
+    asar: {
+      unpackDir: 'node_modules/**/*.node',
+    },
     icon: 'assets/logo',
     appBundleId: 'com.neris.sublingual',
     appCategoryType: 'public.app-category.utilities',
     extraResource: ["bin", "native"],
+    prune: false,
+    ignore: (file: string) => {
+      if (!file) return false;
+      if (file.startsWith('/node_modules/.pnpm')) return true;
+      if (file.startsWith('/node_modules/.bin')) return true;
+      if (file.startsWith('/node_modules/.vite')) return true;
+      if (file === '/node_modules/.modules.yaml') return true;
+      if (file === '/node_modules/.pnpm-workspace-state-v1.json') return true;
+      const devOnly = [
+        '/node_modules/electron',
+        '/node_modules/typescript',
+        '/node_modules/eslint',
+        '/node_modules/vite',
+        '/node_modules/tailwindcss',
+        '/node_modules/@tailwindcss',
+        '/node_modules/@vitejs',
+        '/node_modules/@electron-forge',
+        '/node_modules/@electron',
+        '/node_modules/@types',
+        '/node_modules/@typescript-eslint',
+        '/node_modules/electron-winstaller',
+        '/node_modules/electron-squirrel-startup',
+      ];
+      for (const pattern of devOnly) {
+        if (file.startsWith(pattern)) return true;
+      }
+      return false;
+    },
   },
   rebuildConfig: {},
   makers: [
