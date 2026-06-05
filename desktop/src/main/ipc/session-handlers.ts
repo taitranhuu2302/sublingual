@@ -39,4 +39,26 @@ export function registerSessionHandlers(mainWindow: BrowserWindow) {
     const folder = getSessionStorage().getSessionFolder(sessionId);
     if (folder) await shell.openPath(folder);
   });
+
+  // --- Folder management ---
+
+  ipcMain.handle("sessions:list-folders", async () =>
+    getSessionStorage().listFolders(),
+  );
+
+  ipcMain.handle("sessions:create-folder", async (_event, name: string) =>
+    getSessionStorage().createFolder(name),
+  );
+
+  ipcMain.handle("sessions:rename-folder", async (_event, folderId: string, name: string) =>
+    getSessionStorage().renameFolder(folderId, name),
+  );
+
+  ipcMain.handle("sessions:delete-folder", async (_event, folderId: string) =>
+    getSessionStorage().deleteFolder(folderId),
+  );
+
+  ipcMain.handle("sessions:move-sessions", async (_event, sessionIds: string[], folderId: string) =>
+    getSessionStorage().moveSessions(sessionIds, folderId),
+  );
 }

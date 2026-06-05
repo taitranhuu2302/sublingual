@@ -62,6 +62,11 @@ export interface ElectronAPI {
     exportTxt: (sessionId: string) => Promise<void>;
     exportJson: (sessionId: string) => Promise<void>;
     openFolder: (sessionId: string) => Promise<void>;
+    listFolders: () => Promise<SessionFolder[]>;
+    createFolder: (name: string) => Promise<SessionFolder>;
+    renameFolder: (folderId: string, name: string) => Promise<void>;
+    deleteFolder: (folderId: string) => Promise<void>;
+    moveSessions: (sessionIds: string[], folderId: string) => Promise<void>;
   };
 }
 
@@ -132,12 +137,20 @@ export interface ModelDownloadProgress {
   error?: string;
 }
 
+export interface SessionFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  sessionCount: number;
+}
+
 export interface SessionSummary {
   id: string;
   date: string;
   duration: number;
   segmentCount: number;
   preview: string;
+  folderId: string;
 }
 
 export interface TranscriptLine {

@@ -9,6 +9,19 @@ export interface SessionSummary {
   segmentCount: number;
   preview: string;
   folderPath: string;
+  folderId: string;
+}
+
+export interface SessionFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  sessionCount: number;
+}
+
+interface FolderRegistry {
+  folders: SessionFolder[];
+  sessionFolders: Record<string, string>;
 }
 
 export interface TranscriptLine {
@@ -39,6 +52,101 @@ class SessionStorage {
     return getSettings().storage.sessionsRoot;
   }
 
+  // --- Folder Registry ---
+
+  private getRegistryPath(): string {
+    return path.join(this.getSessionsRoot(), "folders.json");
+  }
+
+  private ensureRoot(): void {
+    const root = this.getSessionsRoot();
+    if (!fs.existsSync(root)) {
+      fs.mkdirSync(root, { recursive: true });
+    }
+  }
+
+  private loadRegistry(): FolderRegistry {
+    this.ensureRoot();
+    const regPath = this.getRegistryPath();
+    if (!fs.existsSync(regPath)) {
+      const defaultRegistry: FolderRegistry = {
+        folders: [{ id: "global", name: "Global", createdAt: new Date().toISOString() }],
+        sessionFolders: {},
+      };
+      fs.writeFileSync(regPath, JSON.stringify(defaultRegistry, null, 2), "utf-8");
+      return defaultRegistry;
+    }
+    try {
+      return JSON.parse(fs.readFileSync(regPath, "utf-8"));
+    } catch {
+      return { folders: [], sessionFolders: {} };
+    }
+  }
+
+  private saveRegistry(registry: FolderRegistry): void {
+    this.ensureRoot();
+    fs.writeFileSync(this.getRegistryPath(), JSON.stringify(registry, null, 2), "utf-8");
+  }
+
+  listFolders(): SessionFolder[] {
+    const registry = this.loadRegistry();
+    return registry.folders.map((f) => ({
+      ...f,
+      sessionCount: Object.values(registry.sessionFolders).filter((v) => v === f.id).length,
+    }));
+  }
+
+  createFolder(name: string): SessionFolder {
+    const registry = this.loadRegistry();
+    const id = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    if (registry.folders.some((f) => f.id === id)) {
+      throw new Error(`Folder "${name}" already exists`);
+    }
+    const folder: SessionFolder = {
+      id,
+      name,
+      createdAt: new Date().toISOString(),
+    };
+    registry.folders.push(folder);
+    this.saveRegistry(registry);
+    return folder;
+  }
+
+  renameFolder(folderId: string, name: string): void {
+    const registry = this.loadRegistry();
+    const folder = registry.folders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Folder "${folderId}" not found`);
+    if (folder.id === "global") throw new Error("Cannot rename the Global folder");
+    folder.name = name;
+    this.saveRegistry(registry);
+  }
+
+  deleteFolder(folderId: string): void {
+    const registry = this.loadRegistry();
+    const folder = registry.folders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Folder "${folderId}" not found`);
+    if (folder.id === "global") throw new Error("Cannot delete the Global folder");
+    registry.folders = registry.folders.filter((f) => f.id !== folderId);
+    // Move orphaned sessions to Global
+    for (const [sessionId, fid] of Object.entries(registry.sessionFolders)) {
+      if (fid === folderId) {
+        registry.sessionFolders[sessionId] = "global";
+      }
+    }
+    this.saveRegistry(registry);
+  }
+
+  moveSessions(sessionIds: string[], folderId: string): void {
+    const registry = this.loadRegistry();
+    if (!registry.folders.some((f) => f.id === folderId)) {
+      throw new Error(`Folder "${folderId}" not found`);
+    }
+    for (const id of sessionIds) {
+      registry.sessionFolders[id] = folderId;
+    }
+    this.saveRegistry(registry);
+  }
+
   // --- Live recording ---
 
   startSession(): string {
@@ -47,12 +155,15 @@ class SessionStorage {
     const root = this.getSessionsRoot();
     const folderPath = path.join(root, id);
 
-    if (!fs.existsSync(root)) {
-      fs.mkdirSync(root, { recursive: true });
-    }
+    this.ensureRoot();
     fs.mkdirSync(folderPath, { recursive: true });
 
     this.activeSession = { id, folderPath, startedAt: now, lines: [] };
+
+    // Assign to Global folder
+    const registry = this.loadRegistry();
+    registry.sessionFolders[id] = "global";
+    this.saveRegistry(registry);
 
     // Write meta.json immediately so session is valid even before stop
     const meta: SessionMeta = {
@@ -70,7 +181,6 @@ class SessionStorage {
   appendLine(line: TranscriptLine): void {
     if (!this.activeSession) return;
     this.activeSession.lines.push(line);
-    // Persist incrementally
     this.saveActive();
   }
 
@@ -109,11 +219,13 @@ class SessionStorage {
     const root = this.getSessionsRoot();
     if (!fs.existsSync(root)) return [];
 
+    const registry = this.loadRegistry();
     const entries = fs.readdirSync(root, { withFileTypes: true });
     const sessions: SessionSummary[] = [];
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
+      if (entry.name === "folders.json") continue;
 
       const folderPath = path.join(root, entry.name);
       const metaPath = path.join(folderPath, "meta.json");
@@ -130,9 +242,7 @@ class SessionStorage {
         // ignore
       }
 
-      // If startedAt is empty or invalid, parse from folder name
       if (!meta.startedAt || isNaN(new Date(meta.startedAt).getTime())) {
-        // Folder name format: 2026-05-30T02-41-10-055Z → 2026-05-30T02:41:10.055Z
         const parsed = entry.name
           .replace(/^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/, "$1:$2:$3.$4Z");
         meta.startedAt = new Date(parsed).toISOString();
@@ -154,6 +264,7 @@ class SessionStorage {
         segmentCount: lines.length,
         preview,
         folderPath,
+        folderId: registry.sessionFolders[entry.name] || "global",
       };
 
       if (search) {
@@ -190,13 +301,16 @@ class SessionStorage {
   deleteSessions(sessionIds: string[]): number {
     let count = 0;
     const root = this.getSessionsRoot();
+    const registry = this.loadRegistry();
     for (const id of sessionIds) {
       const folderPath = path.join(root, id);
       if (fs.existsSync(folderPath)) {
         fs.rmSync(folderPath, { recursive: true, force: true });
         count++;
       }
+      delete registry.sessionFolders[id];
     }
+    this.saveRegistry(registry);
     return count;
   }
 

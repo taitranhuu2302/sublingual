@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import type { SessionSummary, TranscriptLine } from "../types/electron-api";
+import type { SessionSummary, TranscriptLine, SessionFolder } from "../types/electron-api";
 
 export function useSessions() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [folders, setFolders] = useState<SessionFolder[]>([]);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeSession, setActiveSession] = useState<{
     info: SessionSummary;
@@ -21,10 +23,24 @@ export function useSessions() {
     }
   }, []);
 
+  const loadFolders = useCallback(async () => {
+    try {
+      const list = await window.electronAPI.sessions.listFolders();
+      setFolders(list);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    await loadSessions(search || undefined);
+    await loadFolders();
+  }, [loadSessions, loadFolders, search]);
+
   useEffect(() => {
     if (!window.electronAPI) return;
-    loadSessions(search || undefined);
-  }, [loadSessions, search]);
+    refreshAll();
+  }, [refreshAll]);
 
   const selectSession = useCallback(async (session: SessionSummary) => {
     const transcript = await window.electronAPI.sessions.getTranscript(session.id);
@@ -55,8 +71,8 @@ export function useSessions() {
       setActiveSession(null);
     }
     setSelectedIds(new Set());
-    await loadSessions(search || undefined);
-  }, [selectedIds, activeSession, loadSessions, search]);
+    await refreshAll();
+  }, [selectedIds, activeSession, refreshAll]);
 
   const exportTxt = useCallback(async (id: string) => {
     await window.electronAPI.sessions.exportTxt(id);
@@ -76,20 +92,50 @@ export function useSessions() {
       next.delete(id);
       return next;
     });
-    await loadSessions(search || undefined);
-  }, [activeSession, loadSessions, search]);
+    await refreshAll();
+  }, [activeSession, refreshAll]);
 
   const openFolder = useCallback(async (id: string) => {
     await window.electronAPI.sessions.openFolder(id);
   }, []);
 
+  const createFolder = useCallback(async (name: string) => {
+    const folder = await window.electronAPI.sessions.createFolder(name);
+    await loadFolders();
+    return folder;
+  }, [loadFolders]);
+
+  const renameFolder = useCallback(async (folderId: string, name: string) => {
+    await window.electronAPI.sessions.renameFolder(folderId, name);
+    await loadFolders();
+  }, [loadFolders]);
+
+  const deleteFolder = useCallback(async (folderId: string) => {
+    await window.electronAPI.sessions.deleteFolder(folderId);
+    if (activeFolder === folderId) setActiveFolder("global");
+    await refreshAll();
+  }, [activeFolder, refreshAll]);
+
+  const moveSessions = useCallback(async (sessionIds: string[], folderId: string) => {
+    await window.electronAPI.sessions.moveSessions(sessionIds, folderId);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const filteredSessions = activeFolder
+    ? sessions.filter((s) => s.folderId === activeFolder)
+    : sessions;
+
   return {
-    sessions,
+    sessions: filteredSessions,
+    allSessions: sessions,
+    folders,
+    activeFolder,
     selectedIds,
     activeSession,
     search,
     loading,
     setSearch,
+    setActiveFolder,
     selectSession,
     toggleSelect,
     selectAll,
@@ -99,5 +145,9 @@ export function useSessions() {
     exportTxt,
     exportJson,
     openFolder,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveSessions,
   };
 }

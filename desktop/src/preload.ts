@@ -133,6 +133,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("sessions:export-json", sessionId),
     openFolder: (sessionId: string) =>
       ipcRenderer.invoke("sessions:open-folder", sessionId),
+    listFolders: () => ipcRenderer.invoke("sessions:list-folders"),
+    createFolder: (name: string) =>
+      ipcRenderer.invoke("sessions:create-folder", name),
+    renameFolder: (folderId: string, name: string) =>
+      ipcRenderer.invoke("sessions:rename-folder", folderId, name),
+    deleteFolder: (folderId: string) =>
+      ipcRenderer.invoke("sessions:delete-folder", folderId),
+    moveSessions: (sessionIds: string[], folderId: string) =>
+      ipcRenderer.invoke("sessions:move-sessions", sessionIds, folderId),
   },
 });
 
