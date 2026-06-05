@@ -106,7 +106,9 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     mainWindow.webContents.send("asr:model-status", { status: "loading" });
     try {
-      await startVosk(model.path, mainWindow);
+      const puncModel = mm.getPunctuationModel();
+      const puncModelPath = puncModel?.path ?? null;
+      await startVosk(model.path, puncModelPath, mainWindow);
     } catch (err) {
       mainWindow.webContents.send("asr:model-status", { status: "error", message: String(err) });
       throw err;
