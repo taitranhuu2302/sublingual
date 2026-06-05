@@ -94,10 +94,19 @@ class SessionStorage {
   listFolders(): SessionFolder[] {
     const registry = this.loadRegistry();
     const allSessions = this.listSessions();
-    return registry.folders.map((f) => ({
+    let folderList = registry.folders.map((f) => ({
       ...f,
       sessionCount: allSessions.filter((s) => s.folderId === f.id).length,
     }));
+    if (!folderList.some((f) => f.id === "global")) {
+      folderList.unshift({
+        id: "global",
+        name: "Global",
+        createdAt: new Date().toISOString(),
+        sessionCount: allSessions.filter((s) => s.folderId === "global").length,
+      });
+    }
+    return folderList;
   }
 
   createFolder(name: string): SessionFolder {
