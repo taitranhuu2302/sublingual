@@ -12,7 +12,8 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Home, Archive, Settings, Waves, PanelLeft } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Home, Archive, Settings, Waves } from "lucide-react";
 
 const navItems = [
   { to: "/", label: "Home", icon: Home },
@@ -63,18 +64,20 @@ function AppSidebar() {
 
 export function Layout() {
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex h-screen w-screen overflow-hidden">
-        <AppSidebar />
-        <SidebarInset className="flex flex-col min-h-0">
-          <header className="flex items-center h-10 px-3 border-b border-border/20 shrink-0 bg-card/20">
-            <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground" />
-          </header>
-          <main className="flex-1 overflow-y-auto flex flex-col min-h-0">
-            <Outlet />
-          </main>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+    <TooltipProvider>
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex h-screen w-screen overflow-hidden">
+          <AppSidebar />
+          <SidebarInset className="flex flex-col min-h-0">
+            <header className="flex items-center h-10 px-3 border-b border-border/20 shrink-0 bg-card/20">
+              <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground" />
+            </header>
+            <main className="flex-1 overflow-y-auto flex flex-col min-h-0">
+              <Outlet />
+            </main>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
