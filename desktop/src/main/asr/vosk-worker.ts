@@ -30,6 +30,7 @@ let acceptWaveform: (...args: any[]) => any;
 let getResult: (...args: any[]) => any;
 let getPartialResult: (...args: any[]) => any;
 let getFinalResult: (...args: any[]) => any;
+let modelSetAddPunc: (...args: any[]) => void;
 
 try {
   ensureDllPath();
@@ -53,6 +54,13 @@ try {
   getResult = lib.func("vosk_recognizer_result", "string", [VoskRecognizerPtr]);
   getPartialResult = lib.func("vosk_recognizer_partial_result", "string", [VoskRecognizerPtr]);
   getFinalResult = lib.func("vosk_recognizer_final_result", "string", [VoskRecognizerPtr]);
+
+  try {
+    modelSetAddPunc = lib.func("vosk_model_set_add_punc", "void", [VoskModelPtr, "string"]);
+  } catch {
+    modelSetAddPunc = () => {};
+    console.log("[vosk-worker] vosk_model_set_add_punc not available in this Vosk version");
+  }
 
   console.log("[vosk-worker] Vosk ready");
 } catch (err) {
