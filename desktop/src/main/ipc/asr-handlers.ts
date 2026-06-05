@@ -55,6 +55,16 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
     const overlay = getOverlayManager();
 
+    // Send transcript line to overlay immediately (synchronously)
+    // so the committed line appears before the next utterance's partial
+    if (overlay.isVisible()) {
+      overlay.sendToOverlay("overlay:transcript-line", line);
+    }
+
+    // Reset incremental manager for the next utterance before starting
+    // async translation, so the next handlePartial starts on a fresh tracker
+    incrementalMgr.reset();
+
     incrementalMgr.onFinalize = (event) => {
       if (!mainWindow.isDestroyed()) {
         originalSend("translation:segment-result", {
@@ -65,10 +75,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
         });
 
         if (overlay.isVisible()) {
-          overlay.sendToOverlay("overlay:transcript-line", {
-            ...line,
-            translatedText: event.fullTranslation || undefined,
-          });
           overlay.sendToOverlay("overlay:translation-update", {
             id: line.id,
             translatedText: event.fullTranslation,
@@ -80,7 +86,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     incrementalMgr.handleFinal(line.text).catch((err) => {
       console.error("[incremental] finalization failed:", err);
       if (overlay.isVisible()) {
-        overlay.sendToOverlay("overlay:transcript-line", line);
         overlay.sendToOverlay("overlay:translation-update", {
           id: line.id,
           translatedText: "",

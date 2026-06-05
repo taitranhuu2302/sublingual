@@ -20,6 +20,7 @@ export type FinalizeCallback = (event: FinalizedEvent) => void;
 export class IncrementalTranslationManager {
   private tracker = new StablePrefixTracker();
   private revision = 0;
+  private finalGeneration = 0;
   private committedWordCount = 0;
   private committedTranslation = "";
   utteranceId: string;
@@ -70,8 +71,8 @@ export class IncrementalTranslationManager {
   async handleFinal(text: string): Promise<void> {
     const settings = getSettings();
 
-    // Increment revision to invalidate any in-flight partial callbacks
-    const finalRevision = ++this.revision;
+    const myGen = ++this.finalGeneration;
+    ++this.revision;
 
     const words = text.trim() ? text.trim().split(/\s+/) : [];
     const remainingWords = words.slice(this.committedWordCount);
@@ -85,7 +86,7 @@ export class IncrementalTranslationManager {
 
       try {
         const result = await getTranslationService().translate(remaining, srcLang, tgtLang);
-        if (finalRevision >= this.revision) {
+        if (myGen === this.finalGeneration) {
           fullTranslation = this.committedTranslation + (this.committedTranslation ? " " : "") + result.translatedText;
         }
       } catch (err) {
@@ -96,7 +97,7 @@ export class IncrementalTranslationManager {
     this.onFinalize?.({
       fullSource: text,
       fullTranslation,
-      revision: finalRevision,
+      revision: myGen,
     });
 
     this.reset();
@@ -110,5 +111,7 @@ export class IncrementalTranslationManager {
     this.tracker.reset();
     this.committedWordCount = 0;
     this.committedTranslation = "";
+    this.revision = 0;
+    this.finalGeneration = 0;
   }
 }
