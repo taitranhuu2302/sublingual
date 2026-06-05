@@ -26,24 +26,11 @@ const config: ForgeConfig = {
       if (file.startsWith('/node_modules/.vite')) return true;
       if (file === '/node_modules/.modules.yaml') return true;
       if (file === '/node_modules/.pnpm-workspace-state-v1.json') return true;
-      const devOnly = [
-        '/node_modules/electron',
-        '/node_modules/typescript',
-        '/node_modules/eslint',
-        '/node_modules/vite',
-        '/node_modules/tailwindcss',
-        '/node_modules/@tailwindcss',
-        '/node_modules/@vitejs',
-        '/node_modules/@electron-forge',
-        '/node_modules/@electron',
-        '/node_modules/@types',
-        '/node_modules/@typescript-eslint',
-        '/node_modules/electron-winstaller',
-        '/node_modules/electron-squirrel-startup',
-      ];
-      for (const pattern of devOnly) {
-        if (file.startsWith(pattern)) return true;
-      }
+      // Keep only native modules that can't be bundled by Vite
+      if (file.startsWith('/node_modules/koffi')) return false;
+      if (file.startsWith('/node_modules/adm-zip')) return false;
+      // Exclude everything else in node_modules
+      if (file.startsWith('/node_modules/')) return true;
       return false;
     },
   },
