@@ -29,6 +29,7 @@ const config: ForgeConfig = {
       // Keep only native modules that can't be bundled by Vite
       if (file.startsWith('/node_modules/koffi')) return false;
       if (file.startsWith('/node_modules/adm-zip')) return false;
+      if (file.startsWith('/node_modules/@koromix')) return false;
       // Exclude everything else in node_modules
       if (file.startsWith('/node_modules/')) return true;
       return false;
@@ -79,7 +80,7 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
