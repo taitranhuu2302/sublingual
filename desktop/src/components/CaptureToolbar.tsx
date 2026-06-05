@@ -36,7 +36,7 @@ export function CaptureToolbar({
 
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-card/50">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-card/50">
         <AudioSourceSelector
           sources={sources}
           value={selectedSource}
@@ -44,7 +44,7 @@ export function CaptureToolbar({
           disabled={capturing}
         />
 
-        <div className="w-px h-5 bg-border/50" />
+        <div className="w-px h-5 bg-border/30" />
 
         {starting ? (
           <Button disabled className="bg-primary/70 text-primary-foreground min-w-[100px]">

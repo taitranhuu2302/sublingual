@@ -23,7 +23,7 @@ function AppSidebar() {
   const location = useLocation();
 
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border">
+    <Sidebar collapsible="none" className="border-r border-sidebar-border/40">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
