@@ -32,9 +32,9 @@ export function SettingsPage() {
             onClick={() => setActiveTab(id)}
             className={cn(
               "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
-              activeTab === id
-                ? "bg-accent font-medium text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+               activeTab === id
+                ? "bg-[hsl(220,60%,24%)] text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-[hsl(234,19%,20%)]"
             )}
           >
             <Icon className="h-4 w-4" />
