@@ -10,6 +10,7 @@ interface WorkerMessage {
   message?: string;
   modelPath?: string;
   sampleRate?: number;
+  puncModelPath?: string;
 }
 
 let worker: any = null;
@@ -25,7 +26,7 @@ function killWorker(): void {
   ready = false;
 }
 
-export function startVosk(modelPath: string, mainWindow: BrowserWindow): Promise<void> {
+export function startVosk(modelPath: string, puncModelPath: string | null, mainWindow: BrowserWindow): Promise<void> {
   return new Promise((resolve, reject) => {
     killWorker();
     mainWindowRef = mainWindow;
@@ -96,7 +97,7 @@ export function startVosk(modelPath: string, mainWindow: BrowserWindow): Promise
       console.error("[vosk:worker:err] " + text);
     });
 
-    worker.send({ type: "start", modelPath });
+    worker.send({ type: "start", modelPath, puncModelPath });
 
     setTimeout(() => {
       if (!settled) {
