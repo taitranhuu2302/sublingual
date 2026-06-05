@@ -1,6 +1,6 @@
 {
-  "pid": 19204,
-  "version": "0.9.8",
-  "socketPath": "\\\\.\\pipe\\codegraph-7065c295a204c96c",
-  "startedAt": 1780652329277
+  "pid": 20928,
+  "version": "0.9.9",
+  "socketPath": "/Users/taitran/Desktop/sublingual/.codegraph/daemon.sock",
+  "startedAt": 1780660628001
 }

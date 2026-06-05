@@ -1,6 +1,17 @@
 import { BrowserWindow, app } from "electron";
-import { fork } from "node:child_process";
+import { fork, execSync } from "node:child_process";
 import path from "node:path";
+import fs from "node:fs";
+
+function getWorkerExecPath(): string {
+  if (!app.isPackaged && process.platform === "darwin") {
+    try {
+      const nodePath = execSync("which node", { encoding: "utf8" }).trim();
+      if (nodePath && fs.existsSync(nodePath)) return nodePath;
+    } catch { /* fall through */ }
+  }
+  return process.execPath;
+}
 
 interface WorkerMessage {
   type: string;
@@ -37,6 +48,7 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
 
     try {
       worker = fork(workerPath, [], {
+        execPath: getWorkerExecPath(),
         env: {
           ...process.env,
           APP_PATH: app.getAppPath(),

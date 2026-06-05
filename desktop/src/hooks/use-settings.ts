@@ -17,6 +17,7 @@ const DEFAULTS: AppSettings = {
     speechToText: {
         selectedModel: "",
         sourceLanguage: "en",
+        flushTimeoutMs: 3000
     },
     translation: {
         enabled: true,
