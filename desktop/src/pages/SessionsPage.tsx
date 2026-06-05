@@ -38,6 +38,7 @@ import {
   Edit3,
   ChevronRight,
   Move,
+  ChevronLeft,
 } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -80,6 +81,7 @@ export function SessionsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "selected" } | { type: "single"; id: string } | null>(null);
   const [filterText, setFilterText] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["global"]));
+  const [sessionsPanelOpen, setSessionsPanelOpen] = useState(true);
 
   // Folder dialogs
   const [showNewFolder, setShowNewFolder] = useState(false);
@@ -137,7 +139,8 @@ export function SessionsPage() {
   return (
     <div className="flex flex-1 min-h-0">
       {/* Column 2: Sessions Browser */}
-      <div className="w-72 border-r border-border/30 flex flex-col shrink-0 min-h-0 bg-card/30">
+      {sessionsPanelOpen && (
+        <div className="w-72 border-r border-border/30 flex flex-col shrink-0 min-h-0 bg-card/30">
         <div className="flex items-center justify-between p-3 border-b border-border/20">
           <h2 className="text-sm font-semibold">All Sessions</h2>
           <TooltipProvider>
@@ -228,42 +231,38 @@ export function SessionsPage() {
 
                   {isExpanded && (
                     <div className="ml-6 border-l border-border/20 pl-2">
-                      {(search && folderSessions.length === 0) || (!search && folderSessions.length === 0) ? (
-                        <p className="text-[11px] text-muted-foreground py-2 px-2 italic">Empty</p>
-                      ) : (
-                        folderSessions.map((s) => (
-                          <div
-                            key={s.id}
-                            role="button"
-                            tabIndex={0}
-                            className={cn(
-                              "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-md transition-colors cursor-pointer",
-                              activeSession?.info.id === s.id ? "bg-[hsl(220,50%,20%)]" : "hover:bg-[hsl(234,19%,20%)]"
-                            )}
-                            onClick={() => selectSession(s)}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSession(s); } }}
-                          >
-                            <Checkbox
-                              checked={selectedIds.has(s.id)}
-                              onCheckedChange={() => toggleSelect(s.id)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-0.5"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">
-                                  {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })} &middot;{" "}
-                                  {new Date(s.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[11px] text-muted-foreground">{formatDuration(s.duration)}</span>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{s.preview || "No preview"}</p>
+                      {folderSessions.map((s) => (
+                        <div
+                          key={s.id}
+                          role="button"
+                          tabIndex={0}
+                          className={cn(
+                            "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-md transition-colors cursor-pointer",
+                            activeSession?.info.id === s.id ? "bg-[hsl(220,50%,20%)]" : "hover:bg-[hsl(234,19%,20%)]"
+                          )}
+                          onClick={() => selectSession(s)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSession(s); } }}
+                        >
+                          <Checkbox
+                            checked={selectedIds.has(s.id)}
+                            onCheckedChange={() => toggleSelect(s.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium truncate">
+                                {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })} &middot;{" "}
+                                {new Date(s.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
                             </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[11px] text-muted-foreground">{formatDuration(s.duration)}</span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">{s.preview || "No preview"}</p>
                           </div>
-                        ))
-                      )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -297,6 +296,19 @@ export function SessionsPage() {
           )}
         </div>
       </div>
+      )}
+
+      {/* Toggle button for sessions panel */}
+      <button
+        onClick={() => setSessionsPanelOpen(!sessionsPanelOpen)}
+        className="flex items-center justify-center w-5 h-full border-r border-border/30 text-muted-foreground hover:text-foreground hover:bg-[hsl(234,19%,20%)] transition-colors shrink-0"
+      >
+        {sessionsPanelOpen ? (
+          <ChevronLeft className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+      </button>
 
       {/* Column 3: Transcript Detail */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
