@@ -93,9 +93,10 @@ class SessionStorage {
 
   listFolders(): SessionFolder[] {
     const registry = this.loadRegistry();
+    const allSessions = this.listSessions();
     return registry.folders.map((f) => ({
       ...f,
-      sessionCount: Object.values(registry.sessionFolders).filter((v) => v === f.id).length,
+      sessionCount: allSessions.filter((s) => s.folderId === f.id).length,
     }));
   }
 
