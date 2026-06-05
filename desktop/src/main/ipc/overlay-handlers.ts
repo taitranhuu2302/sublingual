@@ -9,4 +9,7 @@ export function registerOverlayHandlers(mainWindow: BrowserWindow) {
     overlay.isVisible() ? overlay.hide() : overlay.show(mainWindow);
   });
   ipcMain.handle("overlay:is-visible", async () => getOverlayManager().isVisible());
+  ipcMain.handle("overlay:clear", async () => {
+    getOverlayManager().sendToOverlay("overlay:clear");
+  });
 }

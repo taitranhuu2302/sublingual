@@ -101,6 +101,7 @@ export function HomePage() {
 
   const handleClear = useCallback(() => {
     clearSegments();
+    window.electronAPI.overlay.clear();
   }, [clearSegments]);
 
   const handleToggleOverlay = async () => {
@@ -199,37 +200,37 @@ export function HomePage() {
                 </div>
               )}
               <div className="space-y-1 max-w-4xl mx-auto">
-                {finals.map((seg) => (
-                  <div key={seg.id} className="flex gap-4 py-2 border-b border-border/20 group">
+                {finals.map((seg, index) => (
+                  <div key={seg.id ? seg.id : index} className="flex gap-4 py-2 border-b border-border/20 group">
                     <span className="text-xs text-muted-foreground font-mono shrink-0 pt-0.5 w-20 text-right">
                       {formatTimestamp(seg.timestamp)}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-base leading-relaxed">
-                        {"speakerLabel" in seg && seg.speakerLabel && (
+                        {seg.speakerLabel && seg.speakerColor && (
                           <span
                             className="inline-flex items-center gap-1 mr-2 text-[11px] font-semibold rounded px-1.5 py-0.5 align-middle"
                             style={{
-                              backgroundColor: `${(seg as any).speakerColor}22`,
-                              color: (seg as any).speakerColor,
-                              border: `1px solid ${(seg as any).speakerColor}44`,
+                              backgroundColor: `${seg.speakerColor}22`,
+                              color: seg.speakerColor,
+                              border: `1px solid ${seg.speakerColor}44`,
                             }}
                           >
-                            {(seg as any).speakerLabel}
+                            {seg.speakerLabel}
                           </span>
                         )}
                         {seg.text}
                       </p>
-                      {"translatedText" in seg && (seg as any).translatedText && (
+                      {seg.translatedText && (
                         <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                          {(seg as any).translatedText}
+                          {seg.translatedText}
                         </p>
                       )}
                     </div>
                   </div>
                 ))}
-                {partials.map((seg) => (
-                  <div key={seg.id} className="flex gap-4 py-2 border-b border-border/10">
+                {partials.map((seg, index) => (
+                  <div key={seg.id ? seg.id : index} className="flex gap-4 py-2 border-b border-border/10">
                     <span className="text-xs text-muted-foreground font-mono shrink-0 pt-0.5 w-20 text-right opacity-50">
                       {formatTimestamp(seg.timestamp)}
                     </span>
