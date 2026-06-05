@@ -1,17 +1,6 @@
 import { BrowserWindow, app } from "electron";
-import { fork, execSync } from "node:child_process";
+import { fork } from "node:child_process";
 import path from "node:path";
-import fs from "node:fs";
-
-function getWorkerExecPath(): string {
-  if (!app.isPackaged && process.platform === "darwin") {
-    try {
-      const nodePath = execSync("which node", { encoding: "utf8" }).trim();
-      if (nodePath && fs.existsSync(nodePath)) return nodePath;
-    } catch { /* fall through */ }
-  }
-  return process.execPath;
-}
 
 interface WorkerMessage {
   type: string;
@@ -48,9 +37,9 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
 
     try {
       worker = fork(workerPath, [], {
-        execPath: getWorkerExecPath(),
         env: {
           ...process.env,
+          ELECTRON_RUN_AS_NODE: "1",
           APP_PATH: app.getAppPath(),
           RESOURCES_PATH: app.isPackaged ? process.resourcesPath : "",
         },
@@ -85,6 +74,11 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
         case "stopped":
           ready = false;
           break;
+        case "log":
+          if (mainWindowRef && !mainWindowRef.isDestroyed() && !ready) {
+            mainWindowRef.webContents.send("asr:model-status", { status: "loading", message: msg.message });
+          }
+          break;
       }
     });
 
@@ -99,6 +93,7 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
       }
     });
 
+    // stdout/stderr forwarding
     worker.stdout?.on("data", (data: Buffer) => {
       const text = data.toString().trim();
       console.log("[vosk:worker] " + text);

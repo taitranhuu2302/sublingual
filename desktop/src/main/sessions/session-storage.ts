@@ -206,9 +206,13 @@ class SessionStorage {
       duration,
     };
 
-    const metaPath = path.join(this.activeSession.folderPath, "meta.json");
-    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
-    this.saveActive();
+    try {
+      fs.mkdirSync(this.activeSession.folderPath, { recursive: true });
+      fs.writeFileSync(path.join(this.activeSession.folderPath, "meta.json"), JSON.stringify(meta, null, 2), "utf-8");
+      this.saveActive();
+    } catch (err) {
+      console.error("[session] Failed to write session meta:", err);
+    }
 
     const id = this.activeSession.id;
     console.log("[session] stopped:", id, `${this.activeSession.lines.length} lines, ${duration}s`);

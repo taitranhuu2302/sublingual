@@ -81,12 +81,14 @@ process.on("message", (msg: any) => {
   switch (msg.type) {
     case "start": {
       console.log("[vosk-worker] Loading model...");
+      process.send?.({ type: "log", message: "Loading speech model..." });
       try {
         model = modelNew(msg.modelPath);
         if (!model) throw new Error("Failed to create Vosk model");
 
         if (msg.puncModelPath) {
           console.log("[vosk-worker] Attaching punctuation model...");
+          process.send?.({ type: "log", message: "Loading punctuation model..." });
           modelSetAddPunc(model, msg.puncModelPath);
         }
 
