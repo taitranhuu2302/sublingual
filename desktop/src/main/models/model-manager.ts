@@ -48,6 +48,10 @@ class ModelManager {
   getSpkModel(): VoskModel | null {
     return this.listModels().find((m) => m.id === "vosk-model-spk-0.4" && m.downloaded) ?? null;
   }
+
+  getPunctuationModel(): VoskModel | null {
+    return this.listModels().find((m) => m.id === "vosk-recasepunc-en-0.22" && m.downloaded) ?? null;
+  }
 }
 
 let instance: ModelManager | null = null;
