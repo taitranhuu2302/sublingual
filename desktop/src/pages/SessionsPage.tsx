@@ -300,9 +300,26 @@ export function SessionsPage() {
                 {activeSession.info.folderId && (
                   <>
                     <span>&middot;</span>
-                    <span className="text-primary/70">
-                      {folders.find((f) => f.id === activeSession.info.folderId)?.name || "Global"}
-                    </span>
+                    <Select
+                      value={activeSession.info.folderId}
+                      onValueChange={(folderId) => {
+                        moveSessions([activeSession.info.id], folderId);
+                      }}
+                    >
+                      <SelectTrigger className="h-5 text-[11px] border-0 bg-transparent px-1 gap-1 text-primary/70 hover:text-primary hover:bg-muted/50 w-auto">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {folders.map((f) => (
+                          <SelectItem key={f.id} value={f.id} className="text-xs">
+                            <span className="flex items-center gap-2">
+                              <Folder className="h-3 w-3" />
+                              {f.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </>
                 )}
               </div>
