@@ -20,8 +20,6 @@ interface TranscriptLine {
 const MAX_LINES = 50;
 const PARTIAL_ID = "__partial__";
 
-let partialSeq = 0;
-
 export function OverlayApp() {
   const [settings, setSettings] = useState<OverlaySettings>({
     fontSize: 26,
@@ -121,21 +119,21 @@ export function OverlayApp() {
     <div
       className="h-screen w-screen flex flex-col rounded-xl overflow-hidden"
       style={{
-        background: `hsla(210, 100%, 20%, ${bgOpacity})`,
+        background: `hsla(232, 23%, 18%, ${bgOpacity})`,
         backdropFilter: "blur(24px)",
         WebkitBackdropFilter: "blur(24px)",
-        border: "1px solid hsla(0, 0%, 100%, 0.08)",
+        border: "1px solid hsl(234, 19%, 26% / 0.6)",
         boxShadow: "0 4px 16px hsla(0, 0%, 0%, 0.16)",
       }}
     >
       {/* Drag handle */}
       <div
-        className="flex items-center justify-between px-3 h-7 shrink-0 border-b border-white/8"
+        className="flex items-center justify-between px-3 h-7 shrink-0 border-b border-[hsl(234,19%,26%)]/40"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       >
-        <div className="text-[10px] text-white/30 select-none">NERIS Sublingual</div>
+        <div className="text-[10px] text-foreground/30 select-none">NERIS Sublingual</div>
         <button
-          className="text-white/30 hover:text-white text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+          className="text-foreground/30 hover:text-foreground text-xs w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
           onClick={() => window.overlayAPI.close()}
         >
@@ -150,7 +148,7 @@ export function OverlayApp() {
         onScroll={handleScroll}
       >
         {isEmpty && (
-          <div className="flex items-center justify-center h-full text-white/40 text-sm">
+          <div className="flex items-center justify-center h-full text-muted-foreground/60 text-sm">
             Waiting for speech...
           </div>
         )}
@@ -160,10 +158,10 @@ export function OverlayApp() {
           return (
             <div
               key={line.id}
-              className={`mb-3 border-white/8 ${!isPartial ? "border-b pb-3 last:border-b-0" : ""}`}
+              className={`mb-3 ${!isPartial ? "border-b border-border/30 pb-3 last:border-b-0" : ""}`}
             >
               <p
-                className="text-white font-medium"
+                className="text-foreground font-medium"
                 style={{ fontSize: settings.fontSize, lineHeight: settings.lineHeight }}
               >
                 {line.speakerLabel && (
@@ -182,7 +180,7 @@ export function OverlayApp() {
               </p>
               {settings.showTranslation && !isPartial && line.translatedText ? (
                 <p
-                  className="text-white/60 mt-0.5"
+                  className="text-muted-foreground mt-0.5"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -192,7 +190,7 @@ export function OverlayApp() {
                 </p>
               ) : settings.showTranslation && !isPartial && pendingTranslation.has(line.id) ? (
                 <p
-                  className="text-white/40 mt-0.5 animate-pulse"
+                  className="text-muted-foreground/60 mt-0.5 animate-pulse"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -203,7 +201,7 @@ export function OverlayApp() {
               ) : null}
               {settings.showTranslation && isPartial && partialTranslation ? (
                 <p
-                  className="text-white/60 mt-0.5"
+                  className="text-muted-foreground mt-0.5"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -213,7 +211,7 @@ export function OverlayApp() {
                 </p>
               ) : settings.showTranslation && isPartial ? (
                 <p
-                  className="text-white/40 mt-0.5 animate-pulse"
+                  className="text-muted-foreground/60 mt-0.5 animate-pulse"
                   style={{
                     fontSize: Math.max(14, settings.fontSize - 4),
                     lineHeight: settings.lineHeight,
@@ -232,7 +230,7 @@ export function OverlayApp() {
       {/* Jump to bottom */}
       {!isAtBottom && (
         <button
-          className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm bg-white/15 text-white hover:bg-white/25 transition-colors"
+          className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm bg-foreground/10 text-foreground/70 hover:bg-foreground/20 hover:text-foreground transition-colors"
           onClick={jumpToBottom}
         >
           &#x2193;
