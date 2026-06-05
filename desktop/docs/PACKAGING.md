@@ -229,13 +229,41 @@ Cả 2 đều dùng `process.resourcesPath` để resolve path khi app đã pack
 
 1. **Kiểm tra log**: Mở Terminal, chạy trực tiếp binary:
    ```bash
-   out/NERIS\ Sublingual-darwin-arm64/NERIS\ Sublingual.app/Contents/MacOS/neris-sublingual
+   # Chạy app và ghi log ra file
+   out/NERIS\ Sublingual-darwin-arm64/NERIS\ Sublingual.app/Contents/MacOS/neris-sublingual --enable-logging 2>/tmp/app.log
+
+   # Xem tất cả lỗi console từ renderer
+   grep "CONSOLE" /tmp/app.log
+
+   # Xem tất cả lỗi
+   grep -i "error\|fail\|cannot\|denied" /tmp/app.log
    ```
 2. **Lỗi dylib**: Kiểm tra native libs có trong Resources không:
    ```bash
    ls out/NERIS\ Sublingual-darwin-arm64/NERIS\ Sublingual.app/Contents/Resources/native/screencapture-mac/
    ls out/NERIS\ Sublingual-darwin-arm64/NERIS\ Sublingual.app/Contents/Resources/bin/vosk/
    ```
+
+## App chạy nhưng màn hình đen/trắng (renderer không load)
+
+Nguyên nhân: `BrowserRouter` không hoạt động với `file://` protocol trong packaged app. Khi `loadFile()` tải trang, React Router không match được route nào → trang trống.
+
+Fix: dùng `HashRouter` trong `src/App.tsx`:
+```tsx
+import { HashRouter } from "react-router-dom";
+// Thay BrowserRouter → HashRouter
+<HashRouter>...</HashRouter>
+```
+
+HashRouter dùng URL hash (`#/`, `#/settings`) hoạt động với mọi protocol.
+
+## Cannot find module 'koffi'
+
+pnpm + Electron Forge không tự động include `node_modules` vào asar. Đã fix trong `forge.config.ts`:
+- `prune: false` — tắt npm prune (không hoạt động với pnpm)
+- `ignore` function — chỉ giữ `koffi`, `adm-zip`, `@koromix`, exclude phần còn lại
+- `asar.unpackDir: 'node_modules/**/*.node'` — extract native `.node` binaries khỏi asar
+- `OnlyLoadAppFromAsar: false` — cho phép load native module từ ngoài asar
 
 ## Windows build trên macOS bị lỗi
 
