@@ -7,10 +7,14 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 class OverlayManager {
   private window: BrowserWindow | null = null;
+  private parentWindow: BrowserWindow | null = null;
 
   show(parentWindow: BrowserWindow): void {
+    this.parentWindow = parentWindow;
+
     if (this.window && !this.window.isDestroyed()) {
       this.window.show();
+      this.notifyVisibility(true);
       return;
     }
 
@@ -61,6 +65,7 @@ class OverlayManager {
     if (this.window && !this.window.isDestroyed()) {
       this.window.hide();
     }
+    this.notifyVisibility(false);
   }
 
   isVisible(): boolean {
@@ -78,6 +83,12 @@ class OverlayManager {
       this.window.removeAllListeners("close");
       this.window.close();
       this.window = null;
+    }
+  }
+
+  private notifyVisibility(visible: boolean): void {
+    if (this.parentWindow && !this.parentWindow.isDestroyed()) {
+      this.parentWindow.webContents.send("overlay:visibility-changed", visible);
     }
   }
 

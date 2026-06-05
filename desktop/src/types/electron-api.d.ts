@@ -53,6 +53,7 @@ export interface ElectronAPI {
     hide: () => Promise<void>;
     toggle: () => Promise<void>;
     isVisible: () => Promise<boolean>;
+    onVisibilityChange: (callback: (visible: boolean) => void) => () => void;
   };
   sessions: {
     list: (search?: string) => Promise<SessionSummary[]>;

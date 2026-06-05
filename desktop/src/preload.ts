@@ -119,6 +119,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     hide: () => ipcRenderer.invoke("overlay:hide"),
     toggle: () => ipcRenderer.invoke("overlay:toggle"),
     isVisible: () => ipcRenderer.invoke("overlay:is-visible"),
+    onVisibilityChange: (callback: (visible: boolean) => void) => {
+      const handler = (_event: unknown, visible: boolean) => callback(visible);
+      ipcRenderer.on("overlay:visibility-changed", handler);
+      return () => ipcRenderer.removeListener("overlay:visibility-changed", handler);
+    },
   },
   sessions: {
     list: (search?: string) => ipcRenderer.invoke("sessions:list", search),

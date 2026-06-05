@@ -41,6 +41,13 @@ export function HomePage() {
   }, [sources, selectedSource]);
 
   useEffect(() => {
+    if (!window.electronAPI) return;
+    window.electronAPI.overlay.isVisible().then(setOverlayVisible);
+    const unsub = window.electronAPI.overlay.onVisibilityChange(setOverlayVisible);
+    return unsub;
+  }, []);
+
+  useEffect(() => {
     if (capturing && running) {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
@@ -56,8 +63,6 @@ export function HomePage() {
     try {
       await start(selectedSource);
       await startASR();
-      await window.electronAPI.overlay.show();
-      setOverlayVisible(true);
     } catch (err) {
       console.error("Failed to start:", err);
       await stop();
@@ -69,7 +74,6 @@ export function HomePage() {
   const handleStop = async () => {
     await stopASR();
     await stop();
-    setOverlayVisible(false);
   };
 
   const handleClear = useCallback(() => {
