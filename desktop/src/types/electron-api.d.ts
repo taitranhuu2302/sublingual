@@ -16,11 +16,13 @@ export interface ElectronAPI {
   };
   asr: {
     getModels: () => Promise<VoskModel[]>;
-    getState: () => Promise<{ running: boolean }>;
+    getState: () => Promise<{ running: boolean; loading?: boolean }>;
     selectModel: (modelId: string) => Promise<void>;
     startTranscription: () => Promise<void>;
     stopTranscription: () => Promise<void>;
+    cancelLoading: () => Promise<void>;
     onTranscript: (callback: (segment: TranscriptSegment) => void) => () => void;
+    onModelStatus: (callback: (status: { status: string; message?: string }) => void) => () => void;
   };
   settings: {
     get: () => Promise<AppSettings>;

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("asr:select-model", modelId),
     startTranscription: () => ipcRenderer.invoke("asr:start-transcription"),
     stopTranscription: () => ipcRenderer.invoke("asr:stop-transcription"),
+    cancelLoading: () => ipcRenderer.invoke("asr:cancel-loading"),
     onModelStatus: (
       callback: (status: { status: string; message?: string }) => void
     ) => {

@@ -100,13 +100,21 @@ export function startVosk(modelPath: string, puncModelPath: string | null, mainW
     });
 
     worker.stdout?.on("data", (data: Buffer) => {
-      console.log("[vosk:worker] " + data.toString().trim());
+      const text = data.toString().trim();
+      console.log("[vosk:worker] " + text);
+      if (mainWindowRef && !mainWindowRef.isDestroyed() && !ready) {
+        mainWindowRef.webContents.send("asr:model-status", { status: "loading", message: text });
+      }
     });
 
     worker.stderr?.on("data", (data: Buffer) => {
       const text = data.toString().trim();
       if (text.includes("Discarding word-ids")) return;
-      console.error("[vosk:worker:err] " + text);
+      try {
+        console.error("[vosk:worker:err] " + text);
+      } catch {
+        // Pipe may be broken if worker exits early — ignore EPIPE
+      }
     });
 
     worker.send({ type: "start", modelPath, puncModelPath });

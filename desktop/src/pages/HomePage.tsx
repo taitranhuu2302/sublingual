@@ -30,6 +30,7 @@ export function HomePage() {
   const [selectedSource, setSelectedSource] = useState("");
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -48,6 +49,18 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!window.electronAPI) return;
+    const unsub = window.electronAPI.asr.onModelStatus((status) => {
+      if (status.status === "loading" && status.message) {
+        setLoadingMessage(status.message);
+      } else if (status.status !== "loading") {
+        setLoadingMessage("");
+      }
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
     if (capturing && running) {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
@@ -60,6 +73,7 @@ export function HomePage() {
   const handleStart = async () => {
     if (!selectedSource || starting || loading) return;
     setStarting(true);
+    setLoadingMessage("");
     try {
       await start(selectedSource);
       await startASR();
@@ -68,7 +82,16 @@ export function HomePage() {
       await stop();
     } finally {
       setStarting(false);
+      setLoadingMessage("");
     }
+  };
+
+  const handleCancelLoading = async () => {
+    if (!window.electronAPI) return;
+    await window.electronAPI.asr.cancelLoading();
+    await stop();
+    setStarting(false);
+    setLoadingMessage("");
   };
 
   const handleStop = async () => {
@@ -127,9 +150,11 @@ export function HomePage() {
         starting={starting || loading}
         hasModel={hasModel}
         overlayVisible={overlayVisible}
+        loadingMessage={loadingMessage}
         onSourceChange={setSelectedSource}
         onStart={handleStart}
         onStop={handleStop}
+        onCancelLoading={handleCancelLoading}
         onClear={handleClear}
         onToggleOverlay={handleToggleOverlay}
       />

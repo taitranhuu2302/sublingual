@@ -100,6 +100,11 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getModelManager().selectModel(modelId);
   });
 
+  ipcMain.handle("asr:cancel-loading", async () => {
+    stopVosk();
+    mainWindow.webContents.send("asr:model-status", { status: "error", message: "Cancelled" });
+  });
+
   ipcMain.handle("asr:start-transcription", async () => {
     const mm = getModelManager();
     const model = mm.getSelectedModel();
@@ -115,7 +120,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     incrementalMgr.reset();
 
     getSessionStorage().startSession();
-    getOverlayManager().show(mainWindow);
 
     mainWindow.webContents.send("asr:model-status", { status: "loading" });
     try {
