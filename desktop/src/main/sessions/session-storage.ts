@@ -77,7 +77,10 @@ class SessionStorage {
       return defaultRegistry;
     }
     try {
-      return JSON.parse(fs.readFileSync(regPath, "utf-8"));
+      const data = JSON.parse(fs.readFileSync(regPath, "utf-8"));
+      if (!data.sessionFolders) data.sessionFolders = {};
+      if (!data.folders) data.folders = [];
+      return data;
     } catch {
       return { folders: [], sessionFolders: {} };
     }
