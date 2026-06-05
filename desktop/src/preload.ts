@@ -20,6 +20,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("asr:select-model", modelId),
     startTranscription: () => ipcRenderer.invoke("asr:start-transcription"),
     stopTranscription: () => ipcRenderer.invoke("asr:stop-transcription"),
+    onModelStatus: (
+      callback: (status: { status: string; message?: string }) => void
+    ) => {
+      const handler = (
+        _event: unknown,
+        status: { status: string; message?: string }
+      ) => callback(status);
+      ipcRenderer.on("asr:model-status", handler);
+      return () => ipcRenderer.removeListener("asr:model-status", handler);
+    },
     onTranscript: (
       callback: (segment: {
         id: string;

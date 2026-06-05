@@ -11,7 +11,7 @@ import { MessageSquare, Languages, Mic, Settings } from "lucide-react";
 export function HomePage() {
   const navigate = useNavigate();
   const { sources, capturing, start, stop } = useAudioCapture();
-  const { segments, running, start: startASR, stop: stopASR, clear: clearSegments } = useTranscription();
+  const { segments, running, loading, start: startASR, stop: stopASR, clear: clearSegments } = useTranscription();
   const { settings } = useSettings();
   const [selectedSource, setSelectedSource] = useState("");
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -27,14 +27,14 @@ export function HomePage() {
   }, [sources, selectedSource]);
 
   useEffect(() => {
-    if (capturing) {
+    if (capturing && running) {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [capturing]);
+  }, [capturing, running]);
 
   // Track last recognized text
   useEffect(() => {
@@ -45,7 +45,7 @@ export function HomePage() {
   }, [segments]);
 
   const handleStart = async () => {
-    if (!selectedSource || starting) return;
+    if (!selectedSource || starting || loading) return;
     setStarting(true);
     try {
       await start(selectedSource);
@@ -102,7 +102,7 @@ export function HomePage() {
         sources={sources}
         selectedSource={selectedSource}
         capturing={capturing}
-        starting={starting}
+        starting={starting || loading}
         hasModel={hasModel}
         overlayVisible={overlayVisible}
         onSourceChange={setSelectedSource}
@@ -137,7 +137,7 @@ export function HomePage() {
                 {formatTime(elapsed)}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                {capturing ? "Recording in progress" : "Ready to capture"}
+                {loading ? "Loading speech model..." : capturing && running ? "Recording in progress" : "Ready to capture"}
               </p>
             </div>
 

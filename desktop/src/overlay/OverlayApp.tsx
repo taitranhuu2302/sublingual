@@ -18,8 +18,9 @@ interface TranscriptLine {
 }
 
 const MAX_LINES = 50;
+const PARTIAL_ID = "__partial__";
 
-let partialIdCounter = 0;
+let partialSeq = 0;
 
 export function OverlayApp() {
   const [settings, setSettings] = useState<OverlaySettings>({
@@ -38,7 +39,7 @@ export function OverlayApp() {
 
   const addCommittedLine = useCallback((line: TranscriptLine) => {
     setLines((prev) => {
-      const next = prev.filter((l) => !l.id.startsWith("partial-"));
+      const next = prev.filter((l) => l.id !== PARTIAL_ID);
       next.push(line);
       return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
     });
@@ -49,9 +50,8 @@ export function OverlayApp() {
 
   const updatePartial = useCallback((text: string) => {
     setLines((prev) => {
-      const next = prev.filter((l) => !l.id.startsWith("partial-"));
-      const partialId = `partial-${partialIdCounter++}`;
-      next.push({ id: partialId, text, timestamp: Date.now() });
+      const next = prev.filter((l) => l.id !== PARTIAL_ID);
+      next.push({ id: PARTIAL_ID, text, timestamp: Date.now() });
       return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
     });
   }, []);
@@ -98,7 +98,7 @@ export function OverlayApp() {
 
   useEffect(() => {
     if (isAtBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [lines, isAtBottom]);
 
@@ -111,7 +111,7 @@ export function OverlayApp() {
 
   const jumpToBottom = () => {
     setIsAtBottom(true);
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
   };
 
   const isDark = settings.theme === "Dark";
@@ -157,7 +157,7 @@ export function OverlayApp() {
         )}
 
         {lines.map((line) => {
-          const isPartial = line.id.startsWith("partial-");
+          const isPartial = line.id === PARTIAL_ID;
           return (
             <div key={line.id} className={`mb-3 ${borderColor} ${!isPartial ? "border-b pb-3 last:border-b-0" : ""}`}>
               <p

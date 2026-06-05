@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { getModelManager } from "../models/model-manager";
 import { getSettings } from "../settings/settings-store";
-import { startVosk, stopVosk, isVoskRunning } from "../asr/vosk-process";
+import { startVosk, stopVosk, isVoskRunning, isVoskLoading } from "../asr/vosk-process";
 import { getSessionStorage } from "../sessions/session-storage";
 import { getOverlayManager } from "../overlay/overlay-window";
 import { IncrementalTranslationManager } from "../translation/incremental-translation-manager";
@@ -104,7 +104,14 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
     getSessionStorage().startSession();
     getOverlayManager().show(mainWindow);
 
-    startVosk(model.path, mainWindow);
+    mainWindow.webContents.send("asr:model-status", { status: "loading" });
+    try {
+      await startVosk(model.path, mainWindow);
+    } catch (err) {
+      mainWindow.webContents.send("asr:model-status", { status: "error", message: String(err) });
+      throw err;
+    }
+    mainWindow.webContents.send("asr:model-status", { status: "loaded" });
 
     const spkModel = mm.getSpkModel();
     const spkModelPath = spkModel?.path ?? settings.speechToText.speakerModel;
@@ -116,12 +123,13 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle("asr:get-state", async () => ({
     running: isVoskRunning(),
+    loading: isVoskLoading(),
   }));
 
   ipcMain.handle("asr:stop-transcription", async () => {
     flushPending();
     incrementalMgr.reset();
-    stopVosk();
+    await stopVosk();
     stopSpk();
     getSessionStorage().stopSession();
   });
@@ -136,7 +144,6 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
       };
 
       if (!segment?.text) {
-        originalSend(channel, ...args);
         return;
       }
 
