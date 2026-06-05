@@ -79,6 +79,7 @@ export function SessionsPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "selected" } | { type: "single"; id: string } | null>(null);
   const [filterText, setFilterText] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["global"]));
 
   // Folder dialogs
   const [showNewFolder, setShowNewFolder] = useState(false);
@@ -151,48 +152,8 @@ export function SessionsPage() {
           </TooltipProvider>
         </div>
 
-        {/* Folder groups */}
-        <div className="px-2 py-1.5 border-b border-border/15">
-          {folders.map((f) => (
-            <div key={f.id} className="group flex items-center">
-              <button
-                onClick={() => setActiveFolder(activeFolder === f.id ? null : f.id)}
-                className={cn(
-                  "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
-                  activeFolder === f.id
-                    ? "bg-[hsl(220,50%,20%)] text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-[hsl(234,19%,20%)]"
-                )}
-              >
-                <ChevronRight
-                  className={cn("h-3 w-3 transition-transform shrink-0", activeFolder === f.id && "rotate-90")}
-                />
-                <Folder className="h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1 text-left truncate">{f.name}</span>
-                <span className="text-[11px] text-muted-foreground">{f.sessionCount}</span>
-              </button>
-              {f.id !== "global" && (
-                <div className="hidden group-hover:flex items-center gap-0.5 ml-0.5">
-                  <button
-                    onClick={() => setEditingFolder({ id: f.id, name: f.name })}
-                    className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                  >
-                    <Edit3 className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteFolderConfirm(f.id)}
-                    className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
         {/* Search */}
-        <div className="p-2">
+        <div className="p-2 border-b border-border/15">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -204,52 +165,110 @@ export function SessionsPage() {
           </div>
         </div>
 
-        {/* Recent sessions */}
+        {/* Folder tree with sessions */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-3 py-1">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-              {sessions.length > 0 ? "Recent" : ""}
-            </p>
-          </div>
-          <div className="px-2 pb-2">
-            {sessions.length === 0 && (
+          <div className="px-2 py-1.5">
+            {folders.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-xs gap-2">
                 <Archive className="h-6 w-6 opacity-30" />
-                No sessions
+                No folders
               </div>
             )}
-            {sessions.map((s) => (
-              <div
-                key={s.id}
-                role="button"
-                tabIndex={0}
-                className={cn(
-                  "w-full text-left flex items-start gap-2 px-2 py-2 rounded-md transition-colors cursor-pointer",
-                  activeSession?.info.id === s.id ? "bg-[hsl(220,50%,20%)]" : "hover:bg-[hsl(234,19%,20%)]"
-                )}
-                onClick={() => selectSession(s)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSession(s); } }}
-              >
-                <Checkbox
-                  checked={selectedIds.has(s.id)}
-                  onCheckedChange={() => toggleSelect(s.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-0.5"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium truncate">
-                      {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })} &middot;{" "}
-                      {new Date(s.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+            {folders.map((f) => {
+              const isExpanded = expandedFolders.has(f.id);
+              const folderSessions = allSessions.filter((s) => s.folderId === f.id);
+              const toggleExpanded = () => {
+                const next = new Set(expandedFolders);
+                if (next.has(f.id)) next.delete(f.id);
+                else next.add(f.id);
+                setExpandedFolders(next);
+              };
+
+              return (
+                <div key={f.id} className="mb-0.5">
+                  <div className="group flex items-center">
+                    <button
+                      onClick={toggleExpanded}
+                      className="flex items-center justify-center h-7 w-7 shrink-0 rounded hover:bg-[hsl(234,19%,20%)] text-muted-foreground"
+                    >
+                      <ChevronRight
+                        className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
+                      />
+                    </button>
+                    <button
+                      onClick={() => setActiveFolder(activeFolder === f.id ? null : f.id)}
+                      className={cn(
+                        "flex-1 flex items-center gap-2 px-1.5 py-1.5 rounded-md text-sm transition-colors",
+                        activeFolder === f.id
+                          ? "bg-[hsl(220,50%,20%)] text-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-[hsl(234,19%,20%)]"
+                      )}
+                    >
+                      <Folder className="h-3.5 w-3.5 shrink-0" />
+                      <span className="flex-1 text-left truncate">{f.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{f.sessionCount}</span>
+                    </button>
+                    {f.id !== "global" && (
+                      <div className="hidden group-hover:flex items-center gap-0.5 ml-0.5">
+                        <button
+                          onClick={() => setEditingFolder({ id: f.id, name: f.name })}
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteFolderConfirm(f.id)}
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">{formatDuration(s.duration)}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">{s.preview || "No preview"}</p>
+
+                  {isExpanded && (
+                    <div className="ml-6 border-l border-border/20 pl-2">
+                      {(search && folderSessions.length === 0) || (!search && folderSessions.length === 0) ? (
+                        <p className="text-[11px] text-muted-foreground py-2 px-2 italic">Empty</p>
+                      ) : (
+                        folderSessions.map((s) => (
+                          <div
+                            key={s.id}
+                            role="button"
+                            tabIndex={0}
+                            className={cn(
+                              "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-md transition-colors cursor-pointer",
+                              activeSession?.info.id === s.id ? "bg-[hsl(220,50%,20%)]" : "hover:bg-[hsl(234,19%,20%)]"
+                            )}
+                            onClick={() => selectSession(s)}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSession(s); } }}
+                          >
+                            <Checkbox
+                              checked={selectedIds.has(s.id)}
+                              onCheckedChange={() => toggleSelect(s.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium truncate">
+                                  {new Date(s.date).toLocaleDateString([], { month: "short", day: "numeric" })} &middot;{" "}
+                                  {new Date(s.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[11px] text-muted-foreground">{formatDuration(s.duration)}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{s.preview || "No preview"}</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
