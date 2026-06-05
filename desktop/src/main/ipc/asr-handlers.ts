@@ -69,6 +69,10 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
             ...line,
             translatedText: event.fullTranslation || undefined,
           });
+          overlay.sendToOverlay("overlay:translation-update", {
+            id: line.id,
+            translatedText: event.fullTranslation,
+          });
         }
       }
     };
@@ -77,6 +81,10 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
       console.error("[incremental] finalization failed:", err);
       if (overlay.isVisible()) {
         overlay.sendToOverlay("overlay:transcript-line", line);
+        overlay.sendToOverlay("overlay:translation-update", {
+          id: line.id,
+          translatedText: "",
+        });
       }
       incrementalMgr.reset();
     });
