@@ -70,6 +70,17 @@ const MODEL_CATALOG: ModelSource[] = [
     filename: "vosk-model-spk-0.4.zip",
     url: "https://alphacephei.com/vosk/models/vosk-model-spk-0.4.zip",
   },
+  {
+    id: "vosk-recasepunc-en-0.22",
+    name: "English Punctuation & Recasing",
+    description:
+      "Restores punctuation (.,!?) and corrects capitalization in transcribed English text. ~1.6GB.",
+    size: "1.6 GB",
+    sizeBytes: 1_600_000_000,
+    language: "en",
+    filename: "vosk-recasepunc-en-0.22.zip",
+    url: "https://alphacephei.com/vosk/models/vosk-recasepunc-en-0.22.zip",
+  },
 ];
 
 export function getModelsDir(): string {
