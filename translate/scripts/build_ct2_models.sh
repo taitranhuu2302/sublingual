@@ -7,6 +7,8 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON_EXEC="$PYTHON_BIN"
+elif [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then
+  PYTHON_EXEC="$PROJECT_DIR/.venv/bin/python"
 elif [[ -x "$PROJECT_DIR/venv/bin/python" ]]; then
   PYTHON_EXEC="$PROJECT_DIR/venv/bin/python"
 else

@@ -3,10 +3,10 @@
 
 import argparse
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
+import ctranslate2
 from transformers import AutoTokenizer
 
 
@@ -50,21 +50,12 @@ def main():
             )
             sys.exit(1)
 
-    print(f"Downloading tokenizer from {args.hf_model}...")
-    tokenizer = AutoTokenizer.from_pretrained(args.hf_model)
-    tokenizer.save_pretrained(str(output_dir))
-    print(f"Saved tokenizer to {output_dir}")
-
     print(f"Converting {args.hf_model} to CTranslate2 ({args.quantization})...")
 
-    cmd = [
-        "ct2-transformers-converter",
-        "--model", args.hf_model,
-        "--output_dir", str(output_dir),
-        "--quantization", args.quantization,
-        "--force",
-    ]
-    subprocess.run(cmd, check=True)
+    converter = ctranslate2.converters.TransformersConverter(
+        model_name_or_path=args.hf_model,
+    )
+    converter.convert(str(output_dir), quantization=args.quantization, force=True)
 
     print(f"Done. CTranslate2 model saved to {output_dir}")
 
