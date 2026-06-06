@@ -214,7 +214,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
           if (overlay.isVisible()) {
             overlay.sendToOverlay("overlay:translation-committed", {
               text: event.text,
-              sourceText: segment.text,
+              sourceText: event.fullSource,
             });
           }
         };
