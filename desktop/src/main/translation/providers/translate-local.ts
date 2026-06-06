@@ -1,7 +1,8 @@
 import { ITranslationProvider, TranslationRequest } from "./types";
 
 interface LocalTranslationResponse {
-  translatedText?: string;
+  translated_text: string;
+  latency_ms: number;
 }
 
 export class LocalTranslationProvider implements ITranslationProvider {
@@ -17,8 +18,8 @@ export class LocalTranslationProvider implements ITranslationProvider {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: request.sourceText,
-        source: request.sourceLanguage,
-        target: request.targetLanguage,
+        source_lang: request.sourceLanguage,
+        target_lang: request.targetLanguage,
       }),
     });
 
@@ -27,6 +28,6 @@ export class LocalTranslationProvider implements ITranslationProvider {
     }
 
     const data: LocalTranslationResponse = await response.json();
-    return data.translatedText ?? "";
+    return data.translated_text ?? "";
   }
 }
