@@ -89,7 +89,10 @@ export function OverlayApp() {
         setPartialTranslation(null);
       }),
       window.overlayAPI.onPartialUpdate((data) => {
-        if (data.text) updatePartial(data.text);
+        if (data.text) {
+          updatePartial(data.text);
+          setPartialTranslation(null);
+        }
       }),
       window.overlayAPI.onTranslationUpdate((data) => {
         setLines((prev) =>
