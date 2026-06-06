@@ -64,7 +64,7 @@ Quality translation (beam_size=4, Vietnamese post-processing). Accepts single st
 
 ### `POST /translate/fast`
 
-Low-latency greedy translation for Vosk realtime subtitles (<100ms target).
+Low-latency greedy translation for Vosk realtime subtitles (&lt;100ms target).
 
 ```json
 // Request
@@ -136,6 +136,7 @@ cp .env.example .env
 ```
 
 **macOS note:** If you encounter `pyexpat` errors during pip/venv setup, set `DYLD_LIBRARY_PATH`:
+
 ```bash
 DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib pip install -r requirements.txt
 ```
@@ -171,13 +172,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 **macOS note:** If you hit `pyexpat` errors at startup, prepend the expat library path:
+
 ```bash
 DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-The service preloads both fast and quality models on startup (~5s warmup). Once warmed up, typical latency:
-- `/translate/fast`: <500ms (greedy, beam_size=1)
-- `/translate`: <1s after warmup (beam search, beam_size=4, post-processing)
+The service preloads both fast and quality models on startup (\~5s warmup). Once warmed up, typical latency:
+
+- `/translate/fast`: &lt;500ms (greedy, beam_size=1)
+- `/translate`: &lt;1s after warmup (beam search, beam_size=4, post-processing)
 
 ## Test
 
