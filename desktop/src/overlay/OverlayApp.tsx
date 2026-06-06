@@ -87,10 +87,12 @@ export function OverlayApp() {
     const unsubs = [
       window.overlayAPI.onTranscriptLine((line) => {
         addCommittedLine(line);
-        setPartialTranslation(null);
       }),
       window.overlayAPI.onPartialUpdate((data) => {
         if (data.text) {
+          if (partialTextRef.current && !data.text.startsWith(partialTextRef.current)) {
+            setPartialTranslation(null);
+          }
           updatePartial(data.text);
           partialTextRef.current = data.text;
         }
