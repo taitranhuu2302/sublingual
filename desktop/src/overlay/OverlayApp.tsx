@@ -154,7 +154,7 @@ export function OverlayApp() {
     if (!isPartial) {
       if (line.translatedText) {
         return (
-          <p className="text-muted-foreground mt-0.5" style={translationTextStyle}>
+          <p className="text-muted-foreground mt-0.5 break-words" style={translationTextStyle}>
             {line.translatedText}
           </p>
         );
@@ -162,7 +162,7 @@ export function OverlayApp() {
 
       if (pendingTranslation.has(line.id)) {
         return (
-          <p className="text-muted-foreground/60 mt-0.5 animate-pulse" style={translationTextStyle}>
+          <p className="text-muted-foreground/60 mt-0.5 animate-pulse break-words" style={translationTextStyle}>
             ···
           </p>
         );
@@ -173,14 +173,14 @@ export function OverlayApp() {
 
     if (partialTranslation) {
       return (
-        <p className="text-muted-foreground mt-0.5" style={translationTextStyle}>
+        <p className="text-muted-foreground mt-0.5 break-words" style={translationTextStyle}>
           {partialTranslation}
         </p>
       );
     }
 
     return (
-      <p className="text-muted-foreground/60 mt-0.5 animate-pulse" style={translationTextStyle}>
+      <p className="text-muted-foreground/60 mt-0.5 animate-pulse break-words" style={translationTextStyle}>
         ···
       </p>
     );
@@ -215,7 +215,7 @@ export function OverlayApp() {
       {/* Content */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-3"
+        className="flex-1 overflow-y-auto px-4 py-3 min-w-0"
         onScroll={handleScroll}
       >
         {isEmpty && (
@@ -232,7 +232,7 @@ export function OverlayApp() {
               className={`mb-3 ${!isPartial ? "border-b border-border/30 pb-3 last:border-b-0" : ""}`}
             >
               <p
-                className="text-foreground font-medium"
+                className="text-foreground font-medium break-words"
                 style={contentTextStyle}
               >
                 {line.speakerLabel && (
