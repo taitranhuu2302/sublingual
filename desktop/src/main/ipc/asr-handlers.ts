@@ -154,6 +154,7 @@ export function registerAsrHandlers(mainWindow: BrowserWindow) {
   });
 
   mainWindow.webContents.send = (channel: string, ...args: unknown[]) => {
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
     if (channel === "asr:transcript") {
       const segment = args[0] as {
         text: string;

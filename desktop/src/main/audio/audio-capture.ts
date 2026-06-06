@@ -119,7 +119,7 @@ export async function startAudioCapture(sourceId: string, mainWindow: BrowserWin
         pcmBuffer.writeInt16LE(int16, i * 2);
       }
 
-      if (!mainWindow.isDestroyed()) {
+      if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send("audio:data", resampled);
       }
         feedPcm(pcmBuffer);
