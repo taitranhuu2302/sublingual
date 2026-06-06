@@ -4,6 +4,28 @@ Standalone self-hosted translation microservice for a Vosk-based live subtitle p
 
 Powered by **NLLB-200 (600M distilled)** via **CTranslate2** for low-latency CPU inference.
 
+## Quick Start
+
+```bash
+# 1. Setup
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt torch
+cp .env.example .env
+
+# 2. Build model (one-time, ~5 min)
+bash scripts/build_ct2_models.sh int8
+
+# 3. Run
+# macOS: export DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# 4. Test
+curl -s http://localhost:8000/health | python3 -m json.tool
+curl -s -X POST http://localhost:8000/translate \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello world","source_lang":"en","target_lang":"vi"}' | python3 -m json.tool
+```
+
 ## Features
 
 - `GET /health`
@@ -113,6 +135,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+**macOS note:** If you encounter `pyexpat` errors during pip/venv setup, set `DYLD_LIBRARY_PATH`:
+```bash
+DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib pip install -r requirements.txt
+```
+
 ## Convert NLLB-200 to CTranslate2
 
 Requires `torch` for conversion only (not needed at runtime):
@@ -142,6 +169,15 @@ bash scripts/build_ct2_models.sh int8 --force
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+**macOS note:** If you hit `pyexpat` errors at startup, prepend the expat library path:
+```bash
+DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The service preloads both fast and quality models on startup (~5s warmup). Once warmed up, typical latency:
+- `/translate/fast`: <500ms (greedy, beam_size=1)
+- `/translate`: <1s after warmup (beam search, beam_size=4, post-processing)
 
 ## Test
 
@@ -187,6 +223,16 @@ Default configuration is CPU-first:
 Use shorter subtitle segments for lower perceived latency. Keep `MAX_TEXT_CHARS` bounded to avoid expensive requests.
 
 ## Troubleshooting
+
+### `pyexpat` / `Symbol not found: _XML_SetAllocTrackerActivationThreshold` (macOS)
+
+This is a known conflict between Homebrew Python and macOS's bundled `libexpat`. Workaround:
+
+```bash
+export DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib
+```
+
+Add to your `~/.zshrc` for a permanent fix. This affects `pip`, `uvicorn`, and any Python process that imports XML-related modules.
 
 ### Model not found
 
