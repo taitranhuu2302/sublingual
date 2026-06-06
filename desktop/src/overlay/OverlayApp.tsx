@@ -59,6 +59,7 @@ export function OverlayApp() {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const partialTextRef = useRef<string>("");
 
   const addCommittedLine = useCallback((line: TranscriptLine) => {
     setLines((prev) => appendCommittedLine(prev, line));
@@ -91,7 +92,7 @@ export function OverlayApp() {
       window.overlayAPI.onPartialUpdate((data) => {
         if (data.text) {
           updatePartial(data.text);
-          setPartialTranslation(null);
+          partialTextRef.current = data.text;
         }
       }),
       window.overlayAPI.onTranslationUpdate((data) => {
@@ -106,8 +107,15 @@ export function OverlayApp() {
           return next;
         });
       }),
-      window.overlayAPI.onTranslationCommitted((data) => {
-        setPartialTranslation(data.text || null);
+      window.overlayAPI.onTranslationCommitted((data: { text: string; sourceText?: string }) => {
+        if (!data.text) {
+          setPartialTranslation(null);
+          return;
+        }
+        if (data.sourceText && !partialTextRef.current?.startsWith(data.sourceText)) {
+          return;
+        }
+        setPartialTranslation(data.text);
       }),
       window.overlayAPI.onSettingsUpdate((s) => {
         setSettings((prev) => ({ ...prev, ...s }));
