@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     max_text_chars: int = Field(default=1000, alias="MAX_TEXT_CHARS")
     session_cache_ttl_sec: int = Field(default=300, alias="SESSION_CACHE_TTL_SEC")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    fast_beam_size: int = Field(default=1, alias="FAST_BEAM_SIZE")
+    quality_beam_size: int = Field(default=4, alias="QUALITY_BEAM_SIZE")
+    glossary_path: str = Field(default="glossary.json", alias="GLOSSARY_PATH")
 
     @property
     def resolved_model_base_dir(self) -> Path:
