@@ -71,9 +71,20 @@ def warmup_default_model() -> None:
             mode="fast",
         )
         translator.translate("hello", source_lang="en", target_lang="vi")
-        logger.info("warmed up NLLB-200 model on startup")
+        logger.info("warmed up NLLB-200 fast model on startup")
     except HTTPException as exc:
-        logger.warning("default model warmup skipped: %s", exc.detail)
+        logger.warning("fast model warmup skipped: %s", exc.detail)
+
+    try:
+        translator = model_manager.get_translator(
+            settings.default_source_lang,
+            settings.default_target_lang,
+            mode="quality",
+        )
+        translator.translate("hello", source_lang="en", target_lang="vi")
+        logger.info("warmed up NLLB-200 quality model on startup")
+    except HTTPException as exc:
+        logger.warning("quality model warmup skipped: %s", exc.detail)
 
 
 def _prepare_text(text: str) -> str:

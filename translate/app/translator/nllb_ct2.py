@@ -49,8 +49,7 @@ class NLLBCT2Translator:
         cached = self._target_prefix_cache.get(flores_code)
         if cached is not None:
             return cached
-        prefix = f"__{flores_code}__"
-        tokens = [self.tokenizer.convert_ids_to_tokens(self.tokenizer.encode(prefix))]
+        tokens = [[flores_code]]
         self._target_prefix_cache[flores_code] = tokens
         return tokens
 

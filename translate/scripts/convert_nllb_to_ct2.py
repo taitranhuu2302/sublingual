@@ -57,6 +57,11 @@ def main():
     )
     converter.convert(str(output_dir), quantization=args.quantization, force=True)
 
+    print("Saving tokenizer files...")
+    tokenizer = AutoTokenizer.from_pretrained(args.hf_model)
+    tokenizer.save_pretrained(str(output_dir))
+    print(f"Saved tokenizer to {output_dir}")
+
     print(f"Done. CTranslate2 model saved to {output_dir}")
 
 
