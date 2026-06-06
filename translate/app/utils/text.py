@@ -3,7 +3,7 @@ import re
 
 CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 WHITESPACE_RE = re.compile(r"\s+")
-BOUNDARY_PUNCTUATION = ".,!?;:)])}"
+BOUNDARY_PUNCTUATION = ".,!?;:)])}。！？；：）】』"
 
 
 def normalize_text(text: str) -> str:

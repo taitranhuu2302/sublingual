@@ -1,77 +1,84 @@
+#!/usr/bin/env python3
+"""Benchmark translate service latency."""
+
 import argparse
 import statistics
-import sys
 import time
 
 import requests
 
 
-SAMPLE_TEXTS = [
-    "Hello everyone.",
-    "Welcome to today's meeting.",
-    "Please check the report.",
-    "The system is running normally.",
-    "We will start in five minutes.",
-]
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark translate API")
+    parser.add_argument("--url", default="http://localhost:8000", help="API base URL")
+    parser.add_argument("--source", default="en", help="Source language")
+    parser.add_argument("--target", default="vi", help="Target language")
+    parser.add_argument(
+        "--iterations", type=int, default=100, help="Number of requests"
+    )
+    parser.add_argument(
+        "--mode",
+        default="both",
+        choices=["fast", "quality", "both"],
+        help="Which endpoint to benchmark",
+    )
+    parser.add_argument(
+        "--text",
+        default="Hello everyone, welcome to today's meeting.",
+        help="Text to translate",
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=30.0, help="HTTP timeout in seconds"
+    )
+    args = parser.parse_args()
 
+    def run_bench(endpoint: str, payload: dict, label: str) -> None:
+        latencies = []
+        for _ in range(args.iterations):
+            started = time.perf_counter()
+            resp = requests.post(
+                f"{args.url}{endpoint}", json=payload, timeout=args.timeout
+            )
+            resp.raise_for_status()
+            latencies.append((time.perf_counter() - started) * 1000)
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark the translate API.")
-    parser.add_argument("--url", required=True, help="Base URL of the translate service")
-    parser.add_argument("--source", default="en", help="Source language code")
-    parser.add_argument("--target", default="vi", help="Target language code")
-    parser.add_argument("--iterations", type=int, default=100, help="Number of requests")
-    parser.add_argument("--timeout", type=float, default=5.0, help="HTTP timeout in seconds")
-    return parser.parse_args()
+        latencies.sort()
+        avg = statistics.mean(latencies)
+        p50 = latencies[len(latencies) // 2]
+        p95 = latencies[int(len(latencies) * 0.95)]
+        p99 = latencies[int(len(latencies) * 0.99)]
+        rps = 1000 / avg if avg > 0 else 0
 
+        print(f"\n--- {label} ({args.iterations} iterations) ---")
+        print(f"  Avg:   {avg:.2f} ms")
+        print(f"  P50:   {p50:.2f} ms")
+        print(f"  P95:   {p95:.2f} ms")
+        print(f"  P99:   {p99:.2f} ms")
+        print(f"  RPS:   {rps:.2f}")
 
-def percentile(values: list[float], pct: float) -> float:
-    if not values:
-        return 0.0
-
-    ordered = sorted(values)
-    index = max(0, min(len(ordered) - 1, int(round((pct / 100) * (len(ordered) - 1)))))
-    return ordered[index]
-
-
-def main() -> None:
-    args = parse_args()
-    if args.iterations <= 0:
-        print("Iterations must be greater than 0.", file=sys.stderr)
-        raise SystemExit(1)
-
-    url = args.url.rstrip("/") + "/translate"
-    latencies_ms: list[float] = []
-    started = time.perf_counter()
-
-    session = requests.Session()
-
-    try:
-        for index in range(args.iterations):
-            text = SAMPLE_TEXTS[index % len(SAMPLE_TEXTS)]
-            payload = {
-                "text": text,
+    if args.mode in ("fast", "both"):
+        run_bench(
+            "/translate/fast",
+            {
+                "text": args.text,
                 "source_lang": args.source,
                 "target_lang": args.target,
-            }
-            request_started = time.perf_counter()
-            response = session.post(url, json=payload, timeout=args.timeout)
-            response.raise_for_status()
-            latencies_ms.append((time.perf_counter() - request_started) * 1000)
-    except requests.RequestException as exc:
-        print(f"Benchmark request failed: {exc}", file=sys.stderr)
-        raise SystemExit(1) from exc
+                "session_id": f"bench-{time.time_ns()}",
+                "is_final": True,
+            },
+            "Fast Mode (greedy, beam_size=1)",
+        )
 
-    total_elapsed_sec = time.perf_counter() - started
-    avg_latency = statistics.fmean(latencies_ms) if latencies_ms else 0.0
-    rps = (len(latencies_ms) / total_elapsed_sec) if total_elapsed_sec > 0 else 0.0
-
-    print(f"total requests: {len(latencies_ms)}")
-    print(f"avg latency: {avg_latency:.2f} ms")
-    print(f"p50: {percentile(latencies_ms, 50):.2f} ms")
-    print(f"p95: {percentile(latencies_ms, 95):.2f} ms")
-    print(f"p99: {percentile(latencies_ms, 99):.2f} ms")
-    print(f"requests per second: {rps:.2f}")
+    if args.mode in ("quality", "both"):
+        run_bench(
+            "/translate",
+            {
+                "text": args.text,
+                "source_lang": args.source,
+                "target_lang": args.target,
+            },
+            "Quality Mode (beam_size=4, post-processing)",
+        )
 
 
 if __name__ == "__main__":

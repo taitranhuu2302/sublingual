@@ -8,5 +8,4 @@ pydantic-settings
 python-dotenv
 numpy
 requests
-sacremoses
-torch
+protobuf

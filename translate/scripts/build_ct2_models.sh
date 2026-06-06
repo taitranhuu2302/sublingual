@@ -31,22 +31,14 @@ if ! "$PYTHON_EXEC" -c "import transformers" >/dev/null 2>&1; then
   exit 1
 fi
 
-"$PYTHON_EXEC" "$PROJECT_DIR/scripts/convert_marian_to_ct2.py" \
-  --hf_model Helsinki-NLP/opus-mt-en-vi \
-  --output_dir "$PROJECT_DIR/models/ct2/en-vi" \
+OUTPUT_DIR="$PROJECT_DIR/models/ct2/nllb-200-600M"
+
+echo "Building NLLB-200 600M model with quantization=$QUANTIZATION"
+
+"$PYTHON_EXEC" "$PROJECT_DIR/scripts/convert_nllb_to_ct2.py" \
+  --hf_model facebook/nllb-200-distilled-600M \
+  --output_dir "$OUTPUT_DIR" \
   --quantization "$QUANTIZATION" \
   "${FORCE_FLAG[@]}"
 
-"$PYTHON_EXEC" "$PROJECT_DIR/scripts/convert_marian_to_ct2.py" \
-  --hf_model Helsinki-NLP/opus-mt-vi-en \
-  --output_dir "$PROJECT_DIR/models/ct2/vi-en" \
-  --quantization "$QUANTIZATION" \
-  "${FORCE_FLAG[@]}"
-
-"$PYTHON_EXEC" "$PROJECT_DIR/scripts/convert_marian_to_ct2.py" \
-  --hf_model Helsinki-NLP/opus-mt-zh-vi \
-  --output_dir "$PROJECT_DIR/models/ct2/zh-vi" \
-  --quantization "$QUANTIZATION" \
-  "${FORCE_FLAG[@]}"
-
-printf 'CT2 models created successfully with quantization=%s\n' "$QUANTIZATION"
+printf 'NLLB-200 model created successfully at %s with quantization=%s\n' "$OUTPUT_DIR" "$QUANTIZATION"
