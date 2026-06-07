@@ -35,9 +35,11 @@ const createWindow = () => {
 
   registerIpcHandlers(mainWindow);
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    startTranslate(mainWindow!);
-  });
+  if (!process.env.SUBLINGUAL_NO_TRANSLATE) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      startTranslate(mainWindow!);
+    });
+  }
 };
 
 app.on('ready', createWindow);

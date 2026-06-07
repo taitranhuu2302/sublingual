@@ -37,38 +37,22 @@ function setStatus(update: Partial<TranslateProcessStatus>): void {
   }
 }
 
-function resolveCommand(): { bin: string; args: string[]; cwd?: string } {
+function resolveCommand(): { bin: string; args: string[] } {
   const settings = getSettings().translation.local;
+  const name = process.platform === "win32" ? "translate-service.exe" : "translate-service";
 
-  if (app.isPackaged) {
-    const name = process.platform === "win32" ? "translate-service.exe" : "translate-service";
-    return {
-      bin: path.join(process.resourcesPath, "bin", "translate", name),
-      args: [
-        "--host", "127.0.0.1",
-        "--port", "3333",
-        "--models-dir", settings.modelsDir,
-        "--log-dir", path.join(os.homedir(), ".sublingual", "logs", "translate"),
-      ],
-    };
-  }
-
-  // Dev: use venv
-  const projectRoot = path.resolve(__dirname, "../../../..");
-  const python = process.platform === "win32"
-    ? path.join(projectRoot, "translate", ".venv", "Scripts", "python.exe")
-    : path.join(projectRoot, "translate", ".venv", "bin", "python");
+  const exePath = app.isPackaged
+    ? path.join(process.resourcesPath, "bin", "translate", name)
+    : path.resolve(__dirname, "..", "..", "bin", "translate", name);
 
   return {
-    bin: python,
+    bin: exePath,
     args: [
-      "-m", "uvicorn", "app.main:app",
       "--host", "127.0.0.1",
       "--port", "3333",
       "--models-dir", settings.modelsDir,
       "--log-dir", path.join(os.homedir(), ".sublingual", "logs", "translate"),
     ],
-    cwd: path.join(projectRoot, "translate"),
   };
 }
 
