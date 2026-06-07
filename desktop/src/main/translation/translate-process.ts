@@ -2,6 +2,7 @@ import { app, BrowserWindow } from "electron";
 import { ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
 import http from "node:http";
+import os from "node:os";
 import { getMainLogger } from "../utils/logger";
 import { getSettings } from "../settings/settings-store";
 
@@ -47,7 +48,7 @@ function resolveCommand(): { bin: string; args: string[]; cwd?: string } {
         "--host", "127.0.0.1",
         "--port", "3333",
         "--models-dir", settings.modelsDir,
-        "--log-dir", path.join(require("os").homedir(), ".sublingual", "logs", "translate"),
+        "--log-dir", path.join(os.homedir(), ".sublingual", "logs", "translate"),
       ],
     };
   }
@@ -65,7 +66,7 @@ function resolveCommand(): { bin: string; args: string[]; cwd?: string } {
       "--host", "127.0.0.1",
       "--port", "3333",
       "--models-dir", settings.modelsDir,
-      "--log-dir", path.join(require("os").homedir(), ".sublingual", "logs", "translate"),
+      "--log-dir", path.join(os.homedir(), ".sublingual", "logs", "translate"),
     ],
     cwd: path.join(projectRoot, "translate"),
   };
@@ -76,41 +77,45 @@ function pollHealth(): void {
   const baseUrl = settings.baseUrl.replace(/\/+$/, "");
   const logger = getMainLogger({ tag: "translate" });
 
-  const req = http.get(`${baseUrl}/health`, (res) => {
-    let data = "";
-    res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
-    res.on("end", () => {
-      try {
-        const health = JSON.parse(data);
-        if (health.status === "ok") {
-          if (status.status !== "running") {
-            const uptime = startTime ? Math.round((Date.now() - startTime) / 1000) : null;
-            setStatus({
-              status: "running",
-              loadedModels: health.loaded_models ?? [],
-              error: null,
-              uptime,
-            });
-            logger.info(
-              `translate service ready (pid=${process?.pid}, loaded_models=${health.loaded_models?.join(",") || "none"})`
-            );
-            mainWindowRef?.webContents.send("translate:service-ready", {
-              pid: process?.pid,
-              loadedModels: health.loaded_models ?? [],
-            });
+  try {
+    const req = http.get(`${baseUrl}/health`, (res) => {
+      let data = "";
+      res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+      res.on("end", () => {
+        try {
+          const health = JSON.parse(data);
+          if (health.status === "ok") {
+            if (status.status !== "running") {
+              const uptime = startTime ? Math.round((Date.now() - startTime) / 1000) : null;
+              setStatus({
+                status: "running",
+                loadedModels: health.loaded_models ?? [],
+                error: null,
+                uptime,
+              });
+              logger.info(
+                `translate service ready (pid=${process?.pid}, loaded_models=${health.loaded_models?.join(",") || "none"})`
+              );
+              mainWindowRef?.webContents.send("translate:service-ready", {
+                pid: process?.pid,
+                loadedModels: health.loaded_models ?? [],
+              });
+            }
           }
+        } catch {
+          // not ready yet, keep polling
         }
-      } catch {
-        // not ready yet, keep polling
-      }
+      });
     });
-  });
 
-  req.on("error", () => {
-    // connection refused = service not ready yet
-  });
+    req.on("error", () => {
+      // connection refused = service not ready yet
+    });
 
-  req.setTimeout(1000, () => req.destroy());
+    req.setTimeout(1000, () => req.destroy());
+  } catch {
+    // malformed baseUrl or other sync error
+  }
 }
 
 function monitorStdio(child: ChildProcess): void {
@@ -202,6 +207,8 @@ export function startTranslate(mainWindow: BrowserWindow): void {
 
     process.on("error", (err) => {
       logger.error("translate service spawn error", err);
+      if (healthInterval) clearInterval(healthInterval);
+      healthInterval = null;
       setStatus({ status: "error", pid: null, error: err.message });
       mainWindowRef?.webContents.send("translate:service-error", { error: err.message });
       process = null;
