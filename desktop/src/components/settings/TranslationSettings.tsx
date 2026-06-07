@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { SettingsSection } from "./SettingsSection";
 import { SettingsField } from "./SettingsField";
 import {
@@ -12,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, FolderOpen, FolderSearch, RotateCw, Trash2 } from "lucide-react";
+import { useTranslateService } from "@/hooks/use-translate-service";
 import type { AppSettings, TranslationResult } from "@/types/electron-api";
 
 const LANGUAGES = [
@@ -31,6 +35,13 @@ interface Props {
   onUpdate: (partial: Partial<AppSettings>) => void;
 }
 
+const statusBadge: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  running: { label: "Running", variant: "default" },
+  starting: { label: "Starting...", variant: "secondary" },
+  stopped: { label: "Stopped", variant: "destructive" },
+  error: { label: "Error", variant: "destructive" },
+};
+
 export function TranslationSettings({ settings, onUpdate }: Props) {
   const ts = settings.translation;
   const [testText, setTestText] = useState("Hello, how are you today?");
@@ -38,8 +49,14 @@ export function TranslationSettings({ settings, onUpdate }: Props) {
   const [testError, setTestError] = useState("");
   const [testing, setTesting] = useState(false);
 
+  const { status, logs, restart, clearLogs } = useTranslateService();
+
   const updateTranslation = (partial: Partial<typeof ts>) => {
     onUpdate({ translation: { ...ts, ...partial } });
+  };
+
+  const updateLocal = (partial: Partial<typeof ts.local>) => {
+    onUpdate({ translation: { ...ts, local: { ...ts.local, ...partial } } });
   };
 
   const runTest = async () => {
@@ -58,6 +75,11 @@ export function TranslationSettings({ settings, onUpdate }: Props) {
     } finally {
       setTesting(false);
     }
+  };
+
+  const browseModelsDir = async () => {
+    const dir = await window.electronAPI.settings.browseDirectory("Select Translation Models Directory");
+    if (dir) updateLocal({ modelsDir: dir });
   };
 
   return (
@@ -110,16 +132,97 @@ export function TranslationSettings({ settings, onUpdate }: Props) {
           </SettingsField>
         </SettingsSection>
       ) : (
-        <SettingsSection title="Provider: Local TranslateService">
-          <SettingsField label="Base URL" helper="Local translation service address">
-            <Input
-              value={ts.local.baseUrl}
-              onChange={(e) => updateTranslation({ local: { baseUrl: e.target.value } })}
-              className="font-mono text-xs"
-            />
-          </SettingsField>
-        </SettingsSection>
+        <>
+          <SettingsSection title="Provider: Local TranslateService">
+            <SettingsField label="Base URL" helper="Local translation service address">
+              <Input
+                value={ts.local.baseUrl}
+                onChange={(e) => updateLocal({ baseUrl: e.target.value })}
+                className="font-mono text-xs"
+              />
+            </SettingsField>
+
+            <SettingsField label="Models directory" helper="Path to NLLB-200 CTranslate2 model files">
+              <div className="flex gap-2">
+                <Input
+                  value={ts.local.modelsDir}
+                  onChange={(e) => updateLocal({ modelsDir: e.target.value })}
+                  className="font-mono text-xs flex-1"
+                />
+                <Button variant="outline" size="icon" onClick={browseModelsDir}>
+                  <FolderSearch className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => window.electronAPI.settings.openDirectory(ts.local.modelsDir)}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </div>
+            </SettingsField>
+          </SettingsSection>
+
+          <SettingsSection title="Service Status">
+            <div className="rounded-md border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant={statusBadge[status.status]?.variant ?? "secondary"}>
+                    {statusBadge[status.status]?.label ?? status.status}
+                  </Badge>
+                  {status.pid && (
+                    <span className="text-xs text-muted-foreground">PID: {status.pid}</span>
+                  )}
+                  {status.uptime != null && (
+                    <span className="text-xs text-muted-foreground">
+                      Uptime: {Math.floor(status.uptime / 60)}m {status.uptime % 60}s
+                    </span>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={restart}>
+                  <RotateCw className="h-3.5 w-3.5 mr-1" />
+                  Restart Service
+                </Button>
+              </div>
+
+              {status.loadedModels.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Models: {status.loadedModels.join(", ")}
+                </p>
+              )}
+
+              {status.error && (
+                <p className="text-xs text-destructive">{status.error}</p>
+              )}
+            </div>
+          </SettingsSection>
+
+          <SettingsSection title="Service Logs">
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">Recent logs (max 50 lines)</span>
+                <Button variant="ghost" size="sm" onClick={clearLogs} disabled={logs.length === 0}>
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+              <ScrollArea className="h-40 rounded bg-black/50 p-2">
+                {logs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic p-2">No logs yet...</p>
+                ) : (
+                  logs.map((line, i) => (
+                    <p key={i} className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                      {line}
+                    </p>
+                  ))
+                )}
+              </ScrollArea>
+            </div>
+          </SettingsSection>
+        </>
       )}
+
+      <Separator />
 
       <SettingsSection title="Test Translation">
         <SettingsField label="Source text">
