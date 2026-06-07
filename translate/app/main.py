@@ -1,3 +1,4 @@
+import argparse
 import logging
 import time
 
@@ -17,8 +18,26 @@ from app.utils.logger import configure_logging
 from app.utils.text import normalize_text, truncate_text
 
 
+# CLI args override env for port, host, models-dir, log-dir
+parser = argparse.ArgumentParser(description="Translate Service")
+parser.add_argument("--host", default="127.0.0.1", help="Bind host")
+parser.add_argument("--port", type=int, default=3333, help="Bind port")
+parser.add_argument("--models-dir", default=None, help="Path to CTranslate2 model directory")
+parser.add_argument("--log-dir", default=None, help="Path to log directory")
+cli_args = parser.parse_args()
+
+# Override settings with CLI args
+import os as _os
+if cli_args.models_dir:
+    _os.environ["MODEL_BASE_DIR"] = cli_args.models_dir
+if cli_args.log_dir:
+    _os.environ["LOG_DIR"] = cli_args.log_dir
+
+CLI_HOST = cli_args.host
+CLI_PORT = cli_args.port
+
 settings = get_settings()
-configure_logging(settings.log_level)
+configure_logging(settings.log_level, log_dir=settings.log_dir if settings.log_dir else None)
 logger = logging.getLogger("translate")
 
 model_manager = TranslationModelManager(
