@@ -34,6 +34,8 @@ export interface TranslationProviderGoogle {
 
 export interface TranslationProviderLocal {
   baseUrl: string;
+  modelsDir: string;
+  logsDir: string;
 }
 
 export interface TranslationSettings {
@@ -81,7 +83,11 @@ const DEFAULTS: AppSettings = {
     provider: "google-free",
     targetLanguage: "vi",
     google: { endpoint: "https://translate.googleapis.com/translate_a/single" },
-    local: { baseUrl: "http://127.0.0.1:3333" },
+    local: {
+      baseUrl: "http://127.0.0.1:3333",
+      modelsDir: path.join(SETTINGS_DIR, "translate-models"),
+      logsDir: path.join(SETTINGS_DIR, "logs", "translate"),
+    },
   },
 };
 
