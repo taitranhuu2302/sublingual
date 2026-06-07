@@ -5,6 +5,7 @@ import { stopAudioCapture } from './main/audio/audio-capture';
 import { stopVosk } from './main/asr/vosk-process';
 import { getSessionStorage } from './main/sessions/session-storage';
 import { getOverlayManager } from './main/overlay/overlay-window';
+import { startTranslate, stopTranslate } from './main/translation/translate-process';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -33,6 +34,10 @@ const createWindow = () => {
   }
 
   registerIpcHandlers(mainWindow);
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    startTranslate(mainWindow!);
+  });
 };
 
 app.on('ready', createWindow);
@@ -42,6 +47,7 @@ app.on('window-all-closed', () => {
   stopVosk();
   getSessionStorage().stopSession();
   getOverlayManager().destroy();
+  stopTranslate();
   app.quit();
 });
 
@@ -50,6 +56,7 @@ app.on('before-quit', () => {
   stopVosk();
   getSessionStorage().stopSession();
   getOverlayManager().destroy();
+  stopTranslate();
 });
 
 app.on('activate', () => {
