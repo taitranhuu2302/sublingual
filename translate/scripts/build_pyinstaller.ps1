@@ -41,7 +41,7 @@ try {
         --distpath $outputDir `
         --workpath "$projectDir/build" `
         --specpath "$projectDir/build" `
-        --add-data ".env.example;." `
+        --add-data "$projectDir\.env.example;." `
         --hidden-import "app.translator" `
         --hidden-import "app.translator.nllb_ct2" `
         --hidden-import "app.translator.model_manager" `
