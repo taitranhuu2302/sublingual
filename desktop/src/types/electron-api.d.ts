@@ -39,6 +39,10 @@ export interface ElectronAPI {
     onSegmentResult: (
       callback: (result: TranslationSegmentResult) => void
     ) => () => void;
+    getServiceStatus: () => Promise<TranslateServiceStatus>;
+    restartService: () => Promise<void>;
+    onServiceStatusChange: (callback: (status: TranslateServiceStatus) => void) => () => void;
+    onServiceLog: (callback: (log: { line: string }) => void) => () => void;
   };
   models: {
     getInstallable: () => Promise<InstallableModel[]>;
@@ -166,6 +170,14 @@ export interface TranscriptLine {
   speakerId?: string;
   speakerLabel?: string;
   speakerColor?: string;
+}
+
+export interface TranslateServiceStatus {
+  status: "running" | "starting" | "stopped" | "error";
+  pid: number | null;
+  uptime: number | null;
+  loadedModels: string[];
+  error: string | null;
 }
 
 declare global {

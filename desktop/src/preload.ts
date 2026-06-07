@@ -85,6 +85,30 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return () =>
         ipcRenderer.removeListener("translation:segment-result", handler);
     },
+    getServiceStatus: () => ipcRenderer.invoke("translate:get-status"),
+    restartService: () => ipcRenderer.invoke("translate:restart"),
+    onServiceStatusChange: (callback: (status: {
+      status: string;
+      pid: number | null;
+      uptime: number | null;
+      loadedModels: string[];
+      error: string | null;
+    }) => void) => {
+      const handler = (_event: unknown, status: {
+        status: string;
+        pid: number | null;
+        uptime: number | null;
+        loadedModels: string[];
+        error: string | null;
+      }) => callback(status);
+      ipcRenderer.on("translate:status-change", handler);
+      return () => ipcRenderer.removeListener("translate:status-change", handler);
+    },
+    onServiceLog: (callback: (log: { line: string }) => void) => {
+      const handler = (_event: unknown, log: { line: string }) => callback(log);
+      ipcRenderer.on("translate:log", handler);
+      return () => ipcRenderer.removeListener("translate:log", handler);
+    },
   },
   models: {
     getInstallable: () => ipcRenderer.invoke("models:get-installable"),
