@@ -16,7 +16,7 @@ Real-time speech-to-text and translation desktop app with a transparent subtitle
 | UI framework | shadcn/ui + Tailwind CSS 4 |
 | Build tooling | Vite 5 + Electron Forge |
 | Speech-to-text | whisper.cpp (local, offline) |
-| Translation | Google Translate Free API / Local MarianMT service |
+| Translation | Google Translate Free API / Local NLLB-200 service |
 | macOS audio capture | Native ScreenCaptureKit bridge |
 
 ## Architecture
@@ -153,36 +153,66 @@ All data is stored under `~/.sublingual/`:
 
 Works out of the box. No API key required. Uses the free Google Translate endpoint.
 
-### Local Translation Service (optional)
+### Local NLLB-200 Translation Service
 
-For offline/private translation, you can run the included MarianMT translation service:
+For offline/private translation, the app ships with a bundled NLLB-200 600M translation service. It auto-starts when the app launches and stops on quit.
+
+**Build the service binary (one-time):**
 
 ```bash
 cd translate
 
-# Create virtual environment
+# Create virtual environment and install dependencies
 python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Set up config
-cp .env.example .env
-
-# Convert models (requires PyTorch)
-python scripts/convert_marian_to_ct2.py \
-  --hf_model Helsinki-NLP/opus-mt-en-vi \
-  --output_dir models/ct2/en-vi \
-  --quantization int8
-
-# Start the service
-uvicorn app.main:app --host 0.0.0.0 --port 3333
+# Build PyInstaller executable → desktop/bin/translate/
+bash scripts/build_pyinstaller.sh    # macOS/Linux
+# or
+.\scripts\build_pyinstaller.ps1      # Windows PowerShell
 ```
 
-Then in the app, go to **Settings → Translation** and select **Local TranslateService**.
+**Download NLLB-200 model (one-time):**
 
-See `translate/README.md` for full documentation including Docker deployment, batch translation, and benchmarking.
+The model (~1.2 GB int8) is downloaded automatically on first run. Alternatively, convert it manually:
+
+```bash
+pip install torch  # needed for conversion only
+python scripts/convert_nllb_to_ct2.py \
+  --hf_model facebook/nllb-200-distilled-600M \
+  --output_dir models/ct2/nllb-200-600M \
+  --quantization int8
+```
+
+Then place the converted model in `~/.sublingual/translate-models/nllb-200-600M/`.
+
+**Run the app:**
+
+```bash
+cd desktop
+pnpm start
+```
+
+The service starts automatically. Check status in **Settings → Translation**.
+
+**Disable auto-start:**
+
+```powershell
+# Windows PowerShell
+$env:SUBLINGUAL_NO_TRANSLATE=1; pnpm start
+```
+
+```bash
+# macOS / Linux
+SUBLINGUAL_NO_TRANSLATE=1 pnpm start
+```
+
+Useful when you're working on frontend only and don't need translation.
+
+Then in the app, go to **Settings → Translation** and select **Local TranslateService** as the provider.
+
+See `translate/README.md` for full API documentation including endpoints, batch translation, and benchmarking.
 
 ## Features
 
@@ -196,6 +226,21 @@ See `translate/README.md` for full documentation including Docker deployment, ba
 - **Settings** — 4 sections: General, Speech, Translation, Overlay
 
 ## Development
+
+### Run the app
+
+```bash
+cd desktop
+
+# Build translate service binary (first time only)
+pnpm run build:translate
+
+# Start the app (with translate service auto-start)
+pnpm start
+
+# Start WITHOUT translate service (frontend-only dev)
+pnpm run start:no-translate
+```
 
 ### Build
 
@@ -214,10 +259,12 @@ pnpm run package     # Package without installer
 ### Project Scripts
 
 ```bash
-pnpm start           # Run in development mode
-pnpm run lint        # Run ESLint
-pnpm run package     # Package the app
-pnpm run make        # Build distributable installer
+pnpm start              # Run in development mode
+pnpm run start:no-translate  # Run without translate service
+pnpm run build:translate     # Build PyInstaller translate-service binary
+pnpm run lint           # Run ESLint
+pnpm run package        # Package the app
+pnpm run make           # Build distributable installer
 ```
 
 ## Platform Support
