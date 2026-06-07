@@ -172,6 +172,7 @@ export function startTranslate(mainWindow: BrowserWindow): void {
     setTimeout(() => {
       if (status.status === "starting") {
         setStatus({ status: "error", error: "Health check timed out after 30s" });
+        mainWindowRef?.webContents.send("translate:service-error", { error: "Health check timed out after 30s" });
         logger.error("translate service health check timed out");
         killProcess();
       }
@@ -202,12 +203,14 @@ export function startTranslate(mainWindow: BrowserWindow): void {
     process.on("error", (err) => {
       logger.error("translate service spawn error", err);
       setStatus({ status: "error", pid: null, error: err.message });
+      mainWindowRef?.webContents.send("translate:service-error", { error: err.message });
       process = null;
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("failed to start translate service", err);
     setStatus({ status: "error", pid: null, error: message });
+    mainWindowRef?.webContents.send("translate:service-error", { error: message });
   }
 }
 
@@ -256,15 +259,16 @@ export async function restartTranslate(): Promise<void> {
 }
 
 function killProcess(): void {
-  if (!process) return;
+  const child = process;
+  if (!child) return;
   if (healthInterval) {
     clearInterval(healthInterval);
     healthInterval = null;
   }
-  process.kill("SIGTERM");
-  setTimeout(() => {
-    if (process) process.kill("SIGKILL");
-  }, KILL_TIMEOUT);
   process = null;
   startTime = null;
+  child.kill("SIGTERM");
+  setTimeout(() => {
+    child.kill("SIGKILL");
+  }, KILL_TIMEOUT);
 }
