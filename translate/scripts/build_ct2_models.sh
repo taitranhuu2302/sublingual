@@ -9,8 +9,12 @@ if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON_EXEC="$PYTHON_BIN"
 elif [[ -x "$PROJECT_DIR/.venv/bin/python" ]]; then
   PYTHON_EXEC="$PROJECT_DIR/.venv/bin/python"
+elif [[ -x "$PROJECT_DIR/.venv/Scripts/python" ]]; then
+  PYTHON_EXEC="$PROJECT_DIR/.venv/Scripts/python"
 elif [[ -x "$PROJECT_DIR/venv/bin/python" ]]; then
   PYTHON_EXEC="$PROJECT_DIR/venv/bin/python"
+elif [[ -x "$PROJECT_DIR/venv/Scripts/python" ]]; then
+  PYTHON_EXEC="$PROJECT_DIR/venv/Scripts/python"
 else
   PYTHON_EXEC="python3"
 fi
