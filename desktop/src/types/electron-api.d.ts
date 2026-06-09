@@ -41,8 +41,10 @@ export interface ElectronAPI {
     ) => () => void;
     getServiceStatus: () => Promise<TranslateServiceStatus>;
     restartService: () => Promise<void>;
+    downloadModel: () => Promise<void>;
     onServiceStatusChange: (callback: (status: TranslateServiceStatus) => void) => () => void;
     onServiceLog: (callback: (log: { line: string }) => void) => () => void;
+    onDownloadProgress: (callback: (progress: TranslateDownloadProgress) => void) => () => void;
   };
   models: {
     getInstallable: () => Promise<InstallableModel[]>;
@@ -177,6 +179,13 @@ export interface TranslateServiceStatus {
   pid: number | null;
   uptime: number | null;
   loadedModels: string[];
+  error: string | null;
+  modelsAvailable: boolean;
+}
+
+export interface TranslateDownloadProgress {
+  status: "idle" | "downloading" | "completed" | "error";
+  percent: number;
   error: string | null;
 }
 

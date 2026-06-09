@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, FolderOpen, FolderSearch, RotateCw, Trash2 } from "lucide-react";
+import { RefreshCw, FolderOpen, FolderSearch, RotateCw, Trash2, Download, CheckCircle, AlertTriangle } from "lucide-react";
 import { useTranslateService } from "@/hooks/use-translate-service";
 import type { AppSettings, TranslationResult } from "@/types/electron-api";
 
@@ -49,7 +49,7 @@ export function TranslationSettings({ settings, onUpdate }: Props) {
   const [testError, setTestError] = useState("");
   const [testing, setTesting] = useState(false);
 
-  const { status, logs, restart, clearLogs } = useTranslateService();
+  const { status, logs, download, restart, downloadModel, clearLogs } = useTranslateService();
 
   const updateTranslation = (partial: Partial<typeof ts>) => {
     onUpdate({ translation: { ...ts, ...partial } });
@@ -159,6 +159,60 @@ export function TranslationSettings({ settings, onUpdate }: Props) {
                 >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
+              </div>
+            </SettingsField>
+
+            <SettingsField label="NLLB-200 Model" helper="Translation model status and download">
+              <div className="space-y-3">
+                {status.modelsAvailable ? (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    Model installed
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-amber-500">
+                      <AlertTriangle className="h-4 w-4" />
+                      Model not installed — download required for local translation
+                    </div>
+
+                    {download.status === "downloading" && (
+                      <div className="space-y-1">
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all duration-500"
+                            style={{ width: `${download.percent}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Downloading... {download.percent}%
+                        </p>
+                      </div>
+                    )}
+
+                    {download.status === "completed" && (
+                      <p className="text-xs text-green-600">
+                        Download complete — restarting service...
+                      </p>
+                    )}
+
+                    {download.status === "error" && (
+                      <p className="text-xs text-destructive">
+                        Download failed: {download.error}
+                      </p>
+                    )}
+
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={downloadModel}
+                      disabled={download.status === "downloading"}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1" />
+                      {download.status === "downloading" ? "Downloading..." : "Download NLLB Model"}
+                    </Button>
+                  </div>
+                )}
               </div>
             </SettingsField>
           </SettingsSection>

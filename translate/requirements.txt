@@ -3,6 +3,7 @@ uvicorn[standard]
 ctranslate2
 transformers
 sentencepiece
+torch
 pydantic
 pydantic-settings
 python-dotenv

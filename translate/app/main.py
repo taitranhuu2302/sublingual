@@ -1,11 +1,14 @@
 import argparse
 import logging
+import threading
 import time
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.schemas import (
+    DownloadStatusResponse,
     HealthResponse,
     TranslateFastRequest,
     TranslateFastResponse,
@@ -84,26 +87,33 @@ app = FastAPI(
 @app.on_event("startup")
 def warmup_default_model() -> None:
     try:
-        translator = model_manager.get_translator(
-            settings.default_source_lang,
-            settings.default_target_lang,
-            mode="fast",
-        )
-        translator.translate("hello", source_lang="en", target_lang="vi")
-        logger.info("warmed up NLLB-200 fast model on startup")
-    except HTTPException as exc:
-        logger.warning("fast model warmup skipped: %s", exc.detail)
+        if not model_manager.models_available:
+            logger.warning("No translation models found in %s — service running in degraded mode", settings.model_base_dir)
+            return
 
-    try:
-        translator = model_manager.get_translator(
-            settings.default_source_lang,
-            settings.default_target_lang,
-            mode="quality",
-        )
-        translator.translate("hello", source_lang="en", target_lang="vi")
-        logger.info("warmed up NLLB-200 quality model on startup")
-    except HTTPException as exc:
-        logger.warning("quality model warmup skipped: %s", exc.detail)
+        try:
+            translator = model_manager.get_translator(
+                settings.default_source_lang,
+                settings.default_target_lang,
+                mode="fast",
+            )
+            translator.translate("hello", source_lang="en", target_lang="vi")
+            logger.info("warmed up NLLB-200 fast model on startup")
+        except HTTPException as exc:
+            logger.warning("fast model warmup skipped: %s", exc.detail)
+
+        try:
+            translator = model_manager.get_translator(
+                settings.default_source_lang,
+                settings.default_target_lang,
+                mode="quality",
+            )
+            translator.translate("hello", source_lang="en", target_lang="vi")
+            logger.info("warmed up NLLB-200 quality model on startup")
+        except HTTPException as exc:
+            logger.warning("quality model warmup skipped: %s", exc.detail)
+    except Exception as exc:
+        logger.error("warmup crashed: %s", exc, exc_info=True)
 
 
 def _prepare_text(text: str) -> str:
@@ -111,6 +121,87 @@ def _prepare_text(text: str) -> str:
     if not prepared:
         raise HTTPException(status_code=400, detail="Text must not be empty.")
     return prepared
+
+
+# Model download state
+_download_state: dict = {
+    "status": "idle",  # idle | downloading | completed | error
+    "percent": 0,
+    "error": None,
+}
+_download_lock = threading.Lock()
+
+
+@app.get(
+    "/models/download/status",
+    response_model=DownloadStatusResponse,
+    tags=["system"],
+    summary="Check model download status",
+)
+def download_status() -> DownloadStatusResponse:
+    return DownloadStatusResponse(
+        status=_download_state["status"],
+        percent=_download_state["percent"],
+        error=_download_state.get("error"),
+    )
+
+
+@app.post(
+    "/models/download",
+    tags=["system"],
+    summary="Download and convert NLLB-200 model from HuggingFace",
+)
+def download_models() -> JSONResponse:
+    with _download_lock:
+        if _download_state["status"] == "downloading":
+            return JSONResponse(
+                status_code=409,
+                content={"detail": "Download already in progress"},
+            )
+        _download_state["status"] = "downloading"
+        _download_state["percent"] = 0
+        _download_state["error"] = None
+
+    def _download_thread() -> None:
+        try:
+            from pathlib import Path
+            import ctranslate2
+            from transformers import AutoTokenizer
+
+            hf_model = "facebook/nllb-200-distilled-600M"
+            target_dir = Path(settings.model_base_dir)
+
+            if target_dir.exists():
+                import shutil
+                shutil.rmtree(target_dir)
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            # Step 1: Convert HuggingFace model to CTranslate2 (downloads + converts)
+            _download_state["percent"] = 10
+            logger.info("downloading & converting %s to CTranslate2...", hf_model)
+            converter = ctranslate2.converters.TransformersConverter(
+                model_name_or_path=hf_model,
+            )
+            converter.convert(str(target_dir), quantization=settings.translation_compute_type, force=True)
+            _download_state["percent"] = 80
+
+            # Step 2: Save tokenizer
+            logger.info("saving tokenizer...")
+            tokenizer = AutoTokenizer.from_pretrained(hf_model)
+            tokenizer.save_pretrained(str(target_dir))
+            _download_state["percent"] = 95
+
+            _download_state["status"] = "completed"
+            _download_state["percent"] = 100
+            logger.info("model download & conversion completed — restart service to load models")
+        except Exception as exc:
+            _download_state["status"] = "error"
+            _download_state["error"] = str(exc)
+            logger.error("model download failed: %s", exc)
+
+    threading.Thread(target=_download_thread, daemon=True).start()
+
+    return JSONResponse(content={"status": "started"})
 
 
 @app.get(
@@ -126,6 +217,7 @@ def health() -> HealthResponse:
         compute_type=settings.translation_compute_type,
         loaded_models=model_manager.loaded_models,
         available_pairs=model_manager.list_available_pairs(),
+        models_available=model_manager.models_available,
     )
 
 
@@ -235,3 +327,8 @@ def translate(request: TranslateRequest) -> TranslateResponse:
         translated_text=translated_text,
         latency_ms=latency_ms,
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=CLI_HOST, port=CLI_PORT)

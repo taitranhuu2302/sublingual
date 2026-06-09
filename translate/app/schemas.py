@@ -8,6 +8,7 @@ class HealthResponse(BaseModel):
     loaded_models: list[str] = Field(default_factory=list)
     available_pairs: list[str] = Field(default_factory=list)
     model: str = "nllb-200-distilled-600M"
+    models_available: bool = False
 
     model_config = {
         "json_schema_extra": {
@@ -18,9 +19,16 @@ class HealthResponse(BaseModel):
                 "loaded_models": ["nllb-fast"],
                 "available_pairs": ["en-vi", "vi-en"],
                 "model": "nllb-200-distilled-600M",
+                "models_available": True,
             }
         }
     }
+
+
+class DownloadStatusResponse(BaseModel):
+    status: str  # idle | downloading | completed | error
+    percent: int = 0
+    error: str | None = None
 
 
 class TranslateFastRequest(BaseModel):

@@ -55,6 +55,8 @@ native/build/
 !desktop/bin/whisper-cli.exe
 !desktop/bin/vosk/libvosk.dylib
 
+translate/build/
 # Misc
 *.tmp
 coverage/
+

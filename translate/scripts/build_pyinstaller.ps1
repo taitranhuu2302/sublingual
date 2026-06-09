@@ -8,6 +8,14 @@
 #>
 param([switch]$clean)
 
+$ErrorActionPreference = "Stop"
+$os = if ($IsWindows) { "Windows" } elseif ($IsMacOS) { "macOS" } elseif ($IsLinux) { "Linux" } else { "Unknown" }
+
+trap {
+    Write-Error "::error:: [OS: $os] Build failed: $_"
+    exit 1
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectDir = Resolve-Path "$scriptDir/.."
 $outputDir = Resolve-Path "$scriptDir/../../desktop/bin/translate" -ErrorAction SilentlyContinue
@@ -18,6 +26,7 @@ if (-not $outputDir) {
 }
 
 Write-Host "Building translate-service.exe..."
+Write-Host "  OS:      $os"
 Write-Host "  Project: $projectDir"
 Write-Host "  Output:  $outputDir"
 
@@ -29,8 +38,22 @@ if ($clean) {
     Write-Host "  Cleaned build/dist directories"
 }
 
+# Fix: Windows Python may not have 'python3' alias, use 'python'.
+# ensurepip can fail on some Python builds, so use --without-pip + get-pip.py.
+if (-not (Test-Path "$projectDir/.venv")) {
+    Write-Host "  Creating virtual environment..."
+    python -m venv --without-pip "$projectDir/.venv"
+    $getPip = "$projectDir/.venv/get-pip.py"
+    Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -OutFile $getPip
+    & "$projectDir/.venv/Scripts/python.exe" $getPip
+    Remove-Item $getPip
+}
+
+& "$projectDir/.venv/Scripts/pip.exe" install -r "$projectDir/requirements.txt"
+if ($LASTEXITCODE -ne 0) { throw "pip install -r requirements.txt failed" }
+
 & "$projectDir/.venv/Scripts/pip.exe" install pyinstaller
-if ($LASTEXITCODE -ne 0) { throw "Failed to install pyinstaller" }
+if ($LASTEXITCODE -ne 0) { throw "pip install pyinstaller failed" }
 
 Push-Location $projectDir
 
@@ -42,6 +65,10 @@ try {
         --workpath "$projectDir/build" `
         --specpath "$projectDir/build" `
         --add-data "$projectDir\.env.example;." `
+        --copy-metadata tqdm `
+        --copy-metadata huggingface-hub `
+        --copy-metadata tokenizers `
+        --copy-metadata transformers `
         --hidden-import "app.translator" `
         --hidden-import "app.translator.nllb_ct2" `
         --hidden-import "app.translator.model_manager" `

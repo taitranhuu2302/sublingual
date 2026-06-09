@@ -4,10 +4,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR/../../desktop/bin/translate"
+OS="$(uname -s)"
+
+on_error() {
+  local err=$?
+  echo "::error:: [OS: $OS] Build failed at line $1 with exit code $err" >&2
+}
+trap 'on_error $LINENO' ERR
+
+# Fix: macOS Homebrew Python 3.14 pyexpat links against system libexpat which
+# lacks _XML_SetAllocTrackerActivationThreshold. Use Homebrew's expat instead.
+if [[ "$OS" == "Darwin" ]] && [[ -d /opt/homebrew/opt/expat/lib ]]; then
+  export DYLD_LIBRARY_PATH="/opt/homebrew/opt/expat/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+fi
 
 mkdir -p "$OUTPUT_DIR"
 
 echo "Building translate-service..."
+echo "  OS:      $OS"
 echo "  Project: $PROJECT_DIR"
 echo "  Output:  $OUTPUT_DIR"
 
@@ -16,6 +30,12 @@ if [[ "${1:-}" == "--clean" ]]; then
   echo "  Cleaned build/dist directories"
 fi
 
+if [[ ! -d "$PROJECT_DIR/.venv" ]]; then
+  echo "  Creating virtual environment..."
+  python3 -m venv "$PROJECT_DIR/.venv"
+fi
+
+"$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
 "$PROJECT_DIR/.venv/bin/pip" install pyinstaller
 
 pushd "$PROJECT_DIR" > /dev/null
@@ -26,7 +46,11 @@ pushd "$PROJECT_DIR" > /dev/null
   --distpath "$OUTPUT_DIR" \
   --workpath "$PROJECT_DIR/build" \
   --specpath "$PROJECT_DIR/build" \
-  --add-data ".env.example:." \
+  --add-data "$PROJECT_DIR/.env.example:." \
+  --copy-metadata tqdm \
+  --copy-metadata huggingface-hub \
+  --copy-metadata tokenizers \
+  --copy-metadata transformers \
   --hidden-import "app.translator" \
   --hidden-import "app.translator.nllb_ct2" \
   --hidden-import "app.translator.model_manager" \

@@ -87,12 +87,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     },
     getServiceStatus: () => ipcRenderer.invoke("translate:get-status"),
     restartService: () => ipcRenderer.invoke("translate:restart"),
+    downloadModel: () => ipcRenderer.invoke("translate:download-model"),
     onServiceStatusChange: (callback: (status: {
       status: string;
       pid: number | null;
       uptime: number | null;
       loadedModels: string[];
       error: string | null;
+      modelsAvailable: boolean;
     }) => void) => {
       const handler = (_event: unknown, status: {
         status: string;
@@ -100,6 +102,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
         uptime: number | null;
         loadedModels: string[];
         error: string | null;
+        modelsAvailable: boolean;
       }) => callback(status);
       ipcRenderer.on("translate:status-change", handler);
       return () => ipcRenderer.removeListener("translate:status-change", handler);
@@ -108,6 +111,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
       const handler = (_event: unknown, log: { line: string }) => callback(log);
       ipcRenderer.on("translate:log", handler);
       return () => ipcRenderer.removeListener("translate:log", handler);
+    },
+    onDownloadProgress: (callback: (progress: {
+      status: string;
+      percent: number;
+      error: string | null;
+    }) => void) => {
+      const handler = (_event: unknown, progress: {
+        status: string;
+        percent: number;
+        error: string | null;
+      }) => callback(progress);
+      ipcRenderer.on("translate:download-progress", handler);
+      return () => ipcRenderer.removeListener("translate:download-progress", handler);
     },
   },
   models: {

@@ -9,22 +9,30 @@ import { getSettings } from "../settings/settings-store";
 export interface TranslateProcessStatus {
   status: "running" | "starting" | "stopped" | "error";
   pid: number | null;
-  uptime: number | null; // seconds
+  uptime: number | null;
   loadedModels: string[];
+  error: string | null;
+  modelsAvailable: boolean;
+}
+
+export interface DownloadStatus {
+  status: "idle" | "downloading" | "completed" | "error";
+  percent: number;
   error: string | null;
 }
 
-const HEALTH_CHECK_INTERVAL = 500; // ms
+const HEALTH_CHECK_INTERVAL = 5_000; // 5s
 const HEALTH_START_TIMEOUT = 30_000; // 30s
 const KILL_TIMEOUT = 5_000; // 5s
 
-let process: ChildProcess | null = null;
+let translateProc: ChildProcess | null = null;
 let status: TranslateProcessStatus = {
   status: "stopped",
   pid: null,
   uptime: null,
   loadedModels: [],
   error: null,
+  modelsAvailable: false,
 };
 let startTime: number | null = null;
 let healthInterval: ReturnType<typeof setInterval> | null = null;
@@ -37,10 +45,11 @@ function setStatus(update: Partial<TranslateProcessStatus>): void {
   }
 }
 
-function resolveCommand(): { bin: string; args: string[] } {
+function resolveCommand(): { bin: string; args: string[]; cwd?: string } {
   const settings = getSettings().translation.local;
   const name = process.platform === "win32" ? "translate-service.exe" : "translate-service";
 
+  // Always use PyInstaller exe (dev: desktop/bin/translate/, prod: resourcesPath/bin/translate/)
   const exePath = app.isPackaged
     ? path.join(process.resourcesPath, "bin", "translate", name)
     : path.resolve(__dirname, "..", "..", "bin", "translate", name);
@@ -76,14 +85,27 @@ function pollHealth(): void {
                 loadedModels: health.loaded_models ?? [],
                 error: null,
                 uptime,
+                modelsAvailable: (health as Record<string, unknown>).models_available === true,
               });
-              logger.info(
-                `translate service ready (pid=${process?.pid}, loaded_models=${health.loaded_models?.join(",") || "none"})`
-              );
-              mainWindowRef?.webContents.send("translate:service-ready", {
-                pid: process?.pid,
-                loadedModels: health.loaded_models ?? [],
-              });
+      logger.info(
+        `translate service ready (pid=${translateProc?.pid}, loaded_models=${health.loaded_models?.join(",") || "none"})`
+      );
+      mainWindowRef?.webContents.send("translate:service-ready", {
+        pid: translateProc?.pid,
+        loadedModels: health.loaded_models ?? [],
+      });
+      // Stop continuous polling once running — poll on-demand from UI
+      if (healthInterval) {
+        clearInterval(healthInterval);
+        healthInterval = null;
+      }
+    }
+    // Always update modelsAvailable on each health poll
+    if (status.status === "running") {
+              const modelsAvail = (health as Record<string, unknown>).models_available === true;
+              if (status.modelsAvailable !== modelsAvail) {
+                setStatus({ modelsAvailable: modelsAvail });
+              }
             }
           }
         } catch {
@@ -105,10 +127,13 @@ function pollHealth(): void {
 function monitorStdio(child: ChildProcess): void {
   const logger = getMainLogger({ tag: "translate" });
 
+  const isHealthLog = (line: string): boolean =>
+    line.includes('"GET /health') || line.includes('"HEAD /health');
+
   child.stdout?.on("data", (data: Buffer) => {
     const lines = data.toString().trim().split("\n");
     for (const line of lines) {
-      if (line) {
+      if (line && !isHealthLog(line)) {
         logger.info(line);
         mainWindowRef?.webContents.send("translate:log", { line });
       }
@@ -118,7 +143,7 @@ function monitorStdio(child: ChildProcess): void {
   child.stderr?.on("data", (data: Buffer) => {
     const lines = data.toString().trim().split("\n");
     for (const line of lines) {
-      if (line) {
+      if (line && !isHealthLog(line)) {
         logger.warn(line);
         mainWindowRef?.webContents.send("translate:log", { line });
       }
@@ -130,11 +155,62 @@ export function getTranslateStatus(): TranslateProcessStatus {
   return { ...status };
 }
 
+export function pollHealthNow(): void {
+  if (status.status === "running") {
+    pollHealth();
+  }
+}
+
+export async function downloadTranslateModel(): Promise<void> {
+  const settings = getSettings().translation.local;
+  const baseUrl = settings.baseUrl.replace(/\/+$/, "");
+  const logger = getMainLogger({ tag: "translate" });
+
+  const resp = await fetch(`${baseUrl}/models/download`, { method: "POST" });
+  if (resp.status === 409) {
+    logger.warn("model download already in progress");
+    return;
+  }
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Download request failed: ${resp.status} ${body}`);
+  }
+  logger.info("model download started");
+
+  // Poll download status until complete
+  const pollInterval = setInterval(async () => {
+    try {
+      const statusResp = await fetch(`${baseUrl}/models/download/status`);
+      const dl: DownloadStatus = await statusResp.json();
+
+      mainWindowRef?.webContents.send("translate:download-progress", dl);
+
+      if (dl.status === "completed") {
+        clearInterval(pollInterval);
+        logger.info("model download completed, restarting service...");
+        mainWindowRef?.webContents.send("translate:download-progress", dl);
+        // Auto-restart to load the newly downloaded models
+        await restartTranslate();
+      } else if (dl.status === "error") {
+        clearInterval(pollInterval);
+        mainWindowRef?.webContents.send("translate:download-progress", dl);
+        logger.error("model download failed: %s", dl.error);
+      }
+    } catch {
+      // ignore poll errors (service might be restarting)
+    }
+  }, 2000);
+}
+
+export function getDownloadStatus(): DownloadStatus {
+  return { status: "idle", percent: 0, error: null };
+}
+
 export function startTranslate(mainWindow: BrowserWindow): void {
   mainWindowRef = mainWindow;
   const logger = getMainLogger({ tag: "translate" });
 
-  if (process) {
+  if (translateProc) {
     logger.warn("translate service is already running, skipping start");
     return;
   }
@@ -143,16 +219,15 @@ export function startTranslate(mainWindow: BrowserWindow): void {
     const cmd = resolveCommand();
     logger.info(`starting translate service: ${cmd.bin} ${cmd.args.join(" ")}`);
 
-    process = spawn(cmd.bin, cmd.args, {
+    translateProc = spawn(cmd.bin, cmd.args, {
       env: { ...process.env, APP_PATH: app.getAppPath() },
-      cwd: cmd.cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
-    setStatus({ status: "starting", pid: process.pid, uptime: null, error: null, loadedModels: [] });
+    setStatus({ status: "starting", pid: translateProc.pid, uptime: null, error: null, loadedModels: [], modelsAvailable: false });
     startTime = Date.now();
 
-    monitorStdio(process);
+    monitorStdio(translateProc);
 
     // Health polling
     healthInterval = setInterval(pollHealth, HEALTH_CHECK_INTERVAL);
@@ -167,7 +242,7 @@ export function startTranslate(mainWindow: BrowserWindow): void {
       }
     }, HEALTH_START_TIMEOUT);
 
-    process.on("exit", (code, signal) => {
+    translateProc.on("exit", (code, signal) => {
       logger.warn(`translate service exited (code=${code}, signal=${signal})`);
       if (healthInterval) clearInterval(healthInterval);
       healthInterval = null;
@@ -178,6 +253,7 @@ export function startTranslate(mainWindow: BrowserWindow): void {
           pid: null,
           uptime: null,
           loadedModels: [],
+          modelsAvailable: false,
           error: `Process exited with code ${code} signal ${signal}`,
         });
         mainWindowRef?.webContents.send("translate:service-error", {
@@ -185,17 +261,17 @@ export function startTranslate(mainWindow: BrowserWindow): void {
         });
       }
 
-      process = null;
+      translateProc = null;
       startTime = null;
     });
 
-    process.on("error", (err) => {
+    translateProc.on("error", (err) => {
       logger.error("translate service spawn error", err);
       if (healthInterval) clearInterval(healthInterval);
       healthInterval = null;
       setStatus({ status: "error", pid: null, error: err.message });
       mainWindowRef?.webContents.send("translate:service-error", { error: err.message });
-      process = null;
+      translateProc = null;
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -208,8 +284,8 @@ export function startTranslate(mainWindow: BrowserWindow): void {
 export async function stopTranslate(): Promise<void> {
   const logger = getMainLogger({ tag: "translate" });
 
-  if (!process) {
-    setStatus({ status: "stopped", pid: null, uptime: null, loadedModels: [], error: null });
+  if (!translateProc) {
+    setStatus({ status: "stopped", pid: null, uptime: null, loadedModels: [], error: null, modelsAvailable: false });
     return;
   }
 
@@ -219,10 +295,10 @@ export async function stopTranslate(): Promise<void> {
   }
 
   logger.info("stopping translate service");
-  setStatus({ status: "stopped", pid: null, uptime: null, loadedModels: [], error: null });
+  setStatus({ status: "stopped", pid: null, uptime: null, loadedModels: [], error: null, modelsAvailable: false });
 
-  const child = process;
-  process = null;
+  const child = translateProc;
+  translateProc = null;
   startTime = null;
 
   child.kill("SIGTERM");
@@ -250,13 +326,13 @@ export async function restartTranslate(): Promise<void> {
 }
 
 function killProcess(): void {
-  const child = process;
+  const child = translateProc;
   if (!child) return;
   if (healthInterval) {
     clearInterval(healthInterval);
     healthInterval = null;
   }
-  process = null;
+  translateProc = null;
   startTime = null;
   child.kill("SIGTERM");
   setTimeout(() => {

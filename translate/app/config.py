@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     session_cache_ttl_sec: int = Field(default=300, alias="SESSION_CACHE_TTL_SEC")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_dir: str = Field(default="", alias="LOG_DIR")
+    model_hf_repo_id: str = Field(
+        default="anomalyco/nllb-200-ct2-int8",
+        alias="MODEL_HF_REPO_ID",
+    )
     fast_beam_size: int = Field(default=1, alias="FAST_BEAM_SIZE")
     quality_beam_size: int = Field(default=4, alias="QUALITY_BEAM_SIZE")
     glossary_path: str = Field(default="glossary.json", alias="GLOSSARY_PATH")

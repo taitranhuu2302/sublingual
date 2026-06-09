@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import { getTranslationService } from "../translation/translation-service";
-import { getTranslateStatus, restartTranslate } from "../translation/translate-process";
+import { getTranslateStatus, restartTranslate, downloadTranslateModel, pollHealthNow } from "../translation/translate-process";
 
 export function registerTranslationHandlers() {
   ipcMain.handle(
@@ -11,10 +11,15 @@ export function registerTranslationHandlers() {
   );
 
   ipcMain.handle("translate:get-status", async () => {
+    pollHealthNow();
     return getTranslateStatus();
   });
 
   ipcMain.handle("translate:restart", async () => {
     await restartTranslate();
+  });
+
+  ipcMain.handle("translate:download-model", async () => {
+    await downloadTranslateModel();
   });
 }

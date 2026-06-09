@@ -66,11 +66,15 @@ class TranslationModelManager:
 
         if not self.base_model_dir.is_dir():
             raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Model directory not found: {self.base_model_dir}. "
-                    "Please convert the NLLB-200 model first."
-                ),
+                status_code=503,
+                detail="Translation model not installed. Please download the NLLB-200 model first.",
+            )
+
+        model_bin = self.base_model_dir / "model.bin"
+        if not model_bin.is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="Translation model files incomplete. Please download the NLLB-200 model first.",
             )
 
         beam_size = self.fast_beam_size if mode == "fast" else self.quality_beam_size
@@ -100,3 +104,8 @@ class TranslationModelManager:
     @property
     def loaded_models(self) -> list[str]:
         return list(self.translators.keys())
+
+    @property
+    def models_available(self) -> bool:
+        model_bin = self.base_model_dir / "model.bin"
+        return model_bin.is_file()
